@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+        @font-face {
+            font-family: "Shin-Go-N";
+            src: url("") format("truetype");
+        }
+
+        body {
+            font-family: "Helvetica", "Shin-Go-N", sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #aa {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #d5b972;
+            width: 150px;
+            margin: 0 auto;
+        }
+
+        #select {
+            margin-top: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 5vw;
+        }
+
+        #aa ul {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0;
+        }
+
+        #aa li {
+            font-size: 1.2rem;
+            list-style: none;
+            color: white;
+            width: 60px;
+            height: 60px;
+            margin: 15px;
+            line-height: 300%;
+            text-align: center;
+        }
+
+        audio {
+            display: none;
+        }
+    </style>
+    <title>発車ベル</title>
+</head>
+
+<body>
+    <h1>発車ベル</h1>
+    <div id="a">
+        <div id="aa">
+            <img src="" alt="">
+            <ul>
+                <li style="background-color: red;" onclick="playOn()">ON</li>
+                <li style="background-color: black;" onclick="playOff()">OFF</li>
+                <audio id="onSound" src="" loop></audio>
+                <audio id="offSound" src="sounds/off.mp3"></audio>
+            </ul>
+        </div>
+        <div id="select">
+            <select name="" id="musicSelect"></select>
+            <select name="" id="">
+                <option value="">2番線</option>
+            </select>
+        </div>
+    </div>
+    <script>
+        const mp3Files = [
+            "Water Crown.mp3",
+            "Verde Rayo.mp3",
+            "Cielo Estrellado半低音.mp3",
+            "Cielo Estrellado.mp3",
+            "Gota del vient.mp3",
+            "JR-SH1-3.mp3",
+            "JR-SH2-3.mp3",
+            "JR-SH3-1.mp3",
+            "JR-SH4-1.mp3",
+            "JR-SH3-3東京.mp3",
+            "JR-SH5-1東京.mp3",
+            "JR-SH5-3.mp3",
+            "JR-SH6-1.mp3",
+            "JR-SH7-1.mp3",
+            "JR-SH8-1.mp3",
+            "JR-SH9-3.mp3",
+            "Mellow time.mp3",
+            "スプリングボックス.mp3",
+            "メロディー.mp3",
+            "希望のまち09.mp3",
+            "線路は続くよどこまでもA.mp3",
+            "線路は続くよどこまでもB.mp3",
+            "線路は続くよどこまでもC.mp3",
+            "窓の花飾り.mp3",
+            "蝶々のように.mp3",
+            "美しき丘.mp3",
+            "木もれ日の散歩道.mp3",
+            "JRE-IKST-001-01.mp3",
+            "JRE-IKST-007-01.mp3",
+            "JRE-IKST-007-02.mp3",
+            "JRE-IKST-007-03.mp3",
+            "JRE-IKST-007-05.mp3",
+            "Airly.mp3",
+            "せせらぎ.mp3",
+            "twilight.mp3",
+            "ドリームパーク.mp3",
+            "ナイスガイ！.mp3",
+            "すすきの高原.mp3",
+            "朝の静けさ.mp3",
+            "常磐2番.mp3",
+            "常磐3-1番.mp3",
+            "チャイム.mp3",
+            "鉄道唱歌B.mp3",
+            "蒲田行進曲A.mp3",
+            "蒲田行進曲B.mp3",
+            "コーラルリーフ.mp3",
+            "Sunrise.mp3",
+            "クラルテ.mp3",
+            "恋の通勤列車.mp3",
+            "see you again.mp3",
+            "アマリリス赤羽.mp3",
+            "熱き星たちよA.mp3",
+            "熱き星たちよB.mp3",
+            "ムーンストーン.mp3",
+            "春.mp3",
+            "春 new ver.mp3",
+            "春 トレモロver.mp3",
+            "線路の彼方.mp3",
+            "高原.mp3",
+            "SF10-32 教会の見える駅.mp3",
+            "SF10-43.mp3",
+            "淡い恋心.mp3",
+            "シンコペーション.mp3",
+            "cappuccino.mp3",
+        ];
+        const musicSelect = document.getElementById('musicSelect');
+        const onSound = document.getElementById('onSound');
+        const offSound = document.getElementById('offSound');
+
+        const sortedMp3Files = mp3Files.slice().sort((a, b) => a.localeCompare(b, 'ja'));
+
+        // option生成
+        sortedMp3Files.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file;
+            option.textContent = file.replace(/\.mp3$/i, '');
+            musicSelect.appendChild(option);
+        });
+
+        // 選択変更時にonSoundのsrcを変更
+        musicSelect.addEventListener('change', function () {
+            onSound.src = 'sounds/' + this.value;
+            onSound.load();
+        });
+
+        // 初期値
+        onSound.src = 'sounds/' + sortedMp3Files[0];
+
+        function playOn() {
+            onSound.currentTime = 0;
+            onSound.play();
+        }
+
+        function playOff() {
+            onSound.pause();
+            onSound.currentTime = 0;
+            setTimeout(() => {
+                offSound.currentTime = 0;
+                offSound.play();
+            }, 1500);
+        }
+    </script>
+</body>
+
+</html>
