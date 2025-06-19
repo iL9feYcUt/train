@@ -5,13 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style type="text/css">
-        @font-face {
-            font-family: "Shin-Go-N";
-            src: url("") format("truetype");
-        }
-
         body {
-            font-family: "Helvetica", "Shin-Go-N", sans-serif;
+            font-family: sans-serif;
             background-color: #f0f0f0;
             color: #333;
             margin: 0;
@@ -67,21 +62,36 @@
     <h1>発車ベル</h1>
     <div id="a">
         <div id="aa">
-            <img src="" alt="">
             <ul>
                 <li style="background-color: red;" onclick="playOn()">ON</li>
                 <li style="background-color: black;" onclick="playOff()">OFF</li>
                 <audio id="onSound" src="" loop></audio>
-                <audio id="offSound" src="sounds/off.mp3"></audio>
+                <audio id="offSound" src=""></audio>
             </ul>
         </div>
         <div id="select">
-            <select name="" id="musicSelect"></select>
-            <select name="" id="">
-                <option value="">2番線</option>
+            <select id="musicSelect"></select>
+            <select id="peopleSelect">
+                <option value="w">向山</option>
+                <option value="m">田中</option>
+                <option value="m2">津田</option>
             </select>
+            <select id="trackSelect"></select>
         </div>
+        <table border="2" style="margin: 10px auto; border-collapse: collapse; width: 20%;">
+            <tr>
+                <td>向山</td>
+                <td>田中</td>
+                <td>津田</td>
+            </tr>
+            <tr>
+                <td>1,3,5,7,10,12,16</td>
+                <td>2,4,8,9,11,15</td>
+                <td>なし</td>
+            </tr>
+        </table>
     </div>
+
     <script>
         const mp3Files = [
             "Water Crown.mp3",
@@ -185,13 +195,15 @@
             "銀河鉄道999 AメロVer.mp3",
             "銀河鉄道999 サビVer.mp3",
         ];
+
         const musicSelect = document.getElementById('musicSelect');
+        const peopleSelect = document.getElementById('peopleSelect');
+        const trackSelect = document.getElementById('trackSelect');
         const onSound = document.getElementById('onSound');
         const offSound = document.getElementById('offSound');
 
         const sortedMp3Files = mp3Files.slice().sort((a, b) => a.localeCompare(b, 'ja'));
 
-        // option生成
         sortedMp3Files.forEach(file => {
             const option = document.createElement('option');
             option.value = file;
@@ -199,13 +211,18 @@
             musicSelect.appendChild(option);
         });
 
-        // 選択変更時にonSoundのsrcを変更
+        for (let i = 1; i <= 22; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `${i}番線`;
+            trackSelect.appendChild(option);
+        }
+
         musicSelect.addEventListener('change', function () {
             onSound.src = 'sounds/' + this.value;
             onSound.load();
         });
 
-        // 初期値
         onSound.src = 'sounds/' + sortedMp3Files[0];
 
         function playOn() {
@@ -216,6 +233,14 @@
         function playOff() {
             onSound.pause();
             onSound.currentTime = 0;
+
+            const folder = peopleSelect.value;
+            const trackNum = trackSelect.value;
+            const filePath = `${folder}/${trackNum}.mp3`;
+
+            offSound.src = filePath;
+            offSound.load();
+
             setTimeout(() => {
                 offSound.currentTime = 0;
                 offSound.play();
