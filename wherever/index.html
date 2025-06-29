@@ -90,6 +90,7 @@
                 <td>なし</td>
             </tr>
         </table>
+        <button id="hiddenBtn" style="opacity:0; width:60px; height:60px; cursor:pointer;"></button>
     </div>
 
     <script>
@@ -261,6 +262,63 @@
                 offSound.play();
             }, 1500);
         }
+
+
+        // シャッフル関数
+        function shuffle(array) {
+            let arr = array.slice();
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        let playList = [];
+        let playIndex = 0;
+        let isRandomPlaying = false;
+
+        const hiddenBtn = document.getElementById('hiddenBtn');
+        const h1 = document.querySelector('h1');
+
+        function playNextRandom() {
+            // 既存のaudio要素を削除
+            const old = document.getElementById('randomAudio');
+            if (old) old.remove();
+
+            if (playIndex >= playList.length) {
+                playList = shuffle(mp3Files);
+                playIndex = 0;
+            }
+            const file = playList[playIndex];
+            h1.textContent = file.replace(/\.mp3$/i, '');
+
+            // 新しいaudio要素を作成
+            const audio = document.createElement('audio');
+            audio.id = 'randomAudio';
+            audio.src = 'sounds/' + file;
+            audio.autoplay = true;
+            audio.addEventListener('ended', function () {
+                playIndex++;
+                if (isRandomPlaying) playNextRandom();
+            });
+            document.body.appendChild(audio);
+        }
+
+        hiddenBtn.addEventListener('click', function () {
+            if (isRandomPlaying) {
+                // ランダム再生を停止し、表示を元に戻す
+                isRandomPlaying = false;
+                h1.textContent = '発車ベル';
+                const old = document.getElementById('randomAudio');
+                if (old) old.remove();
+                return;
+            }
+            isRandomPlaying = true;
+            playList = shuffle(mp3Files);
+            playIndex = 0;
+            playNextRandom();
+        });
     </script>
 </body>
 
