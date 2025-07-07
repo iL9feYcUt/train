@@ -247,6 +247,7 @@
             "新たな季節.mp3",
             "トレイントレイン.mp3",
             "海の駅.mp3",
+            "接近メロディー京都線.mp3",
         ];
 
         const musicSelect = document.getElementById('musicSelect');
@@ -257,12 +258,59 @@
 
         const sortedMp3Files = mp3Files.slice().sort((a, b) => a.localeCompare(b, 'ja'));
 
-        sortedMp3Files.forEach(file => {
-            const option = document.createElement('option');
-            option.value = file;
-            option.textContent = file.replace(/\.mp3$/i, '');
-            musicSelect.appendChild(option);
+
+        // グループ分けのための初期化
+        const groups = {
+            'JR-SH': [],
+            'JRE-IKST': [],
+            '一般': [],
+            '接近メロディー': []
+        };
+
+        // ファイルをグループに分類
+        mp3Files.forEach(file => {
+            if (file.startsWith('JR-SH')) {
+                groups['JR-SH'].push(file);
+            } else if (file.startsWith('JRE-IKST')) {
+                groups['JRE-IKST'].push(file);
+            } else if (file.includes('接近メロディー')) {
+                groups['接近メロディー'].push(file);
+            } else {
+                groups['一般'].push(file);
+            }
         });
+
+        // 表示順を指定
+        const displayOrder = ['JR-SH', 'JRE-IKST', '一般', '接近メロディー'];
+
+        displayOrder.forEach(label => {
+            const files = groups[label];
+            if (files.length === 0) return;
+
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = label;
+
+            files.sort((a, b) => a.localeCompare(b, 'ja')).forEach(file => {
+                const option = document.createElement('option');
+                option.value = file;
+
+                if (label === '接近メロディー') {
+                    // 表示名から「接近メロディー」を除く
+                    option.textContent = file
+                        .replace(/\.mp3$/i, '')
+                        .replace(/接近メロディー/i, '')
+                        .trim();
+                } else {
+                    option.textContent = file.replace(/\.mp3$/i, '');
+                }
+
+                optgroup.appendChild(option);
+            });
+
+            musicSelect.appendChild(optgroup);
+        });
+
+
 
         for (let i = 1; i <= 16; i++) {
             const option = document.createElement('option');
