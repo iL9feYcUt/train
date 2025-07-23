@@ -437,6 +437,7 @@
                 if (isRandomPlaying) playNextRandom();
             });
             document.body.appendChild(audio);
+            console.log('今回のランダム再生順:', playList);
         }
 
         hiddenBtn.addEventListener('click', function () {
@@ -452,7 +453,6 @@
             playList = shuffle(mp3Files);
             playIndex = 0;
 
-            console.log('今回のランダム再生順:', playList);
             playNextRandom();
         });
     </script>
