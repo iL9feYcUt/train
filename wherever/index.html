@@ -416,14 +416,51 @@
         const hiddenBtn = document.getElementById('hiddenBtn');
         const h1 = document.querySelector('h1');
 
+        // --- ランダム再生用UI生成 ---
+        const randomUI = document.createElement('div');
+        randomUI.id = 'randomUI';
+        randomUI.style.display = 'none';
+        randomUI.style.position = 'fixed';
+        randomUI.style.top = '50%';
+        randomUI.style.left = '50%';
+        randomUI.style.transform = 'translate(-50%, -50%)';
+        randomUI.style.background = '#fff';
+        randomUI.style.padding = '30px';
+        randomUI.style.borderRadius = '10px';
+        randomUI.style.boxShadow = '0 0 10px #aaa';
+        randomUI.style.zIndex = '1000';
+
+        const groupCheckboxes = {};
+        displayOrder.forEach(label => {
+            const labelElem = document.createElement('label');
+            labelElem.style.display = 'block';
+            labelElem.style.margin = '10px 0';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = label;
+            checkbox.checked = true;
+            groupCheckboxes[label] = checkbox;
+            labelElem.appendChild(checkbox);
+            labelElem.appendChild(document.createTextNode(' ' + label));
+            randomUI.appendChild(labelElem);
+        });
+
+        const playBtn = document.createElement('button');
+        playBtn.textContent = '再生';
+        playBtn.style.marginTop = '20px';
+        randomUI.appendChild(playBtn);
+
+        document.body.appendChild(randomUI);
+
         function playNextRandom() {
             // 既存のaudio要素を削除
             const old = document.getElementById('randomAudio');
             if (old) old.remove();
 
             if (playIndex >= playList.length) {
-                playList = shuffle(mp3Files);
+                playList = shuffle(playList);
                 playIndex = 0;
+                console.log('今回のランダム再生順:', playList);
             }
             const file = playList[playIndex];
             h1.textContent = file.replace(/\.mp3$/i, '');
@@ -438,8 +475,6 @@
                 if (isRandomPlaying) playNextRandom();
             });
             document.body.appendChild(audio);
-
-            console.log('今回のランダム再生順:', playList);
         }
 
         hiddenBtn.addEventListener('click', function () {
@@ -451,12 +486,28 @@
                 if (old) old.remove();
                 return;
             }
-            isRandomPlaying = true;
-            playList = shuffle(mp3Files);
-            playIndex = 0;
-
-            playNextRandom();
+            // UI表示
+            randomUI.style.display = 'block';
         });
+
+        playBtn.onclick = function () {
+            // チェックされたグループのみ抽出
+            const selectedGroups = displayOrder.filter(label => groupCheckboxes[label].checked);
+            let selectedFiles = [];
+            selectedGroups.forEach(label => {
+                selectedFiles = selectedFiles.concat(groups[label]);
+            });
+            if (selectedFiles.length === 0) {
+                alert('グループを選択してください');
+                return;
+            }
+            randomUI.style.display = 'none';
+            isRandomPlaying = true;
+            playList = shuffle(selectedFiles);
+            playIndex = 0;
+            playNextRandom();
+            console.log('今回のランダム再生順:', playList);
+        };
     </script>
 </body>
 
