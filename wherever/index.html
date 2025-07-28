@@ -377,8 +377,15 @@
         onSound.src = 'sounds/' + musicSelect.value;
 
         function playOn() {
+            // オーディオが再生中の場合は一旦停止
+            if (!onSound.paused) {
+                onSound.pause();
+            }
+            // 時間をリセットして再生
             onSound.currentTime = 0;
-            onSound.play();
+            onSound.play().catch(error => {
+                console.error('再生エラー:', error);
+            });
         }
 
         function playOff() {
