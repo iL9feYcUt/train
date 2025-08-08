@@ -69,7 +69,7 @@
     .jk-badge {
       width: 32px;
       height: 32px;
-      border: #1fe1ff 4px solid;
+      border: #00ddffec 4px solid;
       border-radius: 4px;
       background: #fff;
       display: flex;
@@ -92,6 +92,36 @@
       font-weight: 700;
       color: #0b0b0b;
       font-size: 25px;
+    }
+
+    .station-badge {
+      width: 30px;
+      height: 30px;
+      aspect-ratio: 1/1;
+      border: 5px solid #00ddff;
+      border-radius: 4px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      /* 縦方向に配置 */
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #0b0b0b;
+      font-size: 16px;
+      padding: 2px 4px 4px 4px;
+      margin-right: 8px;
+      line-height: 100%;
+    }
+
+    .station-prefix {
+      font-size: 18px;
+      /* 駅ナンバリングの接頭辞のサイズ */
+    }
+
+    .station-number {
+      font-size: 25px;
+      /* 駅ナンバリングの数字のサイズ */
     }
 
     .line-name {
@@ -187,8 +217,8 @@
   </div>
   <script>
     const data = [
-      { type: '各駅停車', time: '13:50', dest: '千葉' },
-      { type: '各駅停車', time: '13:55', dest: '津田沼' }
+      { type: '各駅停車', time: '13:50', dest: '品川', stationNumber: 'JK20' },
+      { type: '各駅停車', time: '13:55', dest: '南浦和', stationNumber: 'JK42' }
     ];
     const rowsEl = document.getElementById('rows');
     function buildRow(datum) {
@@ -197,7 +227,15 @@
       const type = document.createElement('div'); type.className = 'type'; type.textContent = datum.type;
       const tm = document.createElement('div'); tm.className = 'time'; tm.textContent = datum.time;
       const pl = document.createElement('div'); pl.className = 'platform';
+
+      // 駅ナンバリングを追加
+      const badge = document.createElement('div');
+      badge.className = 'station-badge';
+      const [prefix, number] = datum.stationNumber.match(/([A-Za-z]+)(\d+)/).slice(1); // JKと数字を分割
+      badge.innerHTML = `<span class="station-prefix">${prefix}</span><span class="station-number">${number}</span>`;
+
       const dst = document.createElement('div'); dst.textContent = datum.dest; dst.style.fontWeight = '700';
+      pl.appendChild(badge); // 駅ナンバリングを行先の左に追加
       pl.appendChild(dst);
       r.appendChild(type); r.appendChild(tm); r.appendChild(pl);
       return r;
