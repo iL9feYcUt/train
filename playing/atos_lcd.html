@@ -416,7 +416,7 @@
 
     function render() {
       rowsEl.innerHTML = '';
-      const trainsToShow = getUpcomingTrains(trains, 2);
+      const trainsToShow = getUpcomingTrains(trains, 6);
       rowsEl.appendChild(buildTable(trainsToShow));
     }
 
@@ -433,6 +433,16 @@
         const res = await fetch(file);
         if (!res.ok) throw new Error('ファイル取得失敗');
         const html = await res.text();
+        // legend_dest抽出
+        let legend_dest = undefined;
+        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+        if (legendMatch) {
+          try {
+            eval('legend_dest = ' + legendMatch[1]);
+          } catch (e) {
+            legend_dest = undefined;
+          }
+        }
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const rows = doc.querySelectorAll('table.result_03 tr');
