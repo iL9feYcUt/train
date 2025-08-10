@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=1100,initial-scale=1" />
   <title>山手駅 発車標</title>
   <style>
     @font-face {
@@ -276,7 +276,7 @@
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47', '東神奈川': 'JH13', '八王子': 'JH32', '橋本': 'JH28'
     };
     const lineColors = { JK: '#00bae8', JH: '#80C342' };
-    const typeColors = { '快': 'red', '快速': 'red', '各駅停車': '#383838' };
+    const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838' };
     const rowsEl = document.getElementById('rows');
     let trains = [];
 
@@ -355,7 +355,7 @@
             const [prefix, number] = stationNumber.match(/([A-Za-z]+)(\d+)/).slice(1);
             badge.innerHTML = `<span class="station-prefix">${prefix}</span><span class="station-number">${number}</span>`;
             // 路線ごとの枠線色を適用
-            const borderColor = lineColors[prefix] || '#00ddff'; // デフォルト色
+            const borderColor = lineColors[prefix] || '#000'; // デフォルト色
             badge.style.border = `5px solid ${borderColor}`;
             badge.style.marginLeft = '0px';
             destWrap.appendChild(badge);
@@ -428,7 +428,7 @@
 
     async function loadTimetable() {
       const now = new Date();
-      const file = isHoliday(now) ? 'timetable/山手h.html' : 'timetable/山手.html';
+      const file = isHoliday(now) ? 'timetable/山手2h.html' : 'timetable/山手2.html';
       try {
         const res = await fetch(file);
         if (!res.ok) throw new Error('ファイル取得失敗');
@@ -455,11 +455,19 @@
             else if (dest === '赤') dest = '赤羽';
             else if (dest === '蒲') dest = '蒲田';
             else if (dest === '上') dest = '上野';
+            else if (dest === '青') dest = '青梅';
+            else if (dest === '品') dest = '品川';
+            else if (dest === '鶴') dest = '鶴見';
+            else if (dest === '桜') dest = '桜木町';
+            else if (dest === '磯') dest = '磯子';
             else if (!dest) dest = '大宮'; // 無印は大宮
+            else dest = dest;
             // 快速判定
             let type = '各駅停車';
             const trainType = div.querySelector('.train')?.textContent.trim();
-            if (trainType === '快') type = '快速';
+            if (trainType === '') type = '各駅停車';
+            else if (trainType === '快') type = '快　速';
+            else type = `${trainType}`;
             // 両数判定
             const cars = (dest === '八王子' || dest === '橋本') ? 8 : 10;
             tempTrains.push({ type, time, dest, cars });
