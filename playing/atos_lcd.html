@@ -446,22 +446,13 @@
             const minute = div.querySelector('.minute')?.textContent.trim();
             if (!minute) return;
             const time = `${hour}:${minute.padStart(2, '0')}`;
-            const destSpan = div.querySelector('.dest');
-            let dest = destSpan ? destSpan.textContent.trim() : '';
-            // 省略記号を正式駅名に変換
-            if (dest === '八') dest = '八王子';
-            else if (dest === '橋') dest = '橋本';
-            else if (dest === '浦') dest = '南浦和';
-            else if (dest === '赤') dest = '赤羽';
-            else if (dest === '蒲') dest = '蒲田';
-            else if (dest === '上') dest = '上野';
-            else if (dest === '青') dest = '青梅';
-            else if (dest === '品') dest = '品川';
-            else if (dest === '鶴') dest = '鶴見';
-            else if (dest === '桜') dest = '桜木町';
-            else if (dest === '磯') dest = '磯子';
-            else if (!dest) dest = '大宮'; // 無印は大宮
-            else dest = dest;
+            let dest = div.getAttribute('data-dest') || '';
+            // legend_destによる省略記号変換
+            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+              dest = legend_dest[dest].text;
+            } else if (dest === '無印') {
+              dest = '大宮';
+            }
             // 快速判定
             let type = '各駅停車';
             const trainType = div.querySelector('.train')?.textContent.trim();
