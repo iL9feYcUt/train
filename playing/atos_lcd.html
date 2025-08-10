@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>JR東日本 ATOS風 発車標（再現）</title>
+  <title>山手駅 発車標</title>
   <style>
     @font-face {
       font-family: "Frutiger";
@@ -173,13 +173,21 @@
     }
 
     .type {
-      font-size: 40px;
+      font-size: 28px;
       width: 200px;
       color: #fff;
       text-align: center;
       background-color: #ff0000;
       border-radius: 7px;
-      line-height: 150%;
+      line-height: 100%;
+      padding: 6px 0;
+    }
+
+    .route-label {
+      width: 200px;
+      font-size: 20px;
+      margin: 0;
+      line-height: 130%;
     }
 
     .time {
@@ -232,10 +240,12 @@
 
     td {
       padding: 0;
+      margin: 0;
+      line-height: 100%;
     }
 
     tr {
-      height: 95px;
+      height: 85px;
     }
   </style>
 </head>
@@ -282,12 +292,46 @@
         tr.style.minHeight = '80px';
         tr.style.borderTop = '#fff 1px solid';
 
-        // 種別
+        // 路線名ラベル
         const typeTd = document.createElement('td');
-        typeTd.style.textAlign = 'center';
-        typeTd.style.width = '120px'; // 幅を固定
-        const typeBg = typeColors[datum.type] || '#0c0c0c'; // デフォルト色
-        typeTd.innerHTML = datum.type ? `<div class="type" style="background-color:${typeBg}">${datum.type}</div>` : '<div class="type" style="background-color:#0c0c0c">&nbsp;</div>';
+        typeTd.style.textAlign = 'left';
+        typeTd.style.width = '120px';
+        typeTd.style.verticalAlign = 'center';
+        // 路線名分岐（駅ナンバリングのprefixで判定）
+        let routeName = '';
+        let routeColor = '';
+        const stationNumber = stationNumbers[datum.dest];
+        if (stationNumber) {
+          const prefix = stationNumber.match(/([A-Za-z]+)/)[1];
+          if (prefix === 'JH') {
+            routeName = '横浜線';
+            routeColor = 'var(--jh-green)';
+          } else if (prefix === 'JK') {
+            routeName = '京浜東北・根岸線';
+            routeColor = 'var(--jk-blue)';
+          } else {
+            routeName = '';
+            routeColor = '#fff';
+          }
+        } else {
+          routeName = '';
+          routeColor = '#fff';
+        }
+        const routeLabel = document.createElement('div');
+        routeLabel.className = 'route-label';
+        routeLabel.textContent = routeName;
+        routeLabel.style.color = routeColor;
+        routeLabel.style.background = 'none';
+        routeLabel.style.marginBottom = '0px';
+        routeLabel.style.justifyContent = 'flex-start';
+        typeTd.appendChild(routeLabel);
+        // 種別
+        const typeBg = typeColors[datum.type] || '#0c0c0c';
+        const typeDiv = document.createElement('div');
+        typeDiv.className = 'type';
+        typeDiv.style.backgroundColor = typeBg;
+        typeDiv.textContent = datum.type || '\u00A0';
+        typeTd.appendChild(typeDiv);
 
         // 時刻
         const timeTd = document.createElement('td');
