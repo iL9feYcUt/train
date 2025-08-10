@@ -400,13 +400,28 @@
     }
 
     function getUpcomingTrains(data, count = 5) {
-      const nowStr = getCurrentTimeStr();
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      // 分単位で日付またぎ対応
+      const trainsWithMinutes = data.map(d => {
+        if (!d.time) return { ...d, minutes: null };
+        const [h, m] = d.time.split(':').map(Number);
+        let minutes = h * 60 + m;
+        // 0時台・1時台は翌日分として+1440分
+        if (h === 0 || h === 1) minutes += 1440;
+        return { ...d, minutes };
+      });
+      // 現在時刻が23時以降なら、nowMinutesも+1440分して翌日分扱い
+      let compareMinutes = nowMinutes;
+      if (now.getHours() >= 23) compareMinutes += 1440;
       // 時刻順にソート
-      const sorted = data.slice().sort((a, b) => a.time.localeCompare(b.time));
-      // 現在時刻以降の列車
-      const upcoming = sorted.filter(d => d.time >= nowStr);
+      const sorted = trainsWithMinutes
+        .filter(d => d.minutes !== null)
+        .sort((a, b) => a.minutes - b.minutes);
+      // 現在時刻以降の電車を抽出
+      const upcoming = sorted.filter(d => d.minutes >= compareMinutes);
       // 必要数だけ取得
-      const result = upcoming.slice(0, count);
+      const result = upcoming.slice(0, count).map(d => ({ type: d.type, time: d.time, dest: d.dest, cars: d.cars }));
       // 足りない場合は空行で埋める
       while (result.length < count) {
         result.push({ type: '', time: '', dest: '', cars: '' });
@@ -416,7 +431,7 @@
 
     function render() {
       rowsEl.innerHTML = '';
-      const trainsToShow = getUpcomingTrains(trains, 6);
+      const trainsToShow = getUpcomingTrains(trains, 2);
       rowsEl.appendChild(buildTable(trainsToShow));
     }
 
