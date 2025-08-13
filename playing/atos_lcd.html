@@ -227,7 +227,6 @@
       padding: 2px 0px;
       margin-right: 10px;
       display: inline-block;
-      width: 100px !important;
     }
 
     .dest-text {
@@ -377,7 +376,7 @@
         if (datum.cars) {
           const carsBadge = document.createElement('span');
           carsBadge.className = 'cars-badge';
-          carsBadge.innerHTML = `${datum.cars}<span style="font-size:0.8em;">両</span>`;
+          carsBadge.innerHTML = `${datum.cars}<span style="font-size:0.7em;padding-left:5px;">両</span>`;
           carsTd.appendChild(carsBadge);
         } else {
           carsTd.innerHTML = '&nbsp;';
@@ -505,7 +504,7 @@
       loadTimetable();
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
-    setInterval(render, 100);
+    setInterval(render, 100000);
   </script>
 </body>
 
