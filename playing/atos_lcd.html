@@ -331,6 +331,14 @@
         typeDiv.className = 'type';
         typeDiv.style.backgroundColor = typeBg;
         typeDiv.textContent = datum.type || '\u00A0';
+        // 路線名が空なら種別の高さを倍に
+        if (!routeName) {
+          typeDiv.style.height = '50px';
+          typeDiv.style.fontSize = '2.5em';
+          typeDiv.style.display = 'flex';
+          typeDiv.style.alignItems = 'center';
+          typeDiv.style.justifyContent = 'center';
+        }
         typeTd.appendChild(typeDiv);
 
         // 時刻
@@ -443,11 +451,16 @@
 
     async function loadTimetable() {
       const now = new Date();
-      const file = isHoliday(now) ? 'timetable/山手2h.html' : 'timetable/山手2.html';
+      // JREast公式の時刻表URL（平日/休日）
+      const targetUrl = isHoliday(now)
+        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605021.html'
+        : 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605020.html';
       try {
-        const res = await fetch(file);
+        // allorigins経由でクロスオリジン取得
+        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const html = await res.text();
+        const json = await res.json();
+        const html = json.contents;
         // legend_dest抽出
         let legend_dest = undefined;
         const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
