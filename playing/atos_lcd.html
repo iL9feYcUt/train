@@ -32,9 +32,7 @@
       margin: 0;
       font-family: "Frutiger", "ShinGo", sans-serif;
       background: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: block;
       padding: 24px;
       color: #fff;
     }
@@ -47,6 +45,7 @@
       display: flex;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.03);
+      margin: 24px auto;
     }
 
     .slot-number {
@@ -251,6 +250,23 @@
 </head>
 
 <body>
+  <!-- 1番線表示 -->
+  <div class="atos">
+    <div class="slot-number">
+      <div class="num">1</div>
+    </div>
+    <div class="display">
+      <div class="topbar">
+        <div class="jk-badge"><span>JK</span></div>
+        <div>
+          <div class="line-name">根岸線</div>
+          <div class="line-sub">磯子・大船方面</div>
+        </div>
+      </div>
+      <div class="rows" id="rows1"></div>
+    </div>
+  </div>
+  <!-- 2番線表示 -->
   <div class="atos">
     <div class="slot-number">
       <div class="num">2</div>
@@ -268,7 +284,7 @@
           <div class="line-sub">新横浜・八王子方面</div>
         </div>
       </div>
-      <div class="rows" id="rows"></div>
+      <div class="rows" id="rows2"></div>
     </div>
   </div>
   <script>
@@ -278,8 +294,10 @@
     };
     const lineColors = { JK: '#00bae8', JH: '#80C342' };
     const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838' };
-    const rowsEl = document.getElementById('rows');
-    let trains = [];
+    const rowsEl1 = document.getElementById('rows1');
+    const rowsEl2 = document.getElementById('rows2');
+    let trains1 = [];
+    let trains2 = [];
 
     function buildTable(data) {
       const table = document.createElement('table');
@@ -439,9 +457,14 @@
     }
 
     function render() {
-      rowsEl.innerHTML = '';
-      const trainsToShow = getUpcomingTrains(trains, 2);
-      rowsEl.appendChild(buildTable(trainsToShow));
+      // 1番線
+      rowsEl1.innerHTML = '';
+      const trainsToShow1 = getUpcomingTrains(trains1, 2);
+      rowsEl1.appendChild(buildTable(trainsToShow1));
+      // 2番線
+      rowsEl2.innerHTML = '';
+      const trainsToShow2 = getUpcomingTrains(trains2, 2);
+      rowsEl2.appendChild(buildTable(trainsToShow2));
     }
 
     function isHoliday(date) {
@@ -450,7 +473,68 @@
       return day === 0 || day === 6; // 日曜または土曜
     }
 
-    async function loadTimetable() {
+    // 1番線のデータ取得（2番線と同様、URLのみ変更）
+    async function loadTimetable1() {
+      const now = new Date();
+      // 1番線用JREast公式の時刻表URL（平日/休日）
+      const targetUrl = isHoliday(now)
+        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605011.html'
+        : 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605010.html';
+      try {
+        // allorigins経由でクロスオリジン取得
+        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        if (!res.ok) throw new Error('ファイル取得失敗');
+        const json = await res.json();
+        const html = json.contents;
+        // legend_dest抽出
+        let legend_dest = undefined;
+        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+        if (legendMatch) {
+          try {
+            eval('legend_dest = ' + legendMatch[1]);
+          } catch (e) {
+            legend_dest = undefined;
+          }
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const rows = doc.querySelectorAll('table.result_03 tr');
+        const tempTrains = [];
+        rows.forEach(tr => {
+          const hourTd = tr.querySelector('td');
+          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+          const timesTd = tr.querySelectorAll('td')[1];
+          if (!timesTd) return;
+          timesTd.querySelectorAll('.timetable_time').forEach(div => {
+            const minute = div.querySelector('.minute')?.textContent.trim();
+            if (!minute) return;
+            const time = `${hour}:${minute.padStart(2, '0')}`;
+            let dest = div.getAttribute('data-dest') || '';
+            // legend_destによる省略記号変換
+            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+              dest = legend_dest[dest].text;
+            }
+            // 快速判定
+            let type = '各駅停車';
+            const trainType = div.querySelector('.train')?.textContent.trim();
+            if (trainType === '') type = '各駅停車';
+            else if (trainType === '快') type = '快　速';
+            else type = `${trainType}`;
+            // 両数判定
+            const cars = (dest === '八王子' || dest === '橋本') ? 8 : 10;
+            tempTrains.push({ type, time, dest, cars });
+          });
+        });
+        trains1 = tempTrains;
+        render();
+      } catch (e) {
+        trains1 = [];
+        render();
+      }
+    }
+
+    // 2番線のデータ取得（従来通り）
+    async function loadTimetable2() {
       const now = new Date();
       // JREast公式の時刻表URL（平日/休日）
       const targetUrl = isHoliday(now)
@@ -489,8 +573,6 @@
             // legend_destによる省略記号変換
             if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
               dest = legend_dest[dest].text;
-            } else if (dest === '無印') {
-              dest = '大宮';
             }
             // 快速判定
             let type = '各駅停車';
@@ -503,19 +585,21 @@
             tempTrains.push({ type, time, dest, cars });
           });
         });
-        trains = tempTrains;
+        trains2 = tempTrains;
         render();
       } catch (e) {
-        trains = [];
+        trains2 = [];
         render();
       }
     }
 
     // 初回ロード
-    loadTimetable();
+    loadTimetable1();
+    loadTimetable2();
     // 30秒ごとに自動更新
     setInterval(() => {
-      loadTimetable();
+      loadTimetable1();
+      loadTimetable2();
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
     setInterval(render, 100);
