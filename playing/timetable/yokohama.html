@@ -319,6 +319,21 @@
       <div class="rows" id="rows5and6"></div>
     </div>
   </div>
+  <div class="atos">
+    <div class="slot-number">
+      <div class="num" style="transform: scale(0.7,1);letter-spacing: -0.2em;">7·8</div>
+    </div>
+    <div class="display">
+      <div class="topbar">
+        <div class="jt-badge" style="margin: 0;"><span>JT</span></div>
+        <div>
+          <div class="line-name">上野東京ライン</div>
+          <div class="line-sub">東京・上野・大宮・高崎・宇都宮方面</div>
+        </div>
+      </div>
+      <div class="rows" id="rows7and8"></div>
+    </div>
+  </div>
   <script>
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
@@ -331,10 +346,12 @@
     const rowsEl1 = document.getElementById('rows1');
     const rowsEl2 = document.getElementById('rows2');
     const rowsEl5and6 = document.getElementById('rows5and6');
+    const rowsEl7and8 = document.getElementById('rows7and8');
 
     let trains1 = [];
     let trains2 = [];
     let trains5and6 = [];
+    let trains7and8 = [];
 
     function buildTable(data) {
       const table = document.createElement('table');
@@ -515,6 +532,10 @@
       rowsEl5and6.innerHTML = '';
       const trainsToShow5and6 = getUpcomingTrains(trains5and6, 2);
       rowsEl5and6.appendChild(buildTable(trainsToShow5and6));
+      // 7-8番線
+      rowsEl7and8.innerHTML = '';
+      const trainsToShow7and8 = getUpcomingTrains(trains7and8, 2);
+      rowsEl7and8.appendChild(buildTable(trainsToShow7and8));
     }
 
     // 固定祝日（MM-DD形式）
@@ -584,16 +605,14 @@
     // 1番線のデータ取得（2番線と同様、URLのみ変更）
     async function loadTimetable1() {
       const now = new Date();
-      // 1番線用JREast公式の時刻表URL（平日/休日）
-      const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638081.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638080.html';
+      // 1番線用ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/3h.html'
+        : 'yokohama/3.html';
       try {
-        // allorigins経由でクロスオリジン取得
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(filePath);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
+        const html = await res.text();
         // legend_dest抽出
         let legend_dest = undefined;
         const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
@@ -609,7 +628,7 @@
         const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
         if (legendTrainMatch) {
           try {
-            eval('legend_train = ' + legendTrainMatch[0]);
+            eval('legend_train = ' + legendTrainMatch[1]);
           } catch (e) {
             legend_train = undefined;
           }
@@ -628,15 +647,19 @@
             if (!minute) return;
             const time = `${hour}:${minute.padStart(2, '0')}`;
             let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
             if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
               dest = legend_dest[dest].text;
             }
-            // 種別判定（data-train属性から取得、legend_trainによる省略記号変換）
             let trainType = div.getAttribute('data-train') || '';
-            type = legend_train[trainType].text;
-            type = '普通' ? type = '各駅停車' : type;
-            // 両数判定
+            let type = '';
+            if (legend_train && legend_train[trainType]) {
+              type = legend_train[trainType].text;
+            } else {
+              type = trainType;
+            }
+            if (type === '普通') type = '各駅停車';
+            // 2文字種別は間に全角空白を挿入
+            if (type.length === 2) type = type[0] + '　' + type[1];
             const cars = (dest === '八王子' || dest === '橋本') ? 8 : 10;
             tempTrains.push({ type, time, dest, cars });
           });
@@ -652,17 +675,14 @@
     // 2番線のデータ取得（従来通り）
     async function loadTimetable2() {
       const now = new Date();
-      // JREast公式の時刻表URL（平日/休日）
-      const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638091.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638090.html';
+      // 4番線（京浜東北線）ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/jk_h.html'
+        : 'yokohama/jk.html';
       try {
-        // allorigins経由でクロスオリジン取得
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(filePath);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
-        // legend_dest抽出
+        const html = await res.text();
         let legend_dest = undefined;
         const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
         if (legendMatch) {
@@ -672,12 +692,11 @@
             legend_dest = undefined;
           }
         }
-        // legend_train抽出
         let legend_train = undefined;
         const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
         if (legendTrainMatch) {
           try {
-            eval('legend_train = ' + legendTrainMatch[0]);
+            eval('legend_train = ' + legendTrainMatch[1]);
           } catch (e) {
             legend_train = undefined;
           }
@@ -696,11 +715,9 @@
             if (!minute) return;
             const time = `${hour}:${minute.padStart(2, '0')}`;
             let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
             if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
               dest = legend_dest[dest].text;
             }
-            // 種別判定（data-train属性から取得、legend_trainによる省略記号変換）
             let type = '各駅停車';
             let trainType = div.getAttribute('data-train') || '';
             if (trainType === '') type = '各駅停車';
@@ -708,7 +725,8 @@
               type = legend_train[trainType].text;
             } else if (trainType === '快') type = '快　速';
             else type = `${trainType}`;
-            // 両数判定
+            // 2文字種別は間に全角空白を挿入
+            if (type.length === 2) type = type[0] + '　' + type[1];
             const cars = (dest === '八王子' || dest === '橋本') ? 8 : 10;
             tempTrains.push({ type, time, dest, cars });
           });
@@ -725,15 +743,14 @@
     let trains4_1 = [];
     async function loadTimetable4_1() {
       const now = new Date();
-      // JREast公式の時刻表URL（平日/休日）
-      const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638051.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638050.html';
+      // 4番線（横浜線）ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/jh_h.html'
+        : 'yokohama/jh.html';
       try {
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(filePath);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
+        const html = await res.text();
         let legend_dest = undefined;
         const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
         if (legendMatch) {
@@ -747,7 +764,7 @@
         const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
         if (legendTrainMatch) {
           try {
-            eval('legend_train = ' + legendTrainMatch[0]);
+            eval('legend_train = ' + legendTrainMatch[1]);
           } catch (e) {
             legend_train = undefined;
           }
@@ -776,6 +793,8 @@
               type = legend_train[trainType].text;
             } else if (trainType === '快') type = '快　速';
             else type = `${trainType}`;
+            // 2文字種別は間に全角空白を挿入
+            if (type.length === 2) type = type[0] + '　' + type[1];
             const cars = (dest === '八王子' || dest === '橋本') ? 8 : 10;
             tempTrains.push({ type, time, dest, cars });
           });
@@ -791,17 +810,14 @@
     //5・6番線
     async function loadTimetable5and6() {
       const now = new Date();
-      // JREast公式の時刻表URL（平日/休日）
-      const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638011.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1638/1638010.html';
+      // 5・6番線ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/5h.html'
+        : 'yokohama/5.html';
       try {
-        // allorigins経由でクロスオリジン取得
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(filePath);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
-        // legend_dest抽出
+        const html = await res.text();
         let legend_dest = undefined;
         const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
         if (legendMatch) {
@@ -811,12 +827,11 @@
             legend_dest = undefined;
           }
         }
-        // legend_train抽出
         let legend_train = undefined;
         const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
         if (legendTrainMatch) {
           try {
-            eval('legend_train = ' + legendTrainMatch[0]);
+            eval('legend_train = ' + legendTrainMatch[1]);
           } catch (e) {
             legend_train = undefined;
           }
@@ -835,15 +850,18 @@
             if (!minute) return;
             const time = `${hour}:${minute.padStart(2, '0')}`;
             let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
             if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
               dest = legend_dest[dest].text;
             }
-            // 種別判定（data-train属性から取得、legend_trainによる省略記号変換）
             let trainType = div.getAttribute('data-train') || '';
-            type = legend_train[trainType].text;
-            type = '普通' ? type = '各駅停車' : type;
-            // 両数判定
+            let type = '';
+            if (legend_train && legend_train[trainType]) {
+              type = legend_train[trainType].text;
+            } else {
+              type = trainType;
+            }
+            // 2文字種別は間に全角空白を挿入
+            if (type.length === 2) type = type[0] + '　' + type[1];
             const cars = 15;
             tempTrains.push({ type, time, dest, cars });
           });
@@ -856,11 +874,80 @@
       }
     }
 
+    //7・8番線
+    async function loadTimetable7and8() {
+      const now = new Date();
+      // 7・8番線ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/7h.html'
+        : 'yokohama/7.html';
+      try {
+        const res = await fetch(filePath);
+        if (!res.ok) throw new Error('ファイル取得失敗');
+        const html = await res.text();
+        let legend_dest = undefined;
+        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+        if (legendMatch) {
+          try {
+            eval('legend_dest = ' + legendMatch[1]);
+          } catch (e) {
+            legend_dest = undefined;
+          }
+        }
+        let legend_train = undefined;
+        const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
+        if (legendTrainMatch) {
+          try {
+            eval('legend_train = ' + legendTrainMatch[1]);
+          } catch (e) {
+            legend_train = undefined;
+          }
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const rows = doc.querySelectorAll('table.result_03 tr');
+        const tempTrains = [];
+        rows.forEach(tr => {
+          const hourTd = tr.querySelector('td');
+          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+          const timesTd = tr.querySelectorAll('td')[1];
+          if (!timesTd) return;
+          timesTd.querySelectorAll('.timetable_time').forEach(div => {
+            const minute = div.querySelector('.minute')?.textContent.trim();
+            if (!minute) return;
+            const time = `${hour}:${minute.padStart(2, '0')}`;
+            let dest = div.getAttribute('data-dest') || '';
+            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+              dest = legend_dest[dest].text;
+            }
+            let trainType = div.getAttribute('data-train') || '';
+            let type = '';
+            if (legend_train && legend_train[trainType]) {
+              type = legend_train[trainType].text;
+            } else {
+              type = trainType;
+            }
+            // 2文字種別は間に全角空白を挿入
+            if (type.length === 2) type = type[0] + '　' + type[1];
+            const cars = 15;
+            tempTrains.push({ type, time, dest, cars });
+          });
+        });
+        trains7and8 = tempTrains;
+        render();
+      } catch (e) {
+        trains7and8 = [];
+        render();
+      }
+    }
+
     // 初回ロード
     loadTimetable1();
     loadTimetable2();
     loadTimetable4_1();
     loadTimetable5and6();
+    loadTimetable7and8();
+
 
     // 30秒ごとに自動更新
     setInterval(() => {
@@ -868,6 +955,7 @@
       loadTimetable2();
       loadTimetable4_1();
       loadTimetable5and6();
+      loadTimetable7and8();
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
     setInterval(render, 100);
