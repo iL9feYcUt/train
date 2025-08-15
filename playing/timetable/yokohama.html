@@ -455,7 +455,17 @@
         let routeName = '';
         let routeColor = '';
         const stationNumber = stationNumbers[datum.dest];
-        if (stationNumber) {
+        if (this && this.rowsTarget === 'rows10') {
+          // 10番線だけは行先で分岐
+          const jsDests = ['籠原', '高崎', '前橋', '古河', '小金井', '宇都宮'];
+          if (jsDests.includes(datum.dest)) {
+            routeName = '湘南新宿ライン';
+            routeColor = 'var(--js-red)';
+          } else {
+            routeName = '横須賀線';
+            routeColor = 'var(--jo-blue)';
+          }
+        } else if (stationNumber) {
           const prefix = stationNumber.match(/([A-Za-z]+)/)[1];
           if (prefix === 'JH') {
             routeName = '横浜線';
