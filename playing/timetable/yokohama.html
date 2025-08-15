@@ -160,8 +160,8 @@
 
     .station-badge {
       font-family: "Frutiger-B";
-      width: 30px;
-      height: 30px;
+      width: 38px;
+      height: 38px;
       aspect-ratio: 1/1;
       border: 5px solid var(--jk-blue);
       border-radius: 4px;
@@ -170,21 +170,20 @@
       flex-direction: column;
       /* 縦方向に配置 */
       align-items: center;
-      justify-content: center;
       color: #0b0b0b;
-      font-size: 16px;
-      padding: 2px 4px 4px 4px;
-      margin-right: 8px;
+      font-size: 12px;
+      margin-right: 6px;
       line-height: 100%;
     }
 
     .station-prefix {
-      font-size: 16px;
+      line-height: 110%;
+      font-size: 17px;
       /* 駅ナンバリングの接頭辞のサイズ */
     }
 
     .station-number {
-      font-size: 23px;
+      font-size: 24px;
       /* 駅ナンバリングの数字のサイズ */
     }
 
@@ -263,11 +262,6 @@
       font-size: 14px;
     }
 
-    .badge-jb {
-      background: var(--jb-yellow);
-      color: #111;
-    }
-
     .cars-badge {
       color: #fffd94;
       font-size: 55px;
@@ -278,7 +272,7 @@
     }
 
     .dest-text {
-      font-size: 52px;
+      font-size: 55px;
       line-height: 100%;
       color: #fff;
       display: flex;
@@ -385,7 +379,7 @@
       <div class="rows" id="rows9"></div>
     </div>
   </div>
-    <div class="atos">
+  <div class="atos">
     <div class="slot-number">
       <div class="num" style="transform: scale(0.8,1);">10</div>
     </div>
@@ -413,7 +407,7 @@
       '八王子': 'JH32', '橋本': 'JH28'
     };
     const stationNumbersJO = {
-      '大船': 'JO09', '逗子': 'JO06', '横須賀': 'JO03', '久里浜': 'JO01',
+      '東京': 'JO19', '品川': 'JO17', '大船': 'JO09', '逗子': 'JO06', '横須賀': 'JO03', '久里浜': 'JO01',
       '津田沼': 'JO26', '千葉': 'JO28', '佐倉': 'JO33', '成田': 'JO35', '成田空港': 'JO37'
     };
     const stationNumbersJT = {
@@ -434,7 +428,9 @@
     let trains5and6 = [];
     let trains7and8 = [];
     let trains9 = [];
+    let trains9js = [];
     let trains10 = [];
+    let trains10js = [];
 
     function buildTable(data) {
       const table = document.createElement('table');
@@ -510,7 +506,12 @@
         typeTd.appendChild(routeLabel);
         // 種別（背景色は全角スペース挿入前の元の種別名で判定）
         let rawType = datum.type ? datum.type.replace(/　/g, '') : '';
-        const typeBg = typeColors[rawType] || '#0c0c0c';
+        let typeBg = typeColors[rawType] || '#0c0c0c';
+        // 9,10番線限定で快速はオレンジ色
+        if ((this && (this.rowsTarget === 'rows9' || this.rowsTarget === 'rows10')) && rawType === '快速') {
+          typeBg = 'var(--jt-orange)';
+        }
+
         const typeDiv = document.createElement('div');
         typeDiv.className = 'type';
         typeDiv.style.backgroundColor = typeBg;
@@ -549,12 +550,10 @@
             // 路線ごとの枠線色を適用
             const borderColor = lineColors[prefix] || '#000'; // デフォルト色
             badge.style.border = `5px solid ${borderColor}`;
-            badge.style.marginLeft = '0px';
             destWrap.appendChild(badge);
           }
           const destName = document.createElement('span');
           destName.textContent = datum.dest;
-          destName.style.marginLeft = '5px';
           destWrap.appendChild(destName);
         } else {
           destWrap.innerHTML = '&nbsp;';
@@ -648,12 +647,16 @@
       rowsEl7and8.appendChild(buildTable.call({ rowsTarget: 'rows7and8' }, trainsToShow7and8, stationNumbersJT));
       // 9番線
       rowsEl9.innerHTML = '';
-      const trainsToShow9 = getUpcomingTrains(trains9, 2);
-      rowsEl9.appendChild(buildTable(trainsToShow9, stationNumbersJO));
+      // 横須賀線(JO)＋湘南新宿ライン(JS)を合成し、時刻順で2本表示
+      const mergedTrains9 = [...trains9, ...trains9js];
+      const trainsToShow9 = getUpcomingTrains(mergedTrains9, 2);
+      // JO優先、なければJT(JS)のナンバリングを使う
+      rowsEl9.appendChild(buildTable.call({ rowsTarget: 'rows9' }, trainsToShow9, { ...stationNumbersJO, ...stationNumbersJT }));
       // 10番線
       rowsEl10.innerHTML = '';
-      const trainsToShow10 = getUpcomingTrains(trains10, 2);
-  rowsEl10.appendChild(buildTable(trainsToShow10, stationNumbersJO));
+      const mergedTrains10 = [...trains10, ...trains10js];
+      const trainsToShow10 = getUpcomingTrains(mergedTrains10, 2);
+      rowsEl10.appendChild(buildTable.call({ rowsTarget: 'rows10' }, trainsToShow10, stationNumbersJO));
     }
 
     // 固定祝日（MM-DD形式）
@@ -784,6 +787,7 @@
             } else {
               type = trainType;
             }
+            // 京浜東北線のみ「普通」→「各駅停車」
             if (type === '普通') type = '各駅停車';
             // 複数種別（カンマ区切り）の場合は全角空白を挿入しない。単一種別のみ2文字なら全角空白を挿入
             if (!type.includes('・') && type.length === 2) {
@@ -864,6 +868,8 @@
               type = legend_train[trainType].text;
             } else if (trainType === '快') type = '快　速';
             else type = `${trainType}`;
+            // 京浜東北線のみ「普通」→「各駅停車」
+            if (type === '普通') type = '各駅停車';
             // 複数種別（カンマ区切り）の場合は全角空白を挿入しない。単一種別のみ2文字なら全角空白を挿入
             if (!type.includes('・') && type.length === 2) {
               type = type[0] + '　' + type[1];
@@ -1191,6 +1197,83 @@
       }
     }
 
+    //9-1番線
+    async function loadTimetable9js() {
+      const now = new Date();
+      // 9番線ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/9js_h.html'
+        : 'yokohama/9js.html';
+      try {
+        const res = await fetch(filePath);
+        if (!res.ok) throw new Error('ファイル取得失敗');
+        const html = await res.text();
+        let legend_dest = undefined;
+        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+        if (legendMatch) {
+          try {
+            eval('legend_dest = ' + legendMatch[1]);
+          } catch (e) {
+            legend_dest = undefined;
+          }
+        }
+        let legend_train = undefined;
+        const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
+        if (legendTrainMatch) {
+          try {
+            eval('legend_train = ' + legendTrainMatch[1]);
+          } catch (e) {
+            legend_train = undefined;
+          }
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const rows = doc.querySelectorAll('table.result_03 tr');
+        const tempTrains = [];
+        rows.forEach(tr => {
+          const hourTd = tr.querySelector('td');
+          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+          const timesTd = tr.querySelectorAll('td')[1];
+          if (!timesTd) return;
+          timesTd.querySelectorAll('.timetable_time').forEach(div => {
+            const minute = div.querySelector('.minute')?.textContent.trim();
+            if (!minute) return;
+            const time = `${hour}:${minute.padStart(2, '0')}`;
+            let dest = div.getAttribute('data-dest') || '';
+            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+              dest = legend_dest[dest].text;
+            }
+            let trainType = div.getAttribute('data-train') || '';
+            let type = '';
+            if (trainType.includes(',')) {
+              // 10番線のみカンマ区切りの最初の要素だけを使う
+              const firstType = trainType.split(',')[0];
+              if (legend_train && legend_train[firstType]) {
+                type = legend_train[firstType].text;
+              } else {
+                type = firstType;
+              }
+            } else if (legend_train && legend_train[trainType]) {
+              type = legend_train[trainType].text;
+            } else {
+              type = trainType;
+            }
+            // 複数種別（カンマ区切り）の場合は全角空白を挿入しない。単一種別のみ2文字なら全角空白を挿入
+            if (!type.includes('・') && type.length === 2) {
+              type = type[0] + '　' + type[1];
+            }
+            const cars = 15;
+            tempTrains.push({ type, time, dest, cars });
+          });
+        });
+        trains9js = tempTrains;
+        render();
+      } catch (e) {
+        trains9js = [];
+        render();
+      }
+    }
+
     // 10番線
     async function loadTimetable10() {
       const now = new Date();
@@ -1268,6 +1351,83 @@
       }
     }
 
+    // 10番線JS
+    async function loadTimetable10js() {
+      const now = new Date();
+      // 10番線ローカル時刻表ファイル（平日/休日）
+      const filePath = isHoliday(now)
+        ? 'yokohama/10js_h.html'
+        : 'yokohama/10js.html';
+      try {
+        const res = await fetch(filePath);
+        if (!res.ok) throw new Error('ファイル取得失敗');
+        const html = await res.text();
+        let legend_dest = undefined;
+        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+        if (legendMatch) {
+          try {
+            eval('legend_dest = ' + legendMatch[1]);
+          } catch (e) {
+            legend_dest = undefined;
+          }
+        }
+        let legend_train = undefined;
+        const legendTrainMatch = html.match(/var\s+legend_train\s*=\s*({[\s\S]*?});/);
+        if (legendTrainMatch) {
+          try {
+            eval('legend_train = ' + legendTrainMatch[1]);
+          } catch (e) {
+            legend_train = undefined;
+          }
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const rows = doc.querySelectorAll('table.result_03 tr');
+        const tempTrains = [];
+        rows.forEach(tr => {
+          const hourTd = tr.querySelector('td');
+          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+          const timesTd = tr.querySelectorAll('td')[1];
+          if (!timesTd) return;
+          timesTd.querySelectorAll('.timetable_time').forEach(div => {
+            const minute = div.querySelector('.minute')?.textContent.trim();
+            if (!minute) return;
+            const time = `${hour}:${minute.padStart(2, '0')}`;
+            let dest = div.getAttribute('data-dest') || '';
+            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+              dest = legend_dest[dest].text;
+            }
+            let trainType = div.getAttribute('data-train') || '';
+            let type = '';
+            if (trainType.includes(',')) {
+              // 10番線のみカンマ区切りの最初の要素だけを使う
+              const firstType = trainType.split(',')[0];
+              if (legend_train && legend_train[firstType]) {
+                type = legend_train[firstType].text;
+              } else {
+                type = firstType;
+              }
+            } else if (legend_train && legend_train[trainType]) {
+              type = legend_train[trainType].text;
+            } else {
+              type = trainType;
+            }
+            // 複数種別（カンマ区切り）の場合は全角空白を挿入しない。単一種別のみ2文字なら全角空白を挿入
+            if (!type.includes('・') && type.length === 2) {
+              type = type[0] + '　' + type[1];
+            }
+            const cars = 15;
+            tempTrains.push({ type, time, dest, cars });
+          });
+        });
+        trains10js = tempTrains;
+        render();
+      } catch (e) {
+        trains10js = [];
+        render();
+      }
+    }
+
     // 初回ロード
     loadTimetable1();
     loadTimetable2();
@@ -1275,8 +1435,9 @@
     loadTimetable5and6();
     loadTimetable7and8();
     loadTimetable9();
+    loadTimetable9js();
     loadTimetable10();
-
+    loadTimetable10js();
 
     // 30秒ごとに自動更新
     setInterval(() => {
@@ -1286,7 +1447,9 @@
       loadTimetable5and6();
       loadTimetable7and8();
       loadTimetable9();
+      loadTimetable9js();
       loadTimetable10();
+      loadTimetable10js();
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
     setInterval(render, 100);
