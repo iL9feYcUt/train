@@ -614,7 +614,7 @@
       });
       // 現在時刻が23時以降なら、nowMinutesも+1440分して翌日分扱い
       let compareMinutes = nowMinutes;
-      if (now.getHours() >= 23) compareMinutes += 1440;
+      if (now.getHours() >= 24) compareMinutes += 1440;
       // 時刻順にソート
       const sorted = trainsWithMinutes
         .filter(d => d.minutes !== null)
