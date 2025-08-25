@@ -603,18 +603,18 @@
     function getUpcomingTrains(data, count = 5) {
       const now = new Date();
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 分単位で日付またぎ対応
+      // 3:00以降を翌日扱い
       const trainsWithMinutes = data.map(d => {
         if (!d.time) return { ...d, minutes: null };
         const [h, m] = d.time.split(':').map(Number);
         let minutes = h * 60 + m;
-        // 0時台・1時台は翌日分として+1440分
-        if (h === 0 || h === 1) minutes += 1440;
+        // 3:00以降（3時台以降）は翌日分として+1440分
+        if (h > 2 || (h === 2 && m >= 60)) minutes += 1440;
         return { ...d, minutes };
       });
-      // 現在時刻が23時以降なら、nowMinutesも+1440分して翌日分扱い
+      // 現在時刻が3:00以降なら、nowMinutesも+1440分して翌日分扱い
       let compareMinutes = nowMinutes;
-      if (now.getHours() >= 24) compareMinutes += 1440;
+      if (now.getHours() > 2 || (now.getHours() === 2 && now.getMinutes() >= 60)) compareMinutes += 1440;
       // 時刻順にソート
       const sorted = trainsWithMinutes
         .filter(d => d.minutes !== null)
