@@ -458,12 +458,15 @@
         if (this && this.rowsTarget === 'rows10') {
           // 10番線だけは行先で分岐
           const jsDests = ['籠原', '高崎', '前橋', '古河', '小金井', '宇都宮'];
+          const joDests = ['東京', '品川', '千葉', '成田空港', '君津', '津田沼', '上総一ノ宮', '佐倉', '成田', '鹿島神宮', '成東'];
           if (jsDests.includes(datum.dest)) {
             routeName = '湘南新宿ライン';
             routeColor = 'var(--js-red)';
-          } else {
+          } else if (joDests.includes(datum.dest)) {
             routeName = '横須賀線';
             routeColor = 'var(--jo-blue)';
+          } else {
+            routeName = '';
           }
         } else if (stationNumber) {
           const prefix = stationNumber.match(/([A-Za-z]+)/)[1];
@@ -601,20 +604,26 @@
     }
 
     function getUpcomingTrains(data, count = 5) {
+      // デバッグ用: 現在時刻を固定
       const now = new Date();
+      /*now.setHours(23);
+      now.setMinutes(59);
+      now.setSeconds(0);
+      now.setMilliseconds(0); */
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 3:00以降を翌日扱い
-      const trainsWithMinutes = data.map(d => {
+      // 23:00以降は0:00～3:59も“今日”の終電として続けて表示する
+      // 4:00～翌3:59を“同じ一日”として扱う
+      let trainsWithMinutes = data.map(d => {
         if (!d.time) return { ...d, minutes: null };
         const [h, m] = d.time.split(':').map(Number);
         let minutes = h * 60 + m;
-        // 3:00以降（3時台以降）は翌日分として+1440分
-        if (h > 2 || (h === 2 && m >= 60)) minutes += 1440;
+        // 4:00～23:59はそのまま、0:00～3:59は+1440分（翌日分）
+        if (h < 4) minutes += 1440;
         return { ...d, minutes };
       });
-      // 現在時刻が3:00以降なら、nowMinutesも+1440分して翌日分扱い
       let compareMinutes = nowMinutes;
-      if (now.getHours() > 2 || (now.getHours() === 2 && now.getMinutes() >= 60)) compareMinutes += 1440;
+      // 現在時刻が0:00～3:59なら+1440分して同じ“日”の後ろに回す
+      if (now.getHours() < 4) compareMinutes += 1440;
       // 時刻順にソート
       const sorted = trainsWithMinutes
         .filter(d => d.minutes !== null)
