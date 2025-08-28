@@ -121,10 +121,10 @@
             "mellow time.mp3",
             "スプリングボックス.mp3",
             "メロディー.mp3",
-            "希望のまち09.mp3",
-            "線路は続くよどこまでもA.mp3",
-            "線路は続くよどこまでもB.mp3",
-            "線路は続くよどこまでもC.mp3",
+            "ｺﾞ希望のまち09.mp3",
+            "ｺﾞ線路は続くよどこまでもA.mp3",
+            "ｺﾞ線路は続くよどこまでもB.mp3",
+            "ｺﾞ線路は続くよどこまでもC.mp3",
             "窓の花飾り.mp3",
             "蝶々のように.mp3",
             "美しき丘.mp3",
@@ -219,16 +219,16 @@
             "チャイム.mp3",
             "鉄道唱歌B.mp3",
             "鉄道唱歌C.mp3",
-            "蒲田行進曲A.mp3",
-            "蒲田行進曲B.mp3",
+            "ｺﾞ蒲田行進曲A.mp3",
+            "ｺﾞ蒲田行進曲B.mp3",
             "コーラルリーフ.mp3",
             "Sunrise.mp3",
             "クラルテ.mp3",
             "恋の通勤列車.mp3",
             "see you again.mp3",
             "アマリリス赤羽.mp3",
-            "熱き星たちよA.mp3",
-            "熱き星たちよB.mp3",
+            "ｺﾞ熱き星たちよA.mp3",
+            "ｺﾞ熱き星たちよB.mp3",
             "ムーンストーン.mp3",
             "春.mp3",
             "春 new ver.mp3",
@@ -246,7 +246,7 @@
             "ジュピターB.mp3",
             "ジュピターE.mp3",
             "ジュピターG.mp3",
-            "Vamos Ardija.mp3",
+            "ｺﾞVamos Ardija.mp3",
             "『四季』春.mp3",
             "『四季』秋.mp3",
             "フラワーショップ.mp3",
@@ -265,8 +265,8 @@
             "sunny islands.mp3",
             "くるみあそび.mp3",
             "春待ち風 V2.mp3",
-            "銀河鉄道999 AメロVer.mp3",
-            "銀河鉄道999 サビVer.mp3",
+            "ｺﾞ銀河鉄道999 AメロVer.mp3",
+            "ｺﾞ銀河鉄道999 サビVer.mp3",
             "夏色の時間.mp3",
             "小川のせせらぎ.mp3",
             "新たな季節.mp3",
@@ -300,12 +300,12 @@
             "古いオルゴール.mp3",
             "南風の行方.mp3",
             "公園通り.mp3",
-            "カリフォルニア・シャワー上.mp3",
-            "カリフォルニア・シャワー下.mp3",
+            "ｺﾞカリフォルニア・シャワー上.mp3",
+            "ｺﾞカリフォルニア・シャワー下.mp3",
             "接近メロディー京都線.mp3",
             "接近メロディーオリジナルチャイム7.mp3",
             "接近メロディー阪急.mp3",
-            "大阪梅田 京都線.mp3",
+            "ｺﾞ大阪梅田 京都線.mp3",
         ];
 
         const musicSelect = document.getElementById('musicSelect');
@@ -322,6 +322,7 @@
             'JR-SH': [],
             'JRE-IKST': [],
             '一般': [],
+            'ご当地': [],
             '接近メロディー': []
         };
 
@@ -331,6 +332,8 @@
                 groups['JR-SH'].push(file);
             } else if (file.startsWith('JRE-IKST')) {
                 groups['JRE-IKST'].push(file);
+            } else if (file.startsWith('ｺﾞ')) {
+                groups['ご当地'].push(file);
             } else if (file.includes('接近メロディー')) {
                 groups['接近メロディー'].push(file);
             } else {
@@ -339,7 +342,7 @@
         });
 
         // 表示順を指定
-        const displayOrder = ['JR-SH', 'JRE-IKST', '一般', '接近メロディー'];
+        const displayOrder = ['JR-SH', 'JRE-IKST', '一般', 'ご当地', '接近メロディー'];
 
         displayOrder.forEach(label => {
             const files = groups[label];
@@ -358,6 +361,8 @@
                         .replace(/\.mp3$/i, '')
                         .replace(/接近メロディー/i, '')
                         .trim();
+                } else if (label === 'ご当地') {
+                    option.textContent = file.replace(/\.mp3$/i, '').replace(/^ｺﾞ/, '');
                 } else {
                     option.textContent = file.replace(/\.mp3$/i, '');
                 }
@@ -479,6 +484,9 @@
             }
             const file = playList[playIndex];
             h1.textContent = file.replace(/\.mp3$/i, '');
+            if (file.startsWith('ｺﾞ')) {
+                h1.textContent = h1.textContent.replace(/^ｺﾞ/, '');
+            }
 
             // 新しいaudio要素を作成
             const audio = document.createElement('audio');
