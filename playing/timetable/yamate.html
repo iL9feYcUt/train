@@ -655,6 +655,58 @@
       }
     }
 
+    // --- 音声案内機能 1番線 ---
+    let lastAnnouncedTime1 = null;
+    function playAudioSequence1(train) {
+      // ①接近音
+      const files = [
+        'atos/ATOS接近音.mp3',
+        'atos/w/まもなく1番線に.mp3',
+        // ③種別
+        train.type === '快　速' || train.type === '快' ? 'atos/w/快速.mp3' : 'atos/w/各駅停車.mp3',
+        // ④行先
+        `atos/w/${train.dest}行がまいります.mp3`,
+        // ⑤注意喚起
+        'atos/w/危ないですから.mp3'
+      ];
+      let idx = 0;
+      function playNext() {
+        if (idx >= files.length) return;
+        const audio = new Audio(files[idx]);
+        idx++;
+        audio.addEventListener('ended', playNext);
+        audio.play();
+      }
+      playNext();
+    }
+
+    function checkAndAnnounce1() {
+      if (!trains1 || trains1.length === 0) return;
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      // 直近の列車
+      const nextTrain = trains1.find(t => t.time && (() => {
+        const [h, m] = t.time.split(':').map(Number);
+        let min = h * 60 + m;
+        if (h === 0 || h === 1) min += 1440;
+        return min >= nowMinutes;
+      })());
+      if (!nextTrain || !nextTrain.time) return;
+      const [h, m] = nextTrain.time.split(':').map(Number);
+      let trainMin = h * 60 + m;
+      if (h === 0 || h === 1) trainMin += 1440;
+      // 1分前
+      if (trainMin - nowMinutes === 1) {
+        if (lastAnnouncedTime1 !== nextTrain.time) {
+          playAudioSequence1(nextTrain);
+          lastAnnouncedTime1 = nextTrain.time;
+        }
+      } else if (trainMin - nowMinutes > 1) {
+        // まだ先の列車ならリセット
+        lastAnnouncedTime1 = null;
+      }
+    }
+
     // 初回ロード
     loadTimetable1();
     loadTimetable2();
@@ -665,6 +717,8 @@
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
     setInterval(render, 100);
+    // 1番線音声案内チェック（1秒ごと）
+    setInterval(checkAndAnnounce1, 1000);
   </script>
 </body>
 
