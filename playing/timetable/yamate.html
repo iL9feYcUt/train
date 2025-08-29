@@ -534,30 +534,32 @@
     // 1番線のデータ取得（2番線と同様、URLのみ変更）
     async function loadTimetable1() {
       const now = new Date();
-      // 1番線用JREast公式の時刻表URL（平日/休日）
+      // ローカルHTMLファイルから取得
       const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605011.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605010.html';
+        ? 'yamate/1h.html'
+        : 'yamate/1.html';
       try {
-        // allorigins経由でクロスオリジン取得
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(targetUrl);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
-        // legend_dest抽出
-        let legend_dest = undefined;
-        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-        if (legendMatch) {
-          try {
-            eval('legend_dest = ' + legendMatch[1]);
-          } catch (e) {
-            legend_dest = undefined;
-          }
-        }
+        const html = await res.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        // 公式HTMLと同じ構造を仮定
         const rows = doc.querySelectorAll('table.result_03 tr');
         const tempTrains = [];
+        // legend_dest対応
+        let legend_dest = undefined;
+        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
+        if (legendScript) {
+          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+          if (legendMatch) {
+            try {
+              eval('legend_dest = ' + legendMatch[1]);
+            } catch (e) {
+              legend_dest = undefined;
+            }
+          }
+        }
         rows.forEach(tr => {
           const hourTd = tr.querySelector('td');
           const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
@@ -594,30 +596,32 @@
     // 2番線のデータ取得（従来通り）
     async function loadTimetable2() {
       const now = new Date();
-      // JREast公式の時刻表URL（平日/休日）
+      // ローカルHTMLファイルから取得
       const targetUrl = isHoliday(now)
-        ? 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605021.html'
-        : 'https://www.jreast-timetable.jp/2508/timetable/tt1605/1605020.html';
+        ? 'yamate/2h.html'
+        : 'yamate/2.html';
       try {
-        // allorigins経由でクロスオリジン取得
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
+        const res = await fetch(targetUrl);
         if (!res.ok) throw new Error('ファイル取得失敗');
-        const json = await res.json();
-        const html = json.contents;
-        // legend_dest抽出
-        let legend_dest = undefined;
-        const legendMatch = html.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-        if (legendMatch) {
-          try {
-            eval('legend_dest = ' + legendMatch[1]);
-          } catch (e) {
-            legend_dest = undefined;
-          }
-        }
+        const html = await res.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        // 公式HTMLと同じ構造を仮定
         const rows = doc.querySelectorAll('table.result_03 tr');
         const tempTrains = [];
+        // legend_dest対応
+        let legend_dest = undefined;
+        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
+        if (legendScript) {
+          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+          if (legendMatch) {
+            try {
+              eval('legend_dest = ' + legendMatch[1]);
+            } catch (e) {
+              legend_dest = undefined;
+            }
+          }
+        }
         rows.forEach(tr => {
           const hourTd = tr.querySelector('td');
           const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
