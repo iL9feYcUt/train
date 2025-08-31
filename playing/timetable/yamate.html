@@ -287,6 +287,7 @@
       <div class="rows" id="rows2"></div>
     </div>
   </div>
+  <button id="enable-audio-btn" style="position:fixed;top:30px;right:30px;z-index:1000;font-size:15px;padding:6px 12px;">音声案内を有効にする</button>
   <script>
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
@@ -657,25 +658,39 @@
 
     // --- 音声案内機能 1番線 ---
     let lastAnnouncedTime1 = null;
+    let audioEnabled = false;
+    // ユーザー操作で有効化
+    document.getElementById('enable-audio-btn').addEventListener('click', function() {
+      audioEnabled = true;
+      this.style.display = 'none';
+    });
+
     function playAudioSequence1(train) {
-      // ①接近音
+      if (!audioEnabled) return;
       const files = [
         'atos/ATOS接近音.mp3',
         'atos/w/まもなく1番線に.mp3',
-        // ③種別
         train.type === '快　速' || train.type === '快' ? 'atos/w/快速.mp3' : 'atos/w/各駅停車.mp3',
-        // ④行先
         `atos/w/${train.dest}行がまいります.mp3`,
-        // ⑤注意喚起
         'atos/w/危ないですから.mp3'
       ];
       let idx = 0;
       function playNext() {
         if (idx >= files.length) return;
         const audio = new Audio(files[idx]);
+        let advanced = false;
+        audio.addEventListener('ended', () => {
+          if (!advanced) { advanced = true; playNext(); }
+        });
+        audio.addEventListener('error', () => {
+          // ファイルが存在しない場合はスキップ
+          if (!advanced) { advanced = true; playNext(); }
+        });
         idx++;
-        audio.addEventListener('ended', playNext);
-        audio.play();
+        audio.play().catch(() => {
+          // play()自体でエラーの場合もスキップ
+          if (!advanced) { advanced = true; playNext(); }
+        });
       }
       playNext();
     }
