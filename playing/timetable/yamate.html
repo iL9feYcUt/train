@@ -665,8 +665,34 @@
       this.style.display = 'none';
     });
 
+    // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
+    // --- 音声プリロード機能 ---
+    const preloadFiles = [
+      'atos/ATOS接近音.mp3',
+      'atos/w/まもなく1番線に.mp3',
+      'atos/w/快速.mp3',
+      'atos/w/各駅停車.mp3',
+      'atos/w/危ないですから.mp3'
+      // 行先ごとのファイルは動的にプリロード
+    ];
+    const destList = ['大船','磯子','桜木町','鶴見','蒲田','品川','上野','東十条','赤羽','南浦和','大宮','東神奈川','八王子','橋本'];
+    destList.forEach(dest => {
+      preloadFiles.push(`atos/w/${dest}行がまいります.mp3`);
+    });
+    const audioCache = {};
+    function preloadAudios() {
+      preloadFiles.forEach(src => {
+        const audio = new Audio(src);
+        audio.preload = 'auto';
+        audio.load();
+        audioCache[src] = audio;
+      });
+    }
+    window.addEventListener('DOMContentLoaded', preloadAudios);
+
+    let audioPlaying = false;
     function playAudioSequence1(train) {
-      if (!audioEnabled) return;
+      if (!audioEnabled || audioPlaying) return;
       const files = [
         'atos/ATOS接近音.mp3',
         'atos/w/まもなく1番線に.mp3',
@@ -675,21 +701,40 @@
         'atos/w/危ないですから.mp3'
       ];
       let idx = 0;
+      audioPlaying = true;
       function playNext() {
-        if (idx >= files.length) return;
-        const audio = new Audio(files[idx]);
+        if (idx >= files.length) {
+          audioPlaying = false;
+          return;
+        }
+        let audio;
+        if (audioCache[files[idx]]) {
+          // プリロード済みAudioをcloneNodeで複製して使う
+          audio = audioCache[files[idx]].cloneNode();
+        } else {
+          audio = new Audio(files[idx]);
+        }
         let advanced = false;
         audio.addEventListener('ended', () => {
-          if (!advanced) { advanced = true; playNext(); }
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
         });
         audio.addEventListener('error', () => {
-          // ファイルが存在しない場合はスキップ
-          if (!advanced) { advanced = true; playNext(); }
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
         });
-        idx++;
         audio.play().catch(() => {
-          // play()自体でエラーの場合もスキップ
-          if (!advanced) { advanced = true; playNext(); }
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
         });
       }
       playNext();
