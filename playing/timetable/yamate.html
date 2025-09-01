@@ -428,15 +428,21 @@
     }
 
     function getUpcomingTrains(data, count = 5) {
+      // デバッグ用: 現在時刻を固定
       const now = new Date();
+      /*now.setHours(23);
+      now.setMinutes(59);
+      now.setSeconds(0);
+      now.setMilliseconds(0); */
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 分単位で日付またぎ対応
-      const trainsWithMinutes = data.map(d => {
+      // 23:00以降は0:00～3:59も“今日”の終電として続けて表示する
+      // 4:00～翌3:59を“同じ一日”として扱う
+      let trainsWithMinutes = data.map(d => {
         if (!d.time) return { ...d, minutes: null };
         const [h, m] = d.time.split(':').map(Number);
         let minutes = h * 60 + m;
-        // 0時台・1時台は翌日分として+1440分
-        if (h === 0 || h === 1) minutes += 1440;
+        // 4:00～23:59はそのまま、0:00～3:59は+1440分（翌日分）
+        if (h < 4) minutes += 1440;
         return { ...d, minutes };
       });
       // 現在時刻が23時以降なら、nowMinutesも+1440分して翌日分扱い
@@ -667,18 +673,25 @@
 
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
+    // --- 行先・種別リスト管理 ---
+    const destList = ['大船','磯子','桜木町','鶴見','蒲田','品川','上野','東十条','赤羽','南浦和','大宮','東神奈川','八王子','橋本'];
+    // よく使う種別を追加。必要に応じて拡張可能
+    const typeList = ['各駅停車','快速','快　速','通勤快速','普通'];
+
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
       'atos/w/まもなく1番線に.mp3',
-      'atos/w/快速.mp3',
-      'atos/w/各駅停車.mp3',
       'atos/w/危ないですから.mp3'
-      // 行先ごとのファイルは動的にプリロード
     ];
-    const destList = ['大船','磯子','桜木町','鶴見','蒲田','品川','上野','東十条','赤羽','南浦和','大宮','東神奈川','八王子','橋本'];
+    // 行先音声
     destList.forEach(dest => {
       preloadFiles.push(`atos/w/${dest}行がまいります.mp3`);
     });
+    // 種別音声
+    typeList.forEach(type => {
+      preloadFiles.push(`atos/w/${type}.mp3`);
+    });
+
     const audioCache = {};
     function preloadAudios() {
       preloadFiles.forEach(src => {
@@ -693,10 +706,15 @@
     let audioPlaying = false;
     function playAudioSequence1(train) {
       if (!audioEnabled || audioPlaying) return;
+      // 種別音声ファイル名生成（リストにない場合はそのまま）
+      let typeFile = `atos/w/${train.type}.mp3`;
+      // ファイル名に使えない文字を除去（空白や記号）
+      typeFile = typeFile.replace(/\s/g, '');
+      // 音声ファイル配列
       const files = [
         'atos/ATOS接近音.mp3',
         'atos/w/まもなく1番線に.mp3',
-        train.type === '快　速' || train.type === '快' ? 'atos/w/快速.mp3' : 'atos/w/各駅停車.mp3',
+        typeFile,
         `atos/w/${train.dest}行がまいります.mp3`,
         'atos/w/危ないですから.mp3'
       ];
@@ -709,7 +727,6 @@
         }
         let audio;
         if (audioCache[files[idx]]) {
-          // プリロード済みAudioをcloneNodeで複製して使う
           audio = audioCache[files[idx]].cloneNode();
         } else {
           audio = new Audio(files[idx]);
