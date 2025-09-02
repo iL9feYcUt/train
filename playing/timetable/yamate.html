@@ -287,7 +287,8 @@
       <div class="rows" id="rows2"></div>
     </div>
   </div>
-  <button id="enable-audio-btn" style="position:fixed;top:30px;right:30px;z-index:1000;font-size:15px;padding:6px 12px;">音声案内を有効にする</button>
+  <button id="enable-audio-btn"
+    style="position:fixed;top:30px;right:30px;z-index:1000;font-size:15px;padding:6px 12px;">音声案内を有効にする</button>
   <script>
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
@@ -666,7 +667,7 @@
     let lastAnnouncedTime1 = null;
     let audioEnabled = false;
     // ユーザー操作で有効化
-    document.getElementById('enable-audio-btn').addEventListener('click', function() {
+    document.getElementById('enable-audio-btn').addEventListener('click', function () {
       audioEnabled = true;
       this.style.display = 'none';
     });
@@ -674,13 +675,14 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船','磯子','桜木町','鶴見','蒲田','品川','上野','東十条','赤羽','南浦和','大宮','東神奈川','八王子','橋本'];
+    const destList = ['大船', '磯子', '桜木町', '鶴見', '蒲田', '品川', '上野', '東十条', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '橋本'];
     // よく使う種別を追加。必要に応じて拡張可能
-    const typeList = ['各駅停車','快速','快　速','通勤快速','普通'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '普通'];
 
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
       'atos/w/まもなく1番線に.mp3',
+      'atos/w/まもなく2番線に.mp3',
       'atos/w/危ないですから.mp3'
     ];
     // 行先音声
@@ -704,18 +706,21 @@
     window.addEventListener('DOMContentLoaded', preloadAudios);
 
     let audioPlaying = false;
+
+
     function playAudioSequence1(train) {
       if (!audioEnabled || audioPlaying) return;
-      // 種別音声ファイル名生成（リストにない場合はそのまま）
-      let typeFile = `atos/w/${train.type}.mp3`;
-      // ファイル名に使えない文字を除去（空白や記号）
-      typeFile = typeFile.replace(/\s/g, '');
-      // 音声ファイル配列
+      let typeFile = `atos/w/${train.type}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/w/${train.dest}行がまいります.mp3`;
+      // 「～行がまいります」がなければ「電車がまいります」に置き換え
+      if (!audioCache[destFile]) {
+        destFile = 'atos/w/電車がまいります.mp3';
+      }
       const files = [
         'atos/ATOS接近音.mp3',
         'atos/w/まもなく1番線に.mp3',
         typeFile,
-        `atos/w/${train.dest}行がまいります.mp3`,
+        destFile,
         'atos/w/危ないですから.mp3'
       ];
       let idx = 0;
@@ -784,6 +789,92 @@
       }
     }
 
+    // --- 音声案内機能 2番線 ---
+    let lastAnnouncedTime2 = null;
+    let audioPlaying2 = false;
+
+    function playAudioSequence2(train) {
+      if (!audioEnabled || audioPlaying2) return;
+      let typeFile = `atos/w/${train.type}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/w/${train.dest}行がまいります.mp3`;
+      // 「～行がまいります」がなければ「電車がまいります」に置き換え
+      if (!audioCache[destFile]) {
+        destFile = 'atos/w/電車がまいります.mp3';
+      }
+      const files = [
+        'atos/ATOS接近音.mp3',
+        'atos/w/まもなく2番線に.mp3',
+        typeFile,
+        destFile,
+        'atos/w/危ないですから.mp3'
+      ];
+      let idx = 0;
+      audioPlaying2 = true;
+      function playNext() {
+        if (idx >= files.length) {
+          audioPlaying2 = false;
+          return;
+        }
+        let audio;
+        if (audioCache[files[idx]]) {
+          audio = audioCache[files[idx]].cloneNode();
+        } else {
+          audio = new Audio(files[idx]);
+        }
+        let advanced = false;
+        audio.addEventListener('ended', () => {
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
+        });
+        audio.addEventListener('error', () => {
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
+        });
+        audio.play().catch(() => {
+          if (!advanced) {
+            advanced = true;
+            idx++;
+            playNext();
+          }
+        });
+      }
+      playNext();
+    }
+
+    function checkAndAnnounce2() {
+      if (!trains2 || trains2.length === 0) return;
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const nowSeconds = now.getSeconds();
+      const nextTrain = trains2.find(t => t.time && (() => {
+        const [h, m] = t.time.split(':').map(Number);
+        let min = h * 60 + m;
+        if (h === 0 || h === 1) min += 1440;
+        return min >= nowMinutes;
+      })());
+      if (!nextTrain || !nextTrain.time) return;
+      const [h, m] = nextTrain.time.split(':').map(Number);
+      let trainMin = h * 60 + m;
+      if (h === 0 || h === 1) trainMin += 1440;
+      const trainTimeSec = trainMin * 60;
+      const nowTimeSec = nowMinutes * 60 + nowSeconds;
+      // 30秒前
+      if (trainTimeSec - nowTimeSec <= 30 && trainTimeSec - nowTimeSec > 0) {
+        if (lastAnnouncedTime2 !== nextTrain.time) {
+          playAudioSequence2(nextTrain);
+          lastAnnouncedTime2 = nextTrain.time;
+        }
+      } else if (trainTimeSec - nowTimeSec > 30) {
+        lastAnnouncedTime2 = null;
+      }
+    }
+
     // 初回ロード
     loadTimetable1();
     loadTimetable2();
@@ -794,8 +885,9 @@
     }, 30000);
     // 画面表示も0.1秒ごとに更新（時刻切替用）
     setInterval(render, 100);
-    // 1番線音声案内チェック（1秒ごと）
-    setInterval(checkAndAnnounce1, 1000);
+    // 1番線音声案内チェック（0.1秒ごと）
+    setInterval(checkAndAnnounce1, 100);
+    setInterval(checkAndAnnounce2, 100);
   </script>
 </body>
 
