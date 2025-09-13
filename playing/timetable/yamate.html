@@ -429,34 +429,32 @@
     }
 
     function getUpcomingTrains(data, count = 5) {
-      // デバッグ用: 現在時刻を固定
       const now = new Date();
-      /*now.setHours(23);
-      now.setMinutes(59);
-      now.setSeconds(0);
-      now.setMilliseconds(0); */
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 23:00以降は0:00～3:59も“今日”の終電として続けて表示する
-      // 4:00～翌3:59を“同じ一日”として扱う
+      let nowMinutes = now.getHours() * 60 + now.getMinutes();
+      // 4:00未満は翌日分として扱う
+      if (now.getHours() < 4) nowMinutes += 1440;
+
+      // 各列車の分数を計算
       let trainsWithMinutes = data.map(d => {
         if (!d.time) return { ...d, minutes: null };
         const [h, m] = d.time.split(':').map(Number);
         let minutes = h * 60 + m;
-        // 4:00～23:59はそのまま、0:00～3:59は+1440分（翌日分）
+        // 4:00未満は+1440分（翌日分）
         if (h < 4) minutes += 1440;
         return { ...d, minutes };
       });
-      // 現在時刻が23時以降なら、nowMinutesも+1440分して翌日分扱い
-      let compareMinutes = nowMinutes;
-      if (now.getHours() >= 24) compareMinutes += 1440;
+
       // 時刻順にソート
       const sorted = trainsWithMinutes
         .filter(d => d.minutes !== null)
         .sort((a, b) => a.minutes - b.minutes);
+
       // 現在時刻以降の電車を抽出
-      const upcoming = sorted.filter(d => d.minutes >= compareMinutes);
+      const upcoming = sorted.filter(d => d.minutes >= nowMinutes);
+
       // 必要数だけ取得
       const result = upcoming.slice(0, count).map(d => ({ type: d.type, time: d.time, dest: d.dest, cars: d.cars }));
+
       // 足りない場合は空行で埋める
       while (result.length < count) {
         result.push({ type: '', time: '', dest: '', cars: '' });
