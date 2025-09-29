@@ -343,6 +343,7 @@
         const groups = {
             'JR-SH': [],
             'JRE-IKST': [],
+            'JRE-IKST（新幹線）': [],
             '一般': [],
             'ご当地': [],
             '接近メロディー': []
@@ -352,6 +353,8 @@
         mp3Files.forEach(file => {
             if (file.startsWith('JR-SH')) {
                 groups['JR-SH'].push(file);
+            } else if (file.startsWith('JRE-IKST-1')) {
+                groups['JRE-IKST（新幹線）'].push(file);
             } else if (file.startsWith('JRE-IKST')) {
                 groups['JRE-IKST'].push(file);
             } else if (file.startsWith('ｺﾞ')) {
@@ -364,7 +367,7 @@
         });
 
         // 表示順を指定
-        const displayOrder = ['JR-SH', 'JRE-IKST', '一般', 'ご当地', '接近メロディー'];
+        const displayOrder = ['JR-SH', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー'];
 
         displayOrder.forEach(label => {
             const files = groups[label];
