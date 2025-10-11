@@ -191,8 +191,8 @@
     }
 
     .time {
-      font-size: 73px;
-      text-align: center;
+      font-size: 75px;
+      text-align: right;
     }
 
     .platform {
@@ -227,6 +227,7 @@
       padding: 2px 0px;
       margin-right: 10px;
       display: inline-block;
+      width: 105px;
     }
 
     .dest-text {
@@ -235,6 +236,7 @@
       color: #fff;
       display: flex;
       align-items: center;
+      width: 280px;
     }
 
     td {
@@ -290,6 +292,21 @@
   <button id="enable-audio-btn"
     style="position:fixed;top:30px;right:30px;z-index:1000;font-size:15px;padding:6px 12px;">音声案内を有効にする</button>
   <script>
+    let debugTime = null; // 例: "23:58" など。nullなら通常の現在時刻
+    function getNowDate() {
+      if (debugTime) {
+        const now = new Date();
+        const [h, m] = debugTime.split(':').map(Number);
+        now.setHours(h);
+        now.setMinutes(m);
+        now.setSeconds(0);
+        now.setMilliseconds(0);
+        return now;
+      } else {
+        return new Date();
+      }
+    }
+
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
       '東神奈川': 'JH13', '八王子': 'JH32', '橋本': 'JH28'
@@ -364,9 +381,16 @@
 
         // 時刻
         const timeTd = document.createElement('td');
-        timeTd.style.textAlign = 'center';
-        timeTd.style.width = '120px'; // 幅を固定
-        timeTd.innerHTML = datum.time ? `<div class="time">${datum.time}</div>` : '<div class="time">&nbsp;</div>';
+        timeTd.style.textAlign = 'right';
+        if (datum.time) {
+          const [h, m] = datum.time.split(':');
+          const hour = String(Number(h)); // 先頭0を除去
+          const minute = String(m).padStart(2, '0');
+          // 幅を固定するためspanでmin-width指定
+          timeTd.innerHTML = `<div class="time" style="min-width:110px;">${hour}:${minute}</div>`;
+        } else {
+          timeTd.innerHTML = '<div class="time" style="min-width:110px;">&nbsp;</div>';
+        }
 
         // 行先＋駅ナンバリング
         const destTd = document.createElement('td');
@@ -429,9 +453,8 @@
     }
 
     function getUpcomingTrains(data, count = 5) {
-      const now = new Date();
+      const now = getNowDate();
       let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 4:00未満は翌日分として扱う
       if (now.getHours() < 4) nowMinutes += 1440;
 
       // 各列車の分数を計算
@@ -771,19 +794,19 @@
 
     function checkAndAnnounce1() {
       if (!trains1 || trains1.length === 0) return;
-      const now = new Date();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      // 直近の列車
+      const now = getNowDate();
+      let nowMinutes = now.getHours() * 60 + now.getMinutes();
+      if (now.getHours() < 4) nowMinutes += 1440; // ← 追加
       const nextTrain = trains1.find(t => t.time && (() => {
         const [h, m] = t.time.split(':').map(Number);
         let min = h * 60 + m;
-        if (h === 0 || h === 1) min += 1440;
+        if (h < 4) min += 1440;
         return min >= nowMinutes;
       })());
       if (!nextTrain || !nextTrain.time) return;
       const [h, m] = nextTrain.time.split(':').map(Number);
       let trainMin = h * 60 + m;
-      if (h === 0 || h === 1) trainMin += 1440;
+      if (h < 4) trainMin += 1440;
       // 1分前
       if (trainMin - nowMinutes === 1) {
         if (lastAnnouncedTime1 !== nextTrain.time) {
@@ -791,7 +814,6 @@
           lastAnnouncedTime1 = nextTrain.time;
         }
       } else if (trainMin - nowMinutes > 1) {
-        // まだ先の列車ならリセット
         lastAnnouncedTime1 = null;
       }
     }
@@ -866,19 +888,20 @@
 
     function checkAndAnnounce2() {
       if (!trains2 || trains2.length === 0) return;
-      const now = new Date();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const now = getNowDate();
+      let nowMinutes = now.getHours() * 60 + now.getMinutes();
+      if (now.getHours() < 4) nowMinutes += 1440; // ← 追加
       const nowSeconds = now.getSeconds();
       const nextTrain = trains2.find(t => t.time && (() => {
         const [h, m] = t.time.split(':').map(Number);
         let min = h * 60 + m;
-        if (h === 0 || h === 1) min += 1440;
+        if (h < 4) min += 1440;
         return min >= nowMinutes;
       })());
       if (!nextTrain || !nextTrain.time) return;
       const [h, m] = nextTrain.time.split(':').map(Number);
       let trainMin = h * 60 + m;
-      if (h === 0 || h === 1) trainMin += 1440;
+      if (h < 4) trainMin += 1440;
       const trainTimeSec = trainMin * 60;
       const nowTimeSec = nowMinutes * 60 + nowSeconds;
       // 30秒前
