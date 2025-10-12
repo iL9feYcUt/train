@@ -704,15 +704,20 @@
       'atos/ATOS接近音.mp3',
       'atos/w/まもなく1番線に.mp3',
       'atos/w/まもなく2番線に.mp3',
-      'atos/w/危ないですから.mp3'
+      'atos/w/危ないですから.mp3',
+      'atos/m/まもなく1番線に.mp3',
+      'atos/m/まもなく2番線に.mp3',
+      'atos/m/危ないですから.mp3'
     ];
     // 行先音声
     destList.forEach(dest => {
       preloadFiles.push(`atos/w/${dest}行がまいります.mp3`);
+      preloadFiles.push(`atos/m/${dest}行がまいります.mp3`);
     });
     // 種別音声
     typeList.forEach(type => {
       preloadFiles.push(`atos/w/${type}.mp3`);
+      preloadFiles.push(`atos/m/${type}.mp3`);
     });
 
     const audioCache = {};
@@ -825,8 +830,8 @@
 
     function playAudioSequence2(train) {
       if (!audioEnabled || audioPlaying2) return;
-      let typeFile = `atos/w/${train.type}.mp3`.replace(/\s/g, '');
-      let destFile = `atos/w/${train.dest}行がまいります.mp3`;
+      let typeFile = `atos/m/${train.type}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/m/${train.dest}行がまいります.mp3`;
       // どちらか一方でもファイルが無い場合は両方まとめて置き換え
       const typeExists = !!audioCache[typeFile];
       const destExists = !!audioCache[destFile];
@@ -834,10 +839,10 @@
       if (typeExists && destExists) {
         files = [
           'atos/ATOS接近音.mp3',
-          'atos/w/まもなく2番線に.mp3',
+          'atos/m/まもなく2番線に.mp3',
           typeFile,
           destFile,
-          'atos/w/危ないですから.mp3'
+          'atos/m/危ないですから.mp3'
         ];
       } else {
         files = [
