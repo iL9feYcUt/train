@@ -696,7 +696,7 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '鶴見', '蒲田', '品川', '上野', '東十条', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '橋本'];
+    const destList = ['大船', '磯子', '桜木町', '鶴見', '蒲田', '品川', '上野', '東十条', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '橋本', '町田'];
     // よく使う種別を追加。必要に応じて拡張可能
     const typeList = ['各駅停車', '快速', '通勤快速', '普通'];
 
@@ -718,6 +718,11 @@
     typeList.forEach(type => {
       preloadFiles.push(`atos/w/${type}.mp3`);
       preloadFiles.push(`atos/m/${type}.mp3`);
+    });
+    preloadFiles.push('atos/m/この電車は.mp3');
+    preloadFiles.push('atos/m/行の最終です.mp3');
+    destList.forEach(dest => {
+      preloadFiles.push(`atos/m/${dest}.mp3`);
     });
 
     const audioCache = {};
@@ -852,9 +857,70 @@
           'atos/w/危ないですから.mp3'
         ];
       }
+
+      // --- 最終電車放送を追加（2秒ラグ後に） ---
+      let isLast = isLastTrainToday(trains2, train);
+      let lastTrainFiles = [];
+      if (isLast) {
+        lastTrainFiles = [
+          'atos/m/この電車は.mp3',
+          `atos/m/${train.dest}.mp3`,
+          'atos/m/行の最終です.mp3'
+        ];
+      }
+
       let idx = 0;
       audioPlaying2 = true;
       function playNext() {
+        // 通常放送が終わったら2秒ラグ→最終放送
+        if (idx === files.length && isLast && lastTrainFiles.length > 0) {
+          setTimeout(() => {
+            idx = -100; // 特別な値で分岐
+            playNext();
+          }, 2000);
+          return;
+        }
+        // 最終放送パート
+        if (idx === -100) {
+          let lastIdx = 0;
+          function playLast() {
+            if (lastIdx >= lastTrainFiles.length) {
+              audioPlaying2 = false;
+              return;
+            }
+            let audio;
+            if (audioCache[lastTrainFiles[lastIdx]]) {
+              audio = audioCache[lastTrainFiles[lastIdx]].cloneNode();
+            } else {
+              audio = new Audio(lastTrainFiles[lastIdx]);
+            }
+            let advanced = false;
+            audio.addEventListener('ended', () => {
+              if (!advanced) {
+                advanced = true;
+                lastIdx++;
+                playLast();
+              }
+            });
+            audio.addEventListener('error', () => {
+              if (!advanced) {
+                advanced = true;
+                lastIdx++;
+                playLast();
+              }
+            });
+            audio.play().catch(() => {
+              if (!advanced) {
+                advanced = true;
+                lastIdx++;
+                playLast();
+              }
+            });
+          }
+          playLast();
+          return;
+        }
+        // 通常放送パート
         if (idx >= files.length) {
           audioPlaying2 = false;
           return;
@@ -918,6 +984,27 @@
       } else if (trainTimeSec - nowTimeSec > 30) {
         lastAnnouncedTime2 = null;
       }
+    }
+
+    function isLastTrainToday(trains, train) {
+      // その日の4:00～翌4:00までの同じ行先の列車のうち、最も遅いものか判定
+      if (!train.time || !train.dest) return false;
+      // その日の始まり（4:00）と終わり（翌4:00）の分数
+      const [h, m] = train.time.split(':').map(Number);
+      let trainMin = h * 60 + m;
+      if (h < 4) trainMin += 1440;
+
+      // 同じ行先の列車を抽出
+      const sameDestTrains = trains.filter(t => t.dest === train.dest && t.time).map(t => {
+        const [hh, mm] = t.time.split(':').map(Number);
+        let min = hh * 60 + mm;
+        if (hh < 4) min += 1440;
+        return { ...t, min };
+      });
+      if (sameDestTrains.length === 0) return false;
+      // 最大時刻を持つ列車が自分自身なら最終
+      const maxTrain = sameDestTrains.reduce((a, b) => (a.min > b.min ? a : b));
+      return maxTrain.time === train.time;
     }
 
     // 初回ロード
