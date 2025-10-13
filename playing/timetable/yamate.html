@@ -696,9 +696,9 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '鶴見', '蒲田', '品川', '上野', '東十条', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '橋本', '町田'];
+    const destList = ['大船', '磯子', '桜木町', '鶴見', '蒲田', '品川', '上野', '東十条', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '橋本', '町田', '川越', '古河'];
     // よく使う種別を追加。必要に応じて拡張可能
-    const typeList = ['各駅停車', '快速', '通勤快速', '普通'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通'];
 
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
@@ -707,7 +707,8 @@
       'atos/w/危ないですから.mp3',
       'atos/m/まもなく1番線に.mp3',
       'atos/m/まもなく2番線に.mp3',
-      'atos/m/危ないですから.mp3'
+      'atos/m/危ないですから.mp3',
+      'atos//行がまいります.mp3',
     ];
     // 行先音声
     destList.forEach(dest => {
@@ -743,26 +744,34 @@
       if (!audioEnabled || audioPlaying) return;
       let typeFile = `atos/w/${train.type}.mp3`.replace(/\s/g, '');
       let destFile = `atos/w/${train.dest}行がまいります.mp3`;
-      // どちらか一方でもファイルが無い場合は両方まとめて置き換え
-      const typeExists = !!audioCache[typeFile];
-      const destExists = !!audioCache[destFile];
-      let files;
-      if (typeExists && destExists) {
-        files = [
-          'atos/ATOS接近音.mp3',
-          'atos/w/まもなく1番線に.mp3',
-          typeFile,
-          destFile,
-          'atos/w/危ないですから.mp3'
-        ];
-      } else {
-        files = [
-          'atos/ATOS接近音.mp3',
-          'atos/w/まもなく1番線に.mp3',
-          'atos/w/電車がまいります.mp3',
-          'atos/w/危ないですから.mp3'
-        ];
+      let destSingleFile = `atos/w/${train.dest}.mp3`;
+      let goFile = `atos/w/行がまいります.mp3`;
+
+      let files = [
+        'atos/ATOS接近音.mp3',
+        'atos/w/まもなく1番線に.mp3'
+      ];
+
+      function fileExists(src) {
+        return !!audioCache[src];
       }
+
+      if (fileExists(typeFile) && fileExists(destFile)) {
+        files.push(typeFile, destFile);
+      } else if (fileExists(typeFile)) {
+        files.push(typeFile);
+        if (fileExists(destSingleFile) && fileExists(goFile)) {
+          files.push(destSingleFile, goFile);
+        }
+      } else if (fileExists(destFile)) {
+        files.push(destFile);
+      } else {
+        if (fileExists(destSingleFile) && fileExists(goFile)) {
+          files.push(destSingleFile, goFile);
+        }
+      }
+      files.push('atos/w/危ないですから.mp3');
+
       let idx = 0;
       audioPlaying = true;
       function playNext() {
@@ -770,12 +779,8 @@
           audioPlaying = false;
           return;
         }
-        let audio;
-        if (audioCache[files[idx]]) {
-          audio = audioCache[files[idx]].cloneNode();
-        } else {
-          audio = new Audio(files[idx]);
-        }
+        let src = files[idx];
+        let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
         let advanced = false;
         audio.addEventListener('ended', () => {
           if (!advanced) {
@@ -837,26 +842,40 @@
       if (!audioEnabled || audioPlaying2) return;
       let typeFile = `atos/m/${train.type}.mp3`.replace(/\s/g, '');
       let destFile = `atos/m/${train.dest}行がまいります.mp3`;
-      // どちらか一方でもファイルが無い場合は両方まとめて置き換え
-      const typeExists = !!audioCache[typeFile];
-      const destExists = !!audioCache[destFile];
-      let files;
-      if (typeExists && destExists) {
-        files = [
-          'atos/ATOS接近音.mp3',
-          'atos/m/まもなく2番線に.mp3',
-          typeFile,
-          destFile,
-          'atos/m/危ないですから.mp3'
-        ];
-      } else {
-        files = [
-          'atos/ATOS接近音.mp3',
-          'atos/w/まもなく2番線に.mp3',
-          'atos/w/電車がまいります.mp3',
-          'atos/w/危ないですから.mp3'
-        ];
+      let destSingleFile = `atos/m/${train.dest}.mp3`;
+      let goFile = `atos/m/行がまいります.mp3`;
+
+      let files = [
+        'atos/ATOS接近音.mp3',
+        'atos/m/まもなく2番線に.mp3'
+      ];
+
+      // 判定
+      function fileExists(src) {
+        if (audioCache[src]) return true;
+        // プリロードされていない場合も、ファイルが存在するかを動的にチェック
+        // ただし同期的に判定できないので、ここでは「とりあえずpushして再生時にerrorでスキップ」にする
+        return true;
       }
+
+      // 種別・行先音声の組み立て
+      if (fileExists(typeFile) && fileExists(destFile)) {
+        files.push(typeFile, destFile);
+      } else if (fileExists(typeFile)) {
+        files.push(typeFile);
+        if (fileExists(destSingleFile) && fileExists(goFile)) {
+          files.push(destSingleFile, goFile);
+        }
+        // どちらかがなければスキップ
+      } else if (fileExists(destFile)) {
+        files.push(destFile);
+      } else {
+        if (fileExists(destSingleFile) && fileExists(goFile)) {
+          files.push(destSingleFile, goFile);
+        }
+        // どちらかがなければスキップ
+      }
+      files.push('atos/m/危ないですから.mp3');
 
       // --- 最終電車放送を追加（2秒ラグ後に） ---
       let isLast = isLastTrainToday(trains2, train);
@@ -864,7 +883,7 @@
       if (isLast) {
         lastTrainFiles = [
           'atos/m/この電車は.mp3',
-          `atos/m/${train.dest}.mp3`,
+          destSingleFile,
           'atos/m/行の最終です.mp3'
         ];
       }
@@ -888,12 +907,8 @@
               audioPlaying2 = false;
               return;
             }
-            let audio;
-            if (audioCache[lastTrainFiles[lastIdx]]) {
-              audio = audioCache[lastTrainFiles[lastIdx]].cloneNode();
-            } else {
-              audio = new Audio(lastTrainFiles[lastIdx]);
-            }
+            let src = lastTrainFiles[lastIdx];
+            let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
             let advanced = false;
             audio.addEventListener('ended', () => {
               if (!advanced) {
@@ -925,12 +940,8 @@
           audioPlaying2 = false;
           return;
         }
-        let audio;
-        if (audioCache[files[idx]]) {
-          audio = audioCache[files[idx]].cloneNode();
-        } else {
-          audio = new Audio(files[idx]);
-        }
+        let src = files[idx];
+        let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
         let advanced = false;
         audio.addEventListener('ended', () => {
           if (!advanced) {
