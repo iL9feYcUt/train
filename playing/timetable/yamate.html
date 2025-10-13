@@ -172,6 +172,7 @@
     }
 
     .type {
+      font-family: "Helvetica","ShinGo";
       font-size: 28px;
       width: 200px;
       color: #fff;
@@ -184,6 +185,7 @@
     }
 
     .route-label {
+      font-family: "Helvetica","ShinGo";
       width: 200px;
       font-size: 20px;
       margin: 0;
@@ -231,12 +233,22 @@
     }
 
     .dest-text {
+      font-family: "Helvetica","ShinGo";
       font-size: 52px;
       line-height: 100%;
       color: #fff;
       display: flex;
       align-items: center;
       width: 280px;
+    }
+
+    .dest-text .sx-shrink {
+      display: inline-block;
+      transform: scaleX(0.65);
+      /* 必要に応じて値を調整 */
+      transform-origin: left center;
+      vertical-align: middle;
+      white-space: nowrap;
     }
 
     td {
@@ -309,7 +321,7 @@
 
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
-      '東神奈川': 'JH13', '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23'
+      '東神奈川': 'JH13', '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19'
     };
     const lineColors = { JK: '#00bae8', JH: '#80C342' };
     const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838' };
@@ -357,7 +369,12 @@
         }
         const routeLabel = document.createElement('div');
         routeLabel.className = 'route-label';
-        routeLabel.textContent = routeName;
+        // ↓ここを修正
+        if (showEnglish && routeEn[routeName]) {
+          routeLabel.textContent = routeEn[routeName];
+        } else {
+          routeLabel.textContent = routeName;
+        }
         routeLabel.style.color = routeColor;
         routeLabel.style.background = 'none';
         routeLabel.style.marginBottom = '0px';
@@ -368,7 +385,12 @@
         const typeDiv = document.createElement('div');
         typeDiv.className = 'type';
         typeDiv.style.backgroundColor = typeBg;
-        typeDiv.textContent = datum.type || '\u00A0';
+        // ↓ここを修正
+        if (showEnglish && typeEn[datum.type]) {
+          typeDiv.textContent = typeEn[datum.type];
+        } else {
+          typeDiv.textContent = datum.type || '\u00A0';
+        }
         // 路線名が空なら種別の高さを倍に
         if (!routeName) {
           typeDiv.style.height = '50px';
@@ -413,9 +435,29 @@
             badge.style.marginLeft = '0px';
             destWrap.appendChild(badge);
           }
+          // 行先名テキストspan
           const destName = document.createElement('span');
-          destName.textContent = datum.dest;
           destName.style.marginLeft = '5px';
+          // ↓ここを修正
+          if (showEnglish && destEn[datum.dest]) {
+            destName.textContent = destEn[datum.dest];
+            // 英語表示時に横幅が狭い場合は縮小
+            // 仮想的にspanを配置して幅を測定
+            const testSpan = document.createElement('span');
+            testSpan.style.visibility = 'hidden';
+            testSpan.style.position = 'absolute';
+            testSpan.style.fontSize = '52px';
+            testSpan.style.fontFamily = '"Helvetica","ShinGo"';
+            testSpan.textContent = destEn[datum.dest];
+            document.body.appendChild(testSpan);
+            const width = testSpan.offsetWidth;
+            document.body.removeChild(testSpan);
+            if (width > 220) { // 220pxを超えたら縮小（必要に応じて調整）
+              destName.classList.add('sx-shrink');
+            }
+          } else {
+            destName.textContent = datum.dest;
+          }
           destWrap.appendChild(destName);
         } else {
           destWrap.innerHTML = '&nbsp;';
@@ -429,7 +471,12 @@
         if (datum.cars) {
           const carsBadge = document.createElement('span');
           carsBadge.className = 'cars-badge';
-          carsBadge.innerHTML = `${datum.cars}<span style="font-size:0.7em;padding-left:5px;">両</span>`;
+          // ↓ここを修正
+          if (showEnglish) {
+            carsBadge.innerHTML = carsEn(datum.cars);
+          } else {
+            carsBadge.innerHTML = `${datum.cars}<span style="font-size:0.7em;padding-left:5px;">両</span>`;
+          }
           carsTd.appendChild(carsBadge);
         } else {
           carsTd.innerHTML = '&nbsp;';
@@ -495,6 +542,54 @@
       const trainsToShow2 = getUpcomingTrains(trains2, 2);
       rowsEl2.appendChild(buildTable(trainsToShow2));
     }
+
+    // --- 英語表記辞書 ---
+    const typeEn = {
+      '各駅停車': 'Local',
+      '快速': 'Rapid',
+      '快　速': 'Rapid',
+      '通勤快速': 'Com. Rapid',
+      '特別快速': 'Spe. Rapid',
+      '普通': 'Local'
+    };
+    const destEn = {
+      '大船': 'Ōfuna',
+      '磯子': 'Isogo',
+      '桜木町': 'Sakuragichō',
+      '横浜': 'Yokohama',
+      '鶴見': 'Tsurumi',
+      '蒲田': 'Kamata',
+      '品川': 'Shinagawa',
+      '赤羽': 'Akabane',
+      '南浦和': 'Minami-Urawa',
+      '大宮': 'Ōmiya',
+      '東神奈川': 'Higashi-Kanagawa',
+      '八王子': 'Hachiōji',
+      '町田': 'Machida',
+      '川越': 'Kawagoe',
+      '橋本': 'Hashimoto',
+      '中山': 'Nakayama'
+    };
+    const routeEn = {
+      '京浜東北線': 'Keihin-Tōhoku Line',
+      '横浜線': 'Yokohama Line'
+    };
+    const carsEn = n => `${n}<span style="font-size:0.7em;padding-left:0px;">cars</span>`;
+
+    // --- 表示切替用フラグ ---
+    let showEnglish = false;
+    let langTimer = 0;
+
+    // --- 表示切替タイマー ---
+    setInterval(() => {
+      langTimer++;
+      // 0-119:日本語(12秒), 120-179:英語(6秒)
+      if (langTimer % 180 < 120) {
+        showEnglish = false;
+      } else {
+        showEnglish = true;
+      }
+    }, 100); // 0.1秒ごと
 
     // 固定祝日（MM-DD形式）
     const fixedHolidays = [
@@ -1019,7 +1114,7 @@
     // 1番線音声案内チェック（0.1秒ごと）
     setInterval(checkAndAnnounce1, 100);
     setInterval(checkAndAnnounce2, 100);
-  </script>
-</body>
+
+  </script></body>
 
 </html>
