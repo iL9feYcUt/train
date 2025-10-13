@@ -615,6 +615,7 @@
       '川': '川越',
       '橋': '橋本',
       '中': '中山',
+      '熊': '熊谷',
       '松': '松本',
       '谷': '南小谷',
       '長': '長野'
@@ -872,9 +873,9 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '川越'];
+    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '川越', '熊谷'];
     // よく使う種別を追加。必要に応じて拡張可能
-    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ'];
 
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
@@ -921,34 +922,52 @@
     // --- playAudioSequence1 ---
     function playAudioSequence1(train) {
       if (!audioEnabled || audioPlaying) return;
-      let typeFile = `atos/w/${train.type}.mp3`.replace(/\s/g, '');
-      let destFile = `atos/w/${train.dest}行がまいります.mp3`;
-      let destSingleFile = `atos/w/${train.dest}.mp3`;
+
+      // 種別が複数ある場合は全て正式名称に変換して連結
+      let typeArr = train.type ? train.type.split(',') : [];
+      typeArr = typeArr.map(t => abbrevTypeMap[t] || t);
+      let typePhrase = typeArr.join('　'); // 全角スペースで連結
+
+      // 行先も複数ある場合は全て正式名称に変換して連結（ただし通常は1つ）
+      let destArr = train.dest ? train.dest.split(',') : [];
+      destArr = destArr.map(d => abbrevDestMap[d] || d);
+      let destPhrase = destArr.join('・'); // 複数なら「・」で連結
+
+      let typeFile = `atos/w/${typePhrase}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/w/${destPhrase}行がまいります.mp3`;
+      let destSingleFile = `atos/w/${destPhrase}.mp3`;
       let goFile = `atos/w/行がまいります.mp3`;
       let files = [
         'atos/ATOS接近音.mp3',
         'atos/w/まもなく1番線に.mp3'
       ];
 
-      // プリロード有無に関係なくpush
-      if (typeFile && destFile) {
-        if (audioCache[typeFile] && audioCache[destFile]) {
-          files.push(typeFile, destFile);
-        } else if (audioCache[typeFile]) {
-          files.push(typeFile);
-          if (audioCache[destSingleFile] && audioCache[goFile]) {
-            files.push(destSingleFile, goFile);
-          }
-          // どちらかがなければスキップ
-        } else if (audioCache[destFile]) {
-          files.push(destFile);
-        } else {
-          if (audioCache[destSingleFile] && audioCache[goFile]) {
-            files.push(destSingleFile, goFile);
-          }
-          // どちらかがなければスキップ
-        }
+      // 種別音声
+      if (audioCache[typeFile]) {
+        files.push(typeFile);
+      } else {
+        // 個別に分割して再生（例：「特急」「はまかいじ」）
+        typeArr.forEach(t => {
+          let tFull = t.replace(/\s/g, '').replace(/　/g, ''); // ←全角・半角スペース両方除去
+          let tFile = `atos/w/${tFull}.mp3`;
+          if (audioCache[tFile]) files.push(tFile);
+        });
       }
+
+      // 行先音声
+      if (audioCache[destFile]) {
+        files.push(destFile);
+      } else if (audioCache[destSingleFile] && audioCache[goFile]) {
+        files.push(destSingleFile, goFile);
+      } else {
+        destArr.forEach(d => {
+          let dFull = d.replace(/\s/g, '');
+          let dFile = `atos/w/${dFull}.mp3`;
+          if (audioCache[dFile]) files.push(dFile);
+        });
+        if (audioCache[goFile]) files.push(goFile);
+      }
+
       files.push('atos/w/危ないですから.mp3');
 
       let idx = 0;
@@ -989,25 +1008,56 @@
     // --- playAudioSequence2 ---
     function playAudioSequence2(train) {
       if (!audioEnabled || audioPlaying2) return;
-      let typeFile = `atos/m/${train.type}.mp3`.replace(/\s/g, '');
-      let destFile = `atos/m/${train.dest}行がまいります.mp3`;
-      let destSingleFile = `atos/m/${train.dest}.mp3`;
+
+      let typeArr = train.type ? train.type.split(',') : [];
+      typeArr = typeArr.map(t => abbrevTypeMap[t] || t);
+      let typePhrase = typeArr.join('　');
+
+      let destArr = train.dest ? train.dest.split(',') : [];
+      destArr = destArr.map(d => abbrevDestMap[d] || d);
+      let destPhrase = destArr.join('・');
+
+      let typeFile = `atos/m/${typePhrase}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/m/${destPhrase}行がまいります.mp3`;
+      let destSingleFile = `atos/m/${destPhrase}.mp3`;
       let goFile = `atos/m/行がまいります.mp3`;
       let files = [
         'atos/ATOS接近音.mp3',
         'atos/m/まもなく2番線に.mp3'
       ];
 
-      // 種別
-      if (train.type) files.push(typeFile);
-
-      // 行先案内
-      // 「○○行がまいります.mp3」がプリロード済みならそれだけ、なければ「○○.mp3」「行がまいります.mp3」
-      if (audioCache[destFile]) {
-        files.push(destFile);
+      if (audioCache[typeFile]) {
+        files.push(typeFile);
       } else {
-        files.push(destSingleFile, goFile);
+        typeArr.forEach(t => {
+          let tFull = t.replace(/\s/g, '');
+          let tFile = `atos/m/${tFull}.mp3`;
+          if (audioCache[tFile]) files.push(tFile);
+        });
       }
+
+      // 行先音声
+      if (destArr.length === 2) {
+        // 2つある場合：1つ目単独駅名 + 2つ目「行がまいります」
+        let d1 = destArr[0].replace(/\s/g, '').replace(/　/g, '');
+        let d2 = destArr[1].replace(/\s/g, '').replace(/　/g, '');
+        let d1File = `atos/m/${d1}.mp3`;
+        let d2File = `atos/m/${d2}行がまいります.mp3`;
+        if (audioCache[d1File]) files.push(d1File);
+        if (audioCache[d2File]) files.push(d2File);
+      } else if (audioCache[destFile]) {
+        files.push(destFile);
+      } else if (audioCache[destSingleFile] && audioCache[goFile]) {
+        files.push(destSingleFile, goFile);
+      } else {
+        destArr.forEach(d => {
+          let dFull = d.replace(/\s/g, '').replace(/　/g, '');
+          let dFile = `atos/m/${dFull}.mp3`;
+          if (audioCache[dFile]) files.push(dFile);
+        });
+        if (audioCache[goFile]) files.push(goFile);
+      }
+
       files.push('atos/m/危ないですから.mp3');
 
       // --- 最終電車放送を追加（2秒ラグ後に） ---
