@@ -1274,23 +1274,5 @@
     setInterval(checkAndAnnounce2, 100);
 
   </script>
-      // 行先音声
-      if (audioCache[destFile]) {
-        files.push(destFile);
-      } else if (destArr.length === 2) {
-        // 2つある場合は従来通り
-        destArr.forEach((d, i) => {
-          let dFull = d.replace(/\s/g, '');
-          if (i === 0) {
-            let f = `atos/w/${dFull}.mp3`;
-            if (audioCache[f]) files.push(f);
-          } else {
-            let f = `atos/w/${dFull}行がまいります.mp3`;
-            if (audioCache[f]) files.push(f);
-          }
-        });
-      } else {
-        // audioCacheの有無に関わらず両方push
-        files.push(destSingleFile);
-        files.push(goFile);
-      }
+  </body>
+</html>
