@@ -244,8 +244,6 @@
 
     .dest-text .sx-shrink {
       display: inline-block;
-      transform: scaleX(0.65);
-      /* 必要に応じて値を調整 */
       transform-origin: left center;
       vertical-align: middle;
       white-space: nowrap;
@@ -452,17 +450,24 @@
           destName.style.marginLeft = '5px';
           if (showEnglish && destEn[destToShow]) {
             destName.textContent = destEn[destToShow];
+            // 幅を計測し、必要ならscaleXを自動計算
             const testSpan = document.createElement('span');
             testSpan.style.visibility = 'hidden';
             testSpan.style.position = 'absolute';
             testSpan.style.fontSize = '52px';
             testSpan.style.fontFamily = '"Helvetica","ShinGo"';
+            testSpan.style.whiteSpace = 'nowrap';
             testSpan.textContent = destEn[destToShow];
             document.body.appendChild(testSpan);
             const width = testSpan.offsetWidth;
             document.body.removeChild(testSpan);
-            if (width > 290) {
-              destName.classList.add('sx-shrink');
+            const maxWidth = 225;
+            if (width > maxWidth) {
+              const scaleX = maxWidth / width;
+              destName.style.display = 'inline-block';
+              destName.style.transformOrigin = 'left center';
+              destName.style.whiteSpace = 'nowrap';
+              destName.style.transform = `scaleX(${scaleX})`;
             }
           } else {
             destName.textContent = destToShow;
@@ -571,6 +576,8 @@
       '蒲田': 'Kamata',
       '品川': 'Shinagawa',
       '赤羽': 'Akabane',
+      '蒲田': 'Kamata',
+      '東十条': 'Higashi-Jūjō',
       '南浦和': 'Minami-Urawa',
       '大宮': 'Ōmiya',
       '東神奈川': 'Higashi-Kanagawa',
@@ -581,7 +588,9 @@
       '中山': 'Nakayama',
       '松本': 'Matsumoto',
       '南小谷': 'Minami-Otari',
-      '長野': 'Nagano'
+      '長野': 'Nagano',
+      '富士山': 'Mt.Fuji',
+      '河口湖': 'Kawaguchiko'
     };
     const routeEn = {
       '京浜東北線': 'Keihin-Tōhoku Line',
@@ -593,12 +602,11 @@
       'は': 'はまかいじ',
       '快': '快　速',
       '通': '通勤快速',
-      '特別': '特別快速',
+      '別': '特別快速',
       '普': '普　通',
       // 必要に応じて追加
     };
     const abbrevDestMap = {
-      '浦': '浦和',
       '赤': '赤羽',
       '大': '大船',
       '磯': '磯子',
@@ -607,9 +615,10 @@
       '鶴': '鶴見',
       '蒲': '蒲田',
       '品': '品川',
-      '南': '南浦和',
+      '東': '東十条',
+      '浦': '南浦和',
       '宮': '大宮',
-      '東': '東神奈川',
+      '神': '東神奈川',
       '八': '八王子',
       '町': '町田',
       '川': '川越',
@@ -618,7 +627,9 @@
       '熊': '熊谷',
       '松': '松本',
       '谷': '南小谷',
-      '長': '長野'
+      '長': '長野',
+      '富': '富士山',
+      '河': '河口湖'
       // 必要に応じて追加
     };
 
@@ -659,7 +670,7 @@
           altIndex = 0;
         }
       }
-    }, 100); // 0.1秒ごと
+    }, 50); // 0.1秒ごと
 
     // 固定祝日（MM-DD形式）
     const fixedHolidays = [
@@ -873,7 +884,7 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '川越', '熊谷'];
+    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '川越', '熊谷', '松本', '富士山', '河口湖'];
     // よく使う種別を追加。必要に応じて拡張可能
     const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ'];
 
@@ -921,6 +932,8 @@
 
     // --- playAudioSequence1 ---
     function playAudioSequence1(train) {
+  // デバッグ用: files配列の中身を出力
+  setTimeout(() => { console.log('playAudioSequence1 files:', files); }, 0);
       if (!audioEnabled || audioPlaying) return;
 
       // 種別が複数ある場合は全て正式名称に変換して連結
@@ -957,14 +970,20 @@
       // 行先音声
       if (audioCache[destFile]) {
         files.push(destFile);
-      } else if (audioCache[destSingleFile] && audioCache[goFile]) {
-        files.push(destSingleFile, goFile);
-      } else {
-        destArr.forEach(d => {
+      } else if (destArr.length === 2) {
+        // 2つある場合は従来通り
+        destArr.forEach((d, i) => {
           let dFull = d.replace(/\s/g, '');
-          let dFile = `atos/w/${dFull}.mp3`;
-          if (audioCache[dFile]) files.push(dFile);
+          if (i === 0) {
+            let f = `atos/w/${dFull}.mp3`;
+            if (audioCache[f]) files.push(f);
+          } else {
+            let f = `atos/w/${dFull}行がまいります.mp3`;
+            if (audioCache[f]) files.push(f);
+          }
         });
+      } else {
+        if (audioCache[destSingleFile]) files.push(destSingleFile);
         if (audioCache[goFile]) files.push(goFile);
       }
 
@@ -1007,6 +1026,14 @@
 
     // --- playAudioSequence2 ---
     function playAudioSequence2(train) {
+      // デバッグ用: destSingleFile, destArr, files配列の中身を出力
+      setTimeout(() => {
+        console.log('playAudioSequence2 destSingleFile:', destSingleFile);
+        console.log('playAudioSequence2 destArr:', destArr);
+        console.log('playAudioSequence2 files:', files);
+      }, 0);
+  // デバッグ用: files配列の中身を出力
+  setTimeout(() => { console.log('playAudioSequence2 files:', files); }, 0);
       if (!audioEnabled || audioPlaying2) return;
 
       let typeArr = train.type ? train.type.split(',') : [];
@@ -1038,24 +1065,24 @@
 
       // 行先音声
       if (destArr.length === 2) {
-        // 2つある場合：1つ目単独駅名 + 2つ目「行がまいります」
-        let d1 = destArr[0].replace(/\s/g, '').replace(/　/g, '');
-        let d2 = destArr[1].replace(/\s/g, '').replace(/　/g, '');
-        let d1File = `atos/m/${d1}.mp3`;
-        let d2File = `atos/m/${d2}行がまいります.mp3`;
-        if (audioCache[d1File]) files.push(d1File);
-        if (audioCache[d2File]) files.push(d2File);
+        // 2つある場合は従来通り
+        destArr.forEach((d, i) => {
+          let dFull = d.replace(/\s/g, '').replace(/　/g, '');
+          if (i === 0) {
+            let f = `atos/m/${dFull}.mp3`;
+            if (audioCache[f]) files.push(f);
+          } else {
+            let f = `atos/m/${dFull}行がまいります.mp3`;
+            if (audioCache[f]) files.push(f);
+          }
+        });
       } else if (audioCache[destFile]) {
         files.push(destFile);
-      } else if (audioCache[destSingleFile] && audioCache[goFile]) {
-        files.push(destSingleFile, goFile);
-      } else {
-        destArr.forEach(d => {
-          let dFull = d.replace(/\s/g, '').replace(/　/g, '');
-          let dFile = `atos/m/${dFull}.mp3`;
-          if (audioCache[dFile]) files.push(dFile);
-        });
-        if (audioCache[goFile]) files.push(goFile);
+      }
+      // 2つの行先でない場合は必ず両方push
+      if (destArr.length !== 2) {
+        files.push(destSingleFile);
+        files.push(goFile);
       }
 
       files.push('atos/m/危ないですから.mp3');
@@ -1247,6 +1274,23 @@
     setInterval(checkAndAnnounce2, 100);
 
   </script>
-</body>
-
-</html>
+      // 行先音声
+      if (audioCache[destFile]) {
+        files.push(destFile);
+      } else if (destArr.length === 2) {
+        // 2つある場合は従来通り
+        destArr.forEach((d, i) => {
+          let dFull = d.replace(/\s/g, '');
+          if (i === 0) {
+            let f = `atos/w/${dFull}.mp3`;
+            if (audioCache[f]) files.push(f);
+          } else {
+            let f = `atos/w/${dFull}行がまいります.mp3`;
+            if (audioCache[f]) files.push(f);
+          }
+        });
+      } else {
+        // audioCacheの有無に関わらず両方push
+        files.push(destSingleFile);
+        files.push(goFile);
+      }
