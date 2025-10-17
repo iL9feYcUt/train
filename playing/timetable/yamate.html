@@ -182,6 +182,7 @@
       line-height: 100%;
       padding: 6px 0;
       justify-content: center;
+      display: flex;
     }
 
     .route-label {
@@ -395,9 +396,39 @@
         const typeDiv = document.createElement('div');
         typeDiv.className = 'type';
         typeDiv.style.backgroundColor = typeBg;
+        typeDiv.style.justifyContent = 'center';
 
         if (showEnglish && typeEn[typeToShow]) {
-          typeDiv.textContent = typeEn[typeToShow];
+          // テキストのみをspanで包み、spanにscaleXを適用。typeDiv自体のwidthは維持。
+          typeDiv.innerHTML = '';
+          const typeTextSpan = document.createElement('span');
+          typeTextSpan.textContent = typeEn[typeToShow];
+          // fontSizeはtypeDivのfontSizeを継承（routeNameがない場合は2.5em）
+          if (!routeName) {
+            typeTextSpan.style.fontSize = '2.5rem';
+          } else {
+            typeTextSpan.style.fontSize = '28px';
+          }
+          // 幅を計測し、必要ならscaleXを自動計算（最大幅200pxで統一）
+          const testSpanType = document.createElement('span');
+          testSpanType.style.visibility = 'hidden';
+          testSpanType.style.position = 'absolute';
+          testSpanType.style.fontFamily = '"Helvetica","ShinGo"';
+          testSpanType.style.whiteSpace = 'nowrap';
+          testSpanType.textContent = typeEn[typeToShow];
+          // fontSizeをtypeTextSpanと同じに
+          testSpanType.style.fontSize = typeTextSpan.style.fontSize;
+          document.body.appendChild(testSpanType);
+          const widthType = testSpanType.offsetWidth;
+          document.body.removeChild(testSpanType);
+          const maxWidthType = 190;
+          if (widthType > maxWidthType) {
+            const scaleXType = maxWidthType / widthType;
+            typeTextSpan.style.display = 'inline-block';
+            typeTextSpan.style.whiteSpace = 'nowrap';
+            typeTextSpan.style.transform = `scaleX(${scaleXType})`;
+          }
+          typeDiv.appendChild(typeTextSpan);
         } else {
           typeDiv.textContent = typeToShow || '\u00A0';
         }
@@ -461,7 +492,11 @@
             document.body.appendChild(testSpan);
             const width = testSpan.offsetWidth;
             document.body.removeChild(testSpan);
-            const maxWidth = 225;
+            // 駅ナンバリングバッジの有無で最大幅を変更
+            let maxWidth = 225;
+            if (!stationNumber) {
+              maxWidth = 275;
+            }
             if (width > maxWidth) {
               const scaleX = maxWidth / width;
               destName.style.display = 'inline-block';
@@ -561,10 +596,10 @@
       '各駅停車': 'Local',
       '快　速': 'Rapid',
       'アクティー': 'Acty',
-      '通勤快速': 'Com. Rapid',
-      '特別快速': 'Spe. Rapid',
+      '通勤快速': 'Commuters Rapid',
+      '特別快速': 'Special Rapid',
       '普通': 'Local',
-      '特　急': 'Ltd. Exp.',
+      '特　急': 'Limited Express',
       'はまかいじ': 'Hamakaiji'
     };
     const destEn = {
