@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=1100,initial-scale=1" />
-  <title>山手駅 発車標</title>
+  <title>横浜駅9·10番線 発車標</title>
   <style>
     @font-face {
       font-family: "Frutiger";
@@ -26,6 +26,8 @@
       --muted: #9aa3a8;
       --jk-blue: #00bae8;
       --jh-green: #80C342;
+      --jo-blue: #0055a4;
+      --js-red: #ff0000;
     }
 
     body {
@@ -81,11 +83,11 @@
       margin-bottom: 8px;
     }
 
-    .jk-badge {
+    .jo-badge {
       font-family: "Frutiger-B";
       width: 40px;
       height: 40px;
-      border: var(--jk-blue) 5px solid;
+      border: var(--jo-blue) 5px solid;
       border-radius: 4px;
       background: #fff;
       display: flex;
@@ -95,11 +97,11 @@
       font-size: 32px;
     }
 
-    .jh-badge {
+    .js-badge {
       font-family: "Frutiger-B";
       width: 40px;
       height: 40px;
-      border: var(--jh-green) 5px solid;
+      border: var(--js-red) 5px solid;
       border-radius: 4px;
       background: #fff;
       display: flex;
@@ -115,7 +117,7 @@
       width: 30px;
       height: 30px;
       aspect-ratio: 1/1;
-      border: 5px solid var(--jk-blue);
+      border: 5px solid var(--jo-blue);
       border-radius: 4px;
       background: #fff;
       display: flex;
@@ -266,14 +268,14 @@
   <!-- 1番線表示 -->
   <div class="atos">
     <div class="slot-number">
-      <div class="num">1</div>
+      <div class="num">9</div>
     </div>
     <div class="display">
       <div class="topbar">
-        <div class="jk-badge"><span>JK</span></div>
+        <div class="jo-badge"><span>JO</span></div>
         <div>
-          <div class="line-name">根岸線</div>
-          <div class="line-sub">磯子・大船方面</div>
+          <div class="line-name">横須賀線</div>
+          <div class="line-sub">鎌倉・久里浜方面</div>
         </div>
       </div>
       <div class="rows" id="rows1"></div>
@@ -282,19 +284,19 @@
   <!-- 2番線表示 -->
   <div class="atos">
     <div class="slot-number">
-      <div class="num">2</div>
+      <div class="num">10</div>
     </div>
     <div class="display">
       <div class="topbar">
-        <div class="jk-badge"><span>JK</span></div>
+        <div class="jo-badge"><span>JO</span></div>
         <div>
-          <div class="line-name">京浜東北・根岸線</div>
-          <div class="line-sub">横浜・川崎・品川・東京方面</div>
+          <div class="line-name">横須賀線</div>
+          <div class="line-sub">品川・東京方面</div>
         </div>
-        <div class="jh-badge"><span>JH</span></div>
+        <div class="js-badge"><span>JS</span></div>
         <div>
-          <div class="line-name">横浜線</div>
-          <div class="line-sub">新横浜・八王子方面</div>
+          <div class="line-name">湘南新宿ライン</div>
+          <div class="line-sub">新宿・池袋方面</div>
         </div>
       </div>
       <div class="rows" id="rows2"></div>
@@ -319,11 +321,21 @@
     }
 
     const stationNumbers = {
-      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
-      '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19'
+      '久里浜': 'JO01',
+      '横須賀': 'JO03',
+      '逗子': 'JO06',
+      '鎌倉': 'JO07',
+      '大船': 'JO09',
+      '品川': 'JO17',
+      '東京': 'JO19',
+      '津田沼': 'JO26',
+      '千葉': 'JO28',
+      '佐倉': 'JO33',
+      '成田': 'JO35',
+      '成田空港': 'JO37'
     };
-    const lineColors = { JK: '#00bae8', JH: '#80C342' };
-    const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
+    const lineColors = { JO: '--jo-blue', JS: '--js-red' };
+    const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', '成田エクスプレス': 'red' };
     const rowsEl1 = document.getElementById('rows1');
     const rowsEl2 = document.getElementById('rows2');
     let trains1 = [];
@@ -356,12 +368,12 @@
         const stationNumber = stationNumbers[destArr[altIndex % destArr.length]];
         if (stationNumber) {
           const prefix = stationNumber.match(/([A-Za-z]+)/)[1];
-          if (prefix === 'JH') {
-            routeName = '横浜線';
-            routeColor = 'var(--jh-green)';
-          } else if (prefix === 'JK') {
-            routeName = '京浜東北線';
-            routeColor = 'var(--jk-blue)';
+          if (prefix === 'JO') {
+            routeName = '横須賀線';
+            routeColor = 'var(--jo-blue)';
+          } else if (prefix === 'JS') {
+            routeName = '湘南新宿ライン';
+            routeColor = 'var(--js-red)';
           } else {
             routeName = '';
             routeColor = '#fff';
@@ -603,24 +615,18 @@
       'はまかいじ': 'Hamakaiji'
     };
     const destEn = {
+      '久里浜': 'Kurihama',
+      '横須賀': 'Yokosuka',
+      '逗子': 'Zushi',
+      '鎌倉': 'Kamakura',
       '大船': 'Ōfuna',
-      '磯子': 'Isogo',
-      '桜木町': 'Sakuragichō',
-      '横浜': 'Yokohama',
-      '鶴見': 'Tsurumi',
-      '蒲田': 'Kamata',
       '品川': 'Shinagawa',
-      '赤羽': 'Akabane',
-      '蒲田': 'Kamata',
-      '東十条': 'Higashi-Jūjō',
-      '南浦和': 'Minami-Urawa',
-      '大宮': 'Ōmiya',
-      '東神奈川': 'Higashi-Kanagawa',
-      '八王子': 'Hachiōji',
-      '町田': 'Machida',
-      '川越': 'Kawagoe',
-      '橋本': 'Hashimoto',
-      '中山': 'Nakayama',
+      '東京': 'Tokyo',
+      '津田沼': 'Tsudanuma',
+      '千葉': 'Chiba',
+      '佐倉': 'Sakura',
+      '成田': 'Narita',
+      '成田空港': 'Narita Airport Terminal 1',
       '松本': 'Matsumoto',
       '南小谷': 'Minami-Otari',
       '信濃大町': 'Shinano-Ōmachi',
@@ -629,8 +635,8 @@
       '河口湖': 'Kawaguchiko'
     };
     const routeEn = {
-      '京浜東北線': 'Keihin-Tōhoku Line',
-      '横浜線': 'Yokohama Line'
+      '横須賀線': 'Yokosuka Line',
+      '湘南新宿ライン': 'Shōnan-Shinjuku Line'
     };
     const carsEn = n => `${n}<span style="font-size:0.7em;padding-left:0px;">cars</span>`;
     const abbrevTypeMap = {
@@ -644,20 +650,6 @@
       // 必要に応じて追加
     };
     const abbrevDestMap = {
-      '赤': '赤羽',
-      '大': '大船',
-      '磯': '磯子',
-      '桜': '桜木町',
-      '横': '横浜',
-      '鶴': '鶴見',
-      '蒲': '蒲田',
-      '品': '品川',
-      '東': '東十条',
-      '浦': '南浦和',
-      '宮': '大宮',
-      '神': '東神奈川',
-      '八': '八王子',
-      '町': '町田',
       '川': '川越',
       '橋': '橋本',
       '中': '中山',
@@ -779,8 +771,8 @@
       const now = new Date();
       // ローカルHTMLファイルから取得
       const targetUrl = isHoliday(now)
-        ? 'yamate/1h.html'
-        : 'yamate/1.html';
+        ? 'yokohama/9h.html'
+        : 'yokohama/9.html';
       try {
         const res = await fetch(targetUrl);
         if (!res.ok) throw new Error('ファイル取得失敗');
@@ -818,10 +810,10 @@
               dest = legend_dest[dest].text;
             }
             // 快速判定
-            let type = '各駅停車';
+            let type = '普通';
             const trainType = div.querySelector('.train')?.textContent.trim();
             if (trainType === '') {
-              type = '各駅停車';
+              type = '普　通';
             } else if (trainType === '快') {
               type = '快　速';
             } else {
@@ -833,7 +825,7 @@
             } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
               cars = 6;
             } else {
-              cars = 10; // その他は10両
+              cars = 15; // その他は15両
             }
             tempTrains.push({ type, time, dest, cars });
           });
@@ -851,8 +843,8 @@
       const now = new Date();
       // ローカルHTMLファイルから取得
       const targetUrl = isHoliday(now)
-        ? 'yamate/2h.html'
-        : 'yamate/2.html';
+        ? 'yokohama/10h.html'
+        : 'yokohama/10.html';
       try {
         const res = await fetch(targetUrl);
         if (!res.ok) throw new Error('ファイル取得失敗');
@@ -890,21 +882,15 @@
               dest = legend_dest[dest].text;
             }
             // 快速判定
-            let type = '各駅停車';
+            let type = '普通';
             const trainType = div.querySelector('.train')?.textContent.trim();
-            if (trainType === '') type = '各駅停車';
-            else if (trainType === '快') type = '快　速';
+            if (trainType === '') type = '普通';
+            else if (trainType === '普【快】') type = '普　通';
             else if (trainType === '特') type = '特　急';
             else if (trainType === 'は') type = 'はまかいじ';
             else type = `${trainType}`;
             // 両数判定
-            if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
-              cars = 8;
-            } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
-              cars = 6;
-            } else {
-              cars = 10; // その他は10両
-            }
+            const cars = (dest === '八王子' || dest === '橋本') ? 8 : 15;
             tempTrains.push({ type, time, dest, cars });
           });
         });
@@ -928,9 +914,9 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
+    const destList = ['大船', '品川', '河口湖'];
     // よく使う種別を追加。必要に応じて拡張可能
-    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', '成田エクスプレス'];
 
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
