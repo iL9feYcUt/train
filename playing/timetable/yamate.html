@@ -318,8 +318,8 @@
     }
 
     const stationNumbers = {
-      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
-      '東神奈川': 'JH13', '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19'
+      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
+      '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19'
     };
     const lineColors = { JK: '#00bae8', JH: '#80C342' };
     const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
@@ -447,7 +447,7 @@
             destWrap.appendChild(badge);
           }
           const destName = document.createElement('span');
-          destName.style.marginLeft = '5px';
+          destName.style.marginLeft = '0px';
           if (showEnglish && destEn[destToShow]) {
             destName.textContent = destEn[destToShow];
             // 幅を計測し、必要ならscaleXを自動計算
@@ -560,7 +560,7 @@
     const typeEn = {
       '各駅停車': 'Local',
       '快　速': 'Rapid',
-      '快　速': 'Rapid',
+      'アクティー': 'Acty',
       '通勤快速': 'Com. Rapid',
       '特別快速': 'Spe. Rapid',
       '普通': 'Local',
@@ -588,6 +588,7 @@
       '中山': 'Nakayama',
       '松本': 'Matsumoto',
       '南小谷': 'Minami-Otari',
+      '信濃大町': 'Shinano-Ōmachi',
       '長野': 'Nagano',
       '富士山': 'Mt.Fuji',
       '河口湖': 'Kawaguchiko'
@@ -601,6 +602,7 @@
       '特': '特　急',
       'は': 'はまかいじ',
       '快': '快　速',
+      'ア': 'アクティー',
       '通': '通勤快速',
       '別': '特別快速',
       '普': '普　通',
@@ -627,6 +629,7 @@
       '熊': '熊谷',
       '松': '松本',
       '谷': '南小谷',
+      '信': '信濃大町',
       '長': '長野',
       '富': '富士山',
       '河': '河口湖'
@@ -884,9 +887,9 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '川越', '熊谷', '松本', '富士山', '河口湖'];
+    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
     // よく使う種別を追加。必要に応じて拡張可能
-    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
 
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
@@ -1079,8 +1082,8 @@
       } else if (audioCache[destFile]) {
         files.push(destFile);
       }
-      // 2つの行先でない場合は必ず両方push
-      if (destArr.length !== 2) {
+      // 2つの行先でない場合は、destFileが無ければ両方push
+      if (destArr.length !== 2 && !audioCache[destFile]) {
         files.push(destSingleFile);
         files.push(goFile);
       }
@@ -1274,5 +1277,4 @@
     setInterval(checkAndAnnounce2, 100);
 
   </script>
-  </body>
-</html>
+  </script>
