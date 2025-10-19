@@ -28,6 +28,7 @@
       --jh-green: #80C342;
       --jo-blue: #0055a4;
       --js-red: #ff0000;
+      --jt-orange: #f68b1e;
     }
 
     body {
@@ -332,10 +333,13 @@
       '千葉': 'JO28',
       '佐倉': 'JO33',
       '成田': 'JO35',
-      '成田空港': 'JO37'
+      '成田空港': 'JO37',
+      '平塚': 'JT11',
+      '国府津': 'JT14',
+      '小田原': 'JT16'
     };
-    const lineColors = { JO: '--jo-blue', JS: '--js-red' };
-    const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', '成田エクスプレス': 'red' };
+    const lineColors = { JO: '--jo-blue', JS: '--js-red', JT: '--jt-orange' };
+    const typeColors = { '快': 'red', '快　速': '#ff9900', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': '#00c3ff', '特　急': 'red', '成田エクスプレス': 'red' };
     const rowsEl1 = document.getElementById('rows1');
     const rowsEl2 = document.getElementById('rows2');
     let trains1 = [];
@@ -359,28 +363,22 @@
         typeTd.style.textAlign = 'left';
         typeTd.style.width = '120px';
         typeTd.style.verticalAlign = 'center';
-        // 路線名分岐（駅ナンバリングのprefixで判定）
+        // 路線名分岐（行き先で判定）
         let routeName = '';
         let routeColor = '';
-        // ↓ここでdestArrを定義
         let destArr = datum.dest ? datum.dest.split(',') : [''];
         if (destArr.length > 1) isAltMode = true;
-        const stationNumber = stationNumbers[destArr[altIndex % destArr.length]];
-        if (stationNumber) {
-          const prefix = stationNumber.match(/([A-Za-z]+)/)[1];
-          if (prefix === 'JO') {
-            routeName = '横須賀線';
-            routeColor = 'var(--jo-blue)';
-          } else if (prefix === 'JS') {
-            routeName = '湘南新宿ライン';
-            routeColor = 'var(--js-red)';
-          } else {
-            routeName = '';
-            routeColor = '#fff';
-          }
+        // 指定の横須賀線行き先リスト
+        const yokosukaLineDests = [
+          '久里浜','横須賀','逗子','鎌倉','大船','品川','東京','津田沼','千葉','佐倉','成田','成田空港','君津','上総一ノ宮','成東','鹿島神宮'
+        ];
+        const destToCheck = destArr[altIndex % destArr.length];
+        if (yokosukaLineDests.includes(destToCheck)) {
+          routeName = '横須賀線';
+          routeColor = 'var(--jo-blue)';
         } else {
-          routeName = '';
-          routeColor = '#fff';
+          routeName = '湘南新宿ライン';
+          routeColor = 'var(--js-red)';
         }
         const routeLabel = document.createElement('div');
         routeLabel.className = 'route-label';
@@ -410,40 +408,36 @@
         typeDiv.style.backgroundColor = typeBg;
         typeDiv.style.justifyContent = 'center';
 
-        if (showEnglish && typeEn[typeToShow]) {
-          // テキストのみをspanで包み、spanにscaleXを適用。typeDiv自体のwidthは維持。
-          typeDiv.innerHTML = '';
-          const typeTextSpan = document.createElement('span');
-          typeTextSpan.textContent = typeEn[typeToShow];
-          // fontSizeはtypeDivのfontSizeを継承（routeNameがない場合は2.5em）
-          if (!routeName) {
-            typeTextSpan.style.fontSize = '2.5rem';
-          } else {
-            typeTextSpan.style.fontSize = '28px';
-          }
-          // 幅を計測し、必要ならscaleXを自動計算（最大幅200pxで統一）
-          const testSpanType = document.createElement('span');
-          testSpanType.style.visibility = 'hidden';
-          testSpanType.style.position = 'absolute';
-          testSpanType.style.fontFamily = '"Helvetica","ShinGo"';
-          testSpanType.style.whiteSpace = 'nowrap';
-          testSpanType.textContent = typeEn[typeToShow];
-          // fontSizeをtypeTextSpanと同じに
-          testSpanType.style.fontSize = typeTextSpan.style.fontSize;
-          document.body.appendChild(testSpanType);
-          const widthType = testSpanType.offsetWidth;
-          document.body.removeChild(testSpanType);
-          const maxWidthType = 190;
-          if (widthType > maxWidthType) {
-            const scaleXType = maxWidthType / widthType;
-            typeTextSpan.style.display = 'inline-block';
-            typeTextSpan.style.whiteSpace = 'nowrap';
-            typeTextSpan.style.transform = `scaleX(${scaleXType})`;
-          }
-          typeDiv.appendChild(typeTextSpan);
+        // 日本語・英語ともに幅自動縮小対応
+        typeDiv.innerHTML = '';
+        const typeTextSpan = document.createElement('span');
+        typeTextSpan.textContent = showEnglish && typeEn[typeToShow] ? typeEn[typeToShow] : (typeToShow || '\u00A0');
+        // fontSizeはtypeDivのfontSizeを継承（routeNameがない場合は2.5em）
+        if (!routeName) {
+          typeTextSpan.style.fontSize = '2.5rem';
         } else {
-          typeDiv.textContent = typeToShow || '\u00A0';
+          typeTextSpan.style.fontSize = '28px';
         }
+        // 幅を計測し、必要ならscaleXを自動計算（最大幅200pxで統一）
+        const testSpanType = document.createElement('span');
+        testSpanType.style.visibility = 'hidden';
+        testSpanType.style.position = 'absolute';
+        testSpanType.style.fontFamily = '"Helvetica","ShinGo"';
+        testSpanType.style.whiteSpace = 'nowrap';
+        testSpanType.textContent = typeTextSpan.textContent;
+        // fontSizeをtypeTextSpanと同じに
+        testSpanType.style.fontSize = typeTextSpan.style.fontSize;
+        document.body.appendChild(testSpanType);
+        const widthType = testSpanType.offsetWidth;
+        document.body.removeChild(testSpanType);
+        const maxWidthType = 190;
+        if (widthType > maxWidthType) {
+          const scaleXType = maxWidthType / widthType;
+          typeTextSpan.style.display = 'inline-block';
+          typeTextSpan.style.whiteSpace = 'nowrap';
+          typeTextSpan.style.transform = `scaleX(${scaleXType})`;
+        }
+        typeDiv.appendChild(typeTextSpan);
         if (!routeName) {
           typeDiv.style.height = '50px';
           typeDiv.style.fontSize = '2.5em';
@@ -484,8 +478,16 @@
             badge.className = 'station-badge';
             const [prefix, number] = stationNumber.match(/([A-Za-z]+)(\d+)/).slice(1);
             badge.innerHTML = `<span class="station-prefix">${prefix}</span><span class="station-number">${number}</span>`;
-            const borderColor = lineColors[prefix] || '#000';
-            badge.style.border = `5px solid ${borderColor}`;
+            let borderColor = '#000';
+            if (lineColors[prefix]) {
+              // CSSカスタムプロパティの場合はgetComputedStyleで取得
+              if (lineColors[prefix].startsWith('--')) {
+                borderColor = getComputedStyle(document.documentElement).getPropertyValue(lineColors[prefix]) || '#000';
+              } else {
+                borderColor = lineColors[prefix];
+              }
+            }
+            badge.style.border = `5px solid ${borderColor.trim()}`;
             badge.style.marginLeft = '0px';
             destWrap.appendChild(badge);
           }
@@ -612,9 +614,19 @@
       '特別快速': 'Special Rapid',
       '普通': 'Local',
       '特　急': 'Limited Express',
-      'はまかいじ': 'Hamakaiji'
+      'はまかいじ': 'Hamakaiji',
+      '成田エクスプレス': 'Narita Express'
     };
     const destEn = {
+      '平塚': 'Hiratsuka',
+      '国府津': 'Kōzu',
+      '小田原': 'Odawara',
+      '籠原': 'Kagohara',
+      '高崎': 'Takasaki',
+      '前橋': 'Maebashi',
+      '古河': 'Koga',
+      '小金井': 'Koganei',
+      '宇都宮': 'Utsunomiya',
       '久里浜': 'Kurihama',
       '横須賀': 'Yokosuka',
       '逗子': 'Zushi',
@@ -649,8 +661,9 @@
       '快': '快　速',
       'ア': 'アクティー',
       '通': '通勤快速',
-      '別': '特別快速',
+      '特快': '特別快速',
       '普': '普　通',
+      'NEX': '成田エクスプレス'
       // 必要に応じて追加
     };
     const abbrevDestMap = {
@@ -720,7 +733,7 @@
           altIndex = 0;
         }
       }
-    }, 100); // 0.1秒ごと
+    }, 50); // 0.1秒ごと
 
     // 固定祝日（MM-DD形式）
     const fixedHolidays = [
@@ -789,68 +802,77 @@
     // 1番線のデータ取得（2番線と同様、URLのみ変更）
     async function loadTimetable1() {
       const now = new Date();
-      // ローカルHTMLファイルから取得
-      const targetUrl = isHoliday(now)
-        ? 'yokohama/9h.html'
-        : 'yokohama/9.html';
+      // 2つのHTML（通常/JS系）を両方fetchし、マージ
+      let urls = [];
+      if (isHoliday(now)) {
+        urls = ['yokohama/9h.html', 'yokohama/9js_h.html'];
+      } else {
+        urls = ['yokohama/9.html', 'yokohama/9js.html'];
+      }
       try {
-        const res = await fetch(targetUrl);
-        if (!res.ok) throw new Error('ファイル取得失敗');
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        // 公式HTMLと同じ構造を仮定
-        const rows = doc.querySelectorAll('table.result_03 tr');
-        const tempTrains = [];
-        // legend_dest対応
-        let legend_dest = undefined;
-        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
-        if (legendScript) {
-          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-          if (legendMatch) {
-            try {
-              eval('legend_dest = ' + legendMatch[1]);
-            } catch (e) {
-              legend_dest = undefined;
+        const results = await Promise.all(urls.map(url => fetch(url).then(r => r.ok ? r.text() : '')));
+        let allTrains = [];
+        for (const html of results) {
+          if (!html) continue;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const rows = doc.querySelectorAll('table.result_03 tr');
+          // legend_dest対応
+          let legend_dest = undefined;
+          const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
+          if (legendScript) {
+            const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+            if (legendMatch) {
+              try {
+                eval('legend_dest = ' + legendMatch[1]);
+              } catch (e) {
+                legend_dest = undefined;
+              }
             }
           }
-        }
-        rows.forEach(tr => {
-          const hourTd = tr.querySelector('td');
-          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
-          const timesTd = tr.querySelectorAll('td')[1];
-          if (!timesTd) return;
-          timesTd.querySelectorAll('.timetable_time').forEach(div => {
-            const minute = div.querySelector('.minute')?.textContent.trim();
-            if (!minute) return;
-            const time = `${hour}:${minute.padStart(2, '0')}`;
-            let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
-            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
-              dest = legend_dest[dest].text;
-            }
-            // 快速判定
-            let type = '普通';
-            const trainType = div.querySelector('.train')?.textContent.trim();
-            if (trainType === '') {
-              type = '普　通';
-            } else if (trainType === '快') {
-              type = '快　速';
-            } else {
-              type = `${trainType}`;
-            }
-            // 両数判定
-            if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
-              cars = 8;
-            } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
-              cars = 6;
-            } else {
-              cars = 15; // その他は15両
-            }
-            tempTrains.push({ type, time, dest, cars });
+          rows.forEach(tr => {
+            const hourTd = tr.querySelector('td');
+            const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+            const timesTd = tr.querySelectorAll('td')[1];
+            if (!timesTd) return;
+            timesTd.querySelectorAll('.timetable_time').forEach(div => {
+              const minute = div.querySelector('.minute')?.textContent.trim();
+              if (!minute) return;
+              const time = `${hour}:${minute.padStart(2, '0')}`;
+              let dest = div.getAttribute('data-dest') || '';
+              if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+                dest = legend_dest[dest].text;
+              }
+              let type = '普　通';
+              const trainType = div.getAttribute('data-train')?.trim() || '';
+              if (trainType === '無印' || trainType === '普') {
+                type = '普　通';
+              } else if (trainType === '快') {
+                type = '快　速';
+              } else {
+                type = `${trainType}`;
+              }
+              let cars;
+              if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
+                cars = 8;
+              } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
+                cars = 6;
+              } else {
+                cars = 15;
+              }
+              allTrains.push({ type, time, dest, cars });
+            });
           });
+        }
+        // 時刻順にソート
+        allTrains.sort((a, b) => {
+          if (!a.time) return 1;
+          if (!b.time) return -1;
+          const [ah, am] = a.time.split(':').map(Number);
+          const [bh, bm] = b.time.split(':').map(Number);
+          return ah * 60 + am - (bh * 60 + bm);
         });
-        trains1 = tempTrains;
+        trains1 = allTrains;
         render();
       } catch (e) {
         trains1 = [];
@@ -861,60 +883,72 @@
     // 2番線のデータ取得（従来通り）
     async function loadTimetable2() {
       const now = new Date();
-      // ローカルHTMLファイルから取得
-      const targetUrl = isHoliday(now)
-        ? 'yokohama/10h.html'
-        : 'yokohama/10.html';
+      // 2つのHTML（通常/JS系）を両方fetchし、マージ
+      let urls = [];
+      if (isHoliday(now)) {
+        urls = ['yokohama/10h.html', 'yokohama/10js_h.html'];
+      } else {
+        urls = ['yokohama/10.html', 'yokohama/10js.html'];
+      }
       try {
-        const res = await fetch(targetUrl);
-        if (!res.ok) throw new Error('ファイル取得失敗');
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        // 公式HTMLと同じ構造を仮定
-        const rows = doc.querySelectorAll('table.result_03 tr');
-        const tempTrains = [];
-        // legend_dest対応
-        let legend_dest = undefined;
-        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
-        if (legendScript) {
-          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-          if (legendMatch) {
-            try {
-              eval('legend_dest = ' + legendMatch[1]);
-            } catch (e) {
-              legend_dest = undefined;
+        const results = await Promise.all(urls.map(url => fetch(url).then(r => r.ok ? r.text() : '')));
+        let allTrains = [];
+        for (const html of results) {
+          if (!html) continue;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const rows = doc.querySelectorAll('table.result_03 tr');
+          let legend_dest = undefined;
+          const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
+          if (legendScript) {
+            const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
+            if (legendMatch) {
+              try {
+                eval('legend_dest = ' + legendMatch[1]);
+              } catch (e) {
+                legend_dest = undefined;
+              }
             }
           }
-        }
-        rows.forEach(tr => {
-          const hourTd = tr.querySelector('td');
-          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
-          const timesTd = tr.querySelectorAll('td')[1];
-          if (!timesTd) return;
-          timesTd.querySelectorAll('.timetable_time').forEach(div => {
-            const minute = div.querySelector('.minute')?.textContent.trim();
-            if (!minute) return;
-            const time = `${hour}:${minute.padStart(2, '0')}`;
-            let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
-            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
-              dest = legend_dest[dest].text;
-            }
-            // 快速判定
-            let type = '普通';
-            const trainType = div.querySelector('.train')?.textContent.trim();
-            if (trainType === '') type = '普通';
-            else if (trainType === '普【快】') type = '普　通';
-            else if (trainType === '特') type = '特　急';
-            else if (trainType === 'は') type = 'はまかいじ';
-            else type = `${trainType}`;
-            // 両数判定
-            const cars = (dest === '八王子' || dest === '橋本') ? 8 : 15;
-            tempTrains.push({ type, time, dest, cars });
+          rows.forEach(tr => {
+            const hourTd = tr.querySelector('td');
+            const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
+            const timesTd = tr.querySelectorAll('td')[1];
+            if (!timesTd) return;
+            timesTd.querySelectorAll('.timetable_time').forEach(div => {
+              const minute = div.querySelector('.minute')?.textContent.trim();
+              if (!minute) return;
+              const time = `${hour}:${minute.padStart(2, '0')}`;
+              let dest = div.getAttribute('data-dest') || '';
+              if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
+                dest = legend_dest[dest].text;
+              }
+              let type = '普　通';
+              const trainType = div.getAttribute('data-train')?.trim() || '';
+              if (trainType === '無印' || trainType === '普') type = '普　通';
+              else if (trainType === '普【快】') type = '普　通';
+              else if (trainType === '特') type = '特　急';
+              else if (trainType === 'は') type = 'はまかいじ';
+              else type = `${trainType}`;
+              let cars;
+              if (dest === '八王子' || dest === '橋本') {
+                cars = 8;
+              } else {
+                cars = 15;
+              }
+              allTrains.push({ type, time, dest, cars });
+            });
           });
+        }
+        // 時刻順にソート
+        allTrains.sort((a, b) => {
+          if (!a.time) return 1;
+          if (!b.time) return -1;
+          const [ah, am] = a.time.split(':').map(Number);
+          const [bh, bm] = b.time.split(':').map(Number);
+          return ah * 60 + am - (bh * 60 + bm);
         });
-        trains2 = tempTrains;
+        trains2 = allTrains;
         render();
       } catch (e) {
         trains2 = [];
