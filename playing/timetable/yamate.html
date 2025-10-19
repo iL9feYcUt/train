@@ -320,9 +320,9 @@
 
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
-      '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19'
+      '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19','逗子': 'JO06'
     };
-    const lineColors = { JK: '#00bae8', JH: '#80C342' };
+    const lineColors = { JK: '#00bae8', JH: '#80C342', JO: '#0055a4' };
     const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
     const rowsEl1 = document.getElementById('rows1');
     const rowsEl2 = document.getElementById('rows2');
@@ -362,6 +362,9 @@
           } else if (prefix === 'JK') {
             routeName = '京浜東北線';
             routeColor = 'var(--jk-blue)';
+          } else if (prefix === 'JO') {
+            routeName = '横須賀線';
+            routeColor = '#0055a4';
           } else {
             routeName = '';
             routeColor = '#fff';
@@ -603,6 +606,7 @@
       'はまかいじ': 'Hamakaiji'
     };
     const destEn = {
+      '逗子': 'Zushi',
       '大船': 'Ōfuna',
       '磯子': 'Isogo',
       '桜木町': 'Sakuragichō',
@@ -630,7 +634,8 @@
     };
     const routeEn = {
       '京浜東北線': 'Keihin-Tōhoku Line',
-      '横浜線': 'Yokohama Line'
+      '横浜線': 'Yokohama Line',
+      '横須賀線': 'Yokosuka Line'
     };
     const carsEn = n => `${n}<span style="font-size:0.7em;padding-left:0px;">cars</span>`;
     const abbrevTypeMap = {
@@ -828,7 +833,7 @@
               type = `${trainType}`;
             }
             // 両数判定
-            if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
+            if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '逗子') {
               cars = 8;
             } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
               cars = 6;
