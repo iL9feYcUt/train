@@ -390,7 +390,7 @@
               routeColor = '#fff';
             }
           } else {
-            routeName = '東海道線';
+            routeName = '';
             routeColor = 'var(--jt-orange)';
           }
         }
@@ -444,7 +444,29 @@
           }
           typeDiv.appendChild(typeTextSpan);
         } else {
-          typeDiv.textContent = typeToShow || '\u00A0';
+          // 日本語表記でも幅がはみ出す場合は自動縮小
+          typeDiv.innerHTML = '';
+          const typeTextSpan = document.createElement('span');
+          typeTextSpan.textContent = typeToShow || '\u00A0';
+          typeTextSpan.style.fontSize = '28px';
+          const testSpanType = document.createElement('span');
+          testSpanType.style.visibility = 'hidden';
+          testSpanType.style.position = 'absolute';
+          testSpanType.style.fontFamily = '"Helvetica","ShinGo"';
+          testSpanType.style.whiteSpace = 'nowrap';
+          testSpanType.textContent = typeToShow || '\u00A0';
+          testSpanType.style.fontSize = '28px';
+          document.body.appendChild(testSpanType);
+          const widthType = testSpanType.offsetWidth;
+          document.body.removeChild(testSpanType);
+          const maxWidthType = 190;
+          if (widthType > maxWidthType) {
+            const scaleXType = maxWidthType / widthType;
+            typeTextSpan.style.display = 'inline-block';
+            typeTextSpan.style.whiteSpace = 'nowrap';
+            typeTextSpan.style.transform = `scaleX(${scaleXType})`;
+          }
+          typeDiv.appendChild(typeTextSpan);
         }
         if (!routeName) {
           typeDiv.style.height = '50px';
@@ -666,6 +688,7 @@
       '通': '通勤快速',
       '別': '特別快速',
       '普': '普　通',
+      '伊按': '伊東按針祭花火大会'
       // 必要に応じて追加
     };
     const abbrevDestMap = {
@@ -921,7 +944,7 @@
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
     // --- 行先・種別リスト管理 ---
-    const destList = ['大船', '品川', '大宮', '東京', '上野', '熱海', '沼津', '小田原', '国府津', '平塚', '伊豆急下田', '修善寺', '高崎', '前橋', '新前橋', '古河', '小金井', '宇都宮'];
+    const destList = ['大船', '品川', '大宮', '東京', '上野', '熱海', '沼津', '伊東', '小田原', '鴨宮', '国府津', '平塚', '伊豆急下田', '修善寺', '籠原', '深谷', '高崎', '前橋', '新前橋', '古河', '小金井', '宇都宮'];
     // よく使う種別を追加。必要に応じて拡張可能
     const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'アクティー', 'アーバン', 'ラビット', '踊り子', 'サフィール踊り子', '寝台特急', 'サンライズ出雲', 'サンライズ瀬戸'];
 
@@ -938,10 +961,19 @@
       'atos/m/行がまいります.mp3',
     ];
     // 行先音声
-    destList.forEach(dest => {
-      preloadFiles.push(`atos/w/${dest}行がまいります.mp3`);
-      preloadFiles.push(`atos/m/${dest}行がまいります.mp3`);
-    });
+    // 存在する「〇〇行がまいります.mp3」だけpreloadする
+    async function preloadDestArrivals() {
+      const checkAndPush = async (src) => {
+        try {
+          const res = await fetch(src, { method: 'HEAD' });
+          if (res.ok) preloadFiles.push(src);
+        } catch (e) {}
+      };
+      for (const dest of destList) {
+        await checkAndPush(`atos/w/${dest}行がまいります.mp3`);
+        await checkAndPush(`atos/m/${dest}行がまいります.mp3`);
+      }
+    }
     // 種別音声
     typeList.forEach(type => {
       preloadFiles.push(`atos/w/${type}.mp3`);
@@ -965,7 +997,10 @@
         audioCache[src] = audio;
       });
     }
-    window.addEventListener('DOMContentLoaded', preloadAudios);
+    window.addEventListener('DOMContentLoaded', async () => {
+      await preloadDestArrivals();
+      preloadAudios();
+    });
 
     let audioPlaying = false;
 
