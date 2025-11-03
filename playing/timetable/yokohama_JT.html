@@ -1170,9 +1170,50 @@
 
       let idx = 0;
       audioPlaying = true;
+      function playCarsInfo() {
+        // 両数案内音声を再生
+        const cars = train.cars || 15;
+        const files = [
+          'atos/m/この列車は.mp3',
+          `atos/m/${cars}両です.mp3`
+        ];
+        let i = 0;
+        function playNextCars() {
+          if (i >= files.length) {
+            audioPlaying = false;
+            return;
+          }
+          let src = files[i];
+          let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
+          let advanced = false;
+          audio.addEventListener('ended', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+          audio.addEventListener('error', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+          audio.play().catch(() => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+        }
+        playNextCars();
+      }
       function playNext() {
         if (idx >= files.length) {
-          audioPlaying = false;
+          // 2秒後に両数案内
+          setTimeout(playCarsInfo, 2000);
           return;
         }
         let src = files[idx];
@@ -1375,6 +1416,46 @@
 
       let idx = 0;
       audioPlaying2 = true;
+      function playCarsInfo2() {
+        // 両数案内音声を再生
+        const cars = train.cars || 15;
+        const files = [
+          'atos/w/この列車は.mp3',
+          `atos/w/${cars}両です.mp3`
+        ];
+        let i = 0;
+        function playNextCars() {
+          if (i >= files.length) {
+            audioPlaying2 = false;
+            return;
+          }
+          let src = files[i];
+          let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
+          let advanced = false;
+          audio.addEventListener('ended', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+          audio.addEventListener('error', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+          audio.play().catch(() => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextCars();
+            }
+          });
+        }
+        playNextCars();
+      }
       function playNext() {
         // 通常放送が終わったら2秒ラグ→最終放送
         if (idx === files.length && isLast && lastTrainFiles.length > 0) {
@@ -1389,7 +1470,8 @@
           let lastIdx = 0;
           function playLast() {
             if (lastIdx >= lastTrainFiles.length) {
-              audioPlaying2 = false;
+              // 最終放送後に2秒後両数案内
+              setTimeout(playCarsInfo2, 2000);
               return;
             }
             let src = lastTrainFiles[lastIdx];
@@ -1422,7 +1504,8 @@
         }
         // 通常放送パート
         if (idx >= files.length) {
-          audioPlaying2 = false;
+          // 通常放送のみの場合も2秒後両数案内
+          setTimeout(playCarsInfo2, 2000);
           return;
         }
         let src = files[idx];
