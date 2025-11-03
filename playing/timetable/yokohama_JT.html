@@ -308,10 +308,10 @@
     }
 
     const stationNumbers = {
-      '東京': 'JT01', '上野': 'JU02', '東京': 'JT01', '品川': 'JT03', '平塚': 'JT11', '国府津': 'JT14', '小田原': 'JT16', '熱海': 'JT21'
+      '東京': 'JT01', '上野': 'JU02', '東京': 'JT01', '品川': 'JT03', '平塚': 'JT11', '国府津': 'JT14', '小田原': 'JT16', '熱海': 'JT21', '伊東': 'JT26'
     };
-    const lineColors = { JT: '--jt-orange', JH: '#80C342', JO: '#0055a4' };
-    const typeColors = { '快': 'red', '快　速': '#ff9900', '各駅停車': '#383838', '普　通': '#383838', 'アクティー': '#ff9900', 'アーバン': '#ff9900', 'ラビット': 'purple', '#ff9900': 'purple', '特別快速': 'green', '特　急': 'red', '寝台特急': 'red', '踊り子': 'red', 'サフィール踊り子': 'red', 'サンライズ出雲': 'red', 'サンライズ瀬戸': 'red' };
+    const lineColors = { JT: '--jt-orange', JU: '--jt-orange', JO: '#0055a4' };
+    const typeColors = { '快': 'red', '快　速': '#ff9900', '各駅停車': '#383838', '普　通': '#383838', 'アクティー': '#ff9900', 'アーバン': '#ff9900', 'ラビット': '#ff9900', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', '寝台特急': 'red', '踊り子': 'red', 'サフィール踊り子': 'red', 'サンライズ出雲': 'red', 'サンライズ瀬戸': 'red' };
     const rowsEl1 = document.getElementById('rows1');
     const rowsEl2 = document.getElementById('rows2');
     let trains1 = [];
@@ -371,6 +371,9 @@
           routeColor = 'var(--jt-orange)';
         } else if (["古河", "小金井", "宇都宮"].includes(routeDestToShow)) {
           routeName = '宇都宮線直通';
+          routeColor = 'var(--jt-orange)';
+        } else if (["下,修", "伊豆急下田", "修善寺", "沼津"].includes(routeDestToShow)) {
+          routeName = '東海道線';
           routeColor = 'var(--jt-orange)';
         } else {
           const stationNumber = stationNumbers[routeDestToShow];
@@ -957,7 +960,7 @@
       'atos/w/まもなく1番線に.mp3',
       'atos/w/まもなく2番線に.mp3',
       'atos/w/危ないですから.mp3',
-      'atos/m/まもなく1番線に.mp3',
+      'atos/m/まもなく6番線に.mp3',
       'atos/m/まもなく2番線に.mp3',
       'atos/m/危ないですから.mp3',
       'atos/w/電車がまいります.mp3',
@@ -1023,10 +1026,10 @@
       let destArr = train.dest ? train.dest.split(',') : [];
       destArr = destArr.map(d => abbrevDestMap[d] || d);
       let destPhrase = destArr.join('・');
-      let typeFile = `atos/w/${typePhrase}.mp3`.replace(/\s/g, '');
-      let destFile = `atos/w/${destPhrase}行がまいります.mp3`;
-      let destSingleFile = `atos/w/${destPhrase}.mp3`;
-      let goFile = `atos/w/行がまいります.mp3`;
+      let typeFile = `atos/m/${typePhrase}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/m/${destPhrase}行がまいります.mp3`;
+      let destSingleFile = `atos/m/${destPhrase}.mp3`;
+      let goFile = `atos/m/行がまいります.mp3`;
 
       // 路線名分岐
       let routeAudioFiles = [];
@@ -1044,16 +1047,16 @@
       }
 
       // 音声ファイル構成
-      let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3'];
+      let files = ['atos/ATOS接近音.mp3', 'atos/m/まもなく6番線に.mp3'];
       if (routeName === '上野東京ライン直通') {
-        files.push('atos/w/上野東京ライン直通.mp3');
+        files.push('atos/m/上野東京ライン直通.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/w/${tFull}.mp3`;
+            let tFile = `atos/m/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1064,23 +1067,23 @@
           // 必ず「駅名A.mp3」＋「駅名B行がまいります.mp3」を再生
           let dFullA = destArr[0].replace(/\s/g, '');
           let dFullB = destArr[1].replace(/\s/g, '');
-          files.push(`atos/w/${dFullA}.mp3`);
-          files.push(`atos/w/${dFullB}行がまいります.mp3`);
+          files.push(`atos/m/${dFullA}.mp3`);
+          files.push(`atos/m/${dFullB}行がまいります.mp3`);
         } else {
           // 「〇〇行がまいります」パーツがない場合は「〇〇.mp3」＋「行がまいります.mp3」
           if (audioCache[destSingleFile]) files.push(destSingleFile);
           if (!audioCache[destFile] && audioCache[goFile]) files.push(goFile);
         }
       } else if (routeName === '高崎線直通') {
-        files.push('atos/w/上野東京ライン.mp3');
-        files.push('atos/w/高崎線直通.mp3');
+        files.push('atos/m/上野東京ライン.mp3');
+        files.push('atos/m/高崎線直通.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/w/${tFull}.mp3`;
+            let tFile = `atos/m/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1091,10 +1094,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '');
             if (i === 0) {
-              let f = `atos/w/${dFull}.mp3`;
+              let f = `atos/m/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/w/${dFull}行がまいります.mp3`;
+              let f = `atos/m/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1103,15 +1106,15 @@
           if (audioCache[goFile]) files.push(goFile);
         }
       } else if (routeName === '宇都宮線直通') {
-        files.push('atos/w/上野東京ライン.mp3');
-        files.push('atos/w/宇都宮線直通.mp3');
+        files.push('atos/m/上野東京ライン.mp3');
+        files.push('atos/m/宇都宮線直通.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/w/${tFull}.mp3`;
+            let tFile = `atos/m/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1122,10 +1125,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '');
             if (i === 0) {
-              let f = `atos/w/${dFull}.mp3`;
+              let f = `atos/m/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/w/${dFull}行がまいります.mp3`;
+              let f = `atos/m/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1140,7 +1143,7 @@
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/w/${tFull}.mp3`;
+            let tFile = `atos/m/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1150,10 +1153,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '');
             if (i === 0) {
-              let f = `atos/w/${dFull}.mp3`;
+              let f = `atos/m/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/w/${dFull}行がまいります.mp3`;
+              let f = `atos/m/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1163,7 +1166,7 @@
         }
       }
 
-      files.push('atos/w/危ないですから.mp3');
+      files.push('atos/m/危ないですから.mp3');
 
       let idx = 0;
       audioPlaying = true;
@@ -1219,10 +1222,10 @@
       let destArr = train.dest ? train.dest.split(',') : [];
       destArr = destArr.map(d => abbrevDestMap[d] || d);
       let destPhrase = destArr.join('・');
-      let typeFile = `atos/m/${typePhrase}.mp3`.replace(/\s/g, '');
-      let destFile = `atos/m/${destPhrase}行がまいります.mp3`;
-      let destSingleFile = `atos/m/${destPhrase}.mp3`;
-      let goFile = `atos/m/行がまいります.mp3`;
+      let typeFile = `atos/w/${typePhrase}.mp3`.replace(/\s/g, '');
+      let destFile = `atos/w/${destPhrase}行がまいります.mp3`;
+      let destSingleFile = `atos/w/${destPhrase}.mp3`;
+      let goFile = `atos/w/行がまいります.mp3`;
 
       // 路線名分岐
       let routeName = '';
@@ -1237,16 +1240,16 @@
         }
       }
 
-      let files = ['atos/ATOS接近音.mp3', 'atos/m/まもなく2番線に.mp3'];
+      let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく2番線に.mp3'];
       if (routeName === '上野東京ライン直通') {
-        files.push('atos/m/上野東京ライン直通.mp3');
+        files.push('atos/w/上野東京ライン.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/m/${tFull}.mp3`;
+            let tFile = `atos/w/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1270,8 +1273,8 @@
           if (!audioCache[destFile] && audioCache[goFile]) files.push(goFile);
         }
       } else if (routeName === '高崎線直通') {
-        files.push('atos/m/上野東京ライン.mp3');
-        files.push('atos/m/高崎線直通.mp3');
+        files.push('atos/w/上野東京ライン.mp3');
+        files.push('atos/w/高崎線直通.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
@@ -1289,10 +1292,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '').replace(/　/g, '');
             if (i === 0) {
-              let f = `atos/m/${dFull}.mp3`;
+              let f = `atos/w/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/m/${dFull}行がまいります.mp3`;
+              let f = `atos/w/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1301,15 +1304,15 @@
           if (audioCache[goFile]) files.push(goFile);
         }
       } else if (routeName === '宇都宮線直通') {
-        files.push('atos/m/上野東京ライン.mp3');
-        files.push('atos/m/宇都宮線直通.mp3');
+        files.push('atos/w/上野東京ライン.mp3');
+        files.push('atos/w/宇都宮線直通.mp3');
         // 種別
         if (audioCache[typeFile]) {
           files.push(typeFile);
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/m/${tFull}.mp3`;
+            let tFile = `atos/w/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1320,10 +1323,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '').replace(/　/g, '');
             if (i === 0) {
-              let f = `atos/m/${dFull}.mp3`;
+              let f = `atos/w/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/m/${dFull}行がまいります.mp3`;
+              let f = `atos/w/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1338,7 +1341,7 @@
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/m/${tFull}.mp3`;
+            let tFile = `atos/w/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1346,8 +1349,8 @@
           // 必ず「駅名A.mp3」＋「駅名B行がまいります.mp3」を再生
           let dFullA = destArr[0].replace(/\s/g, '').replace(/　/g, '');
           let dFullB = destArr[1].replace(/\s/g, '').replace(/　/g, '');
-          files.push(`atos/m/${dFullA}.mp3`);
-          files.push(`atos/m/${dFullB}行がまいります.mp3`);
+          files.push(`atos/w/${dFullA}.mp3`);
+          files.push(`atos/w/${dFullB}行がまいります.mp3`);
         } else if (audioCache[destFile]) {
           files.push(destFile);
         }
@@ -1357,7 +1360,7 @@
         }
       }
 
-      files.push('atos/m/危ないですから.mp3');
+      files.push('atos/w/危ないですから.mp3');
 
       // --- 最終電車放送を追加（2秒ラグ後に） ---
       let isLast = isLastTrainToday(trains2, train);
