@@ -969,6 +969,12 @@
       'atos/w/上野東京ライン.mp3',
       'atos/w/高崎線直通.mp3',
       'atos/w/宇都宮線直通.mp3',
+      'atos/w/この列車の.mp3',
+      'atos/w/前より.mp3',
+      'atos/w/5両は.mp3',
+      'atos/w/籠原.mp3',
+      'atos/w/止まりとなります.mp3',
+      'atos/w/グリーン車は足元の数字4番と5番でお待ちください.mp3'
     ];
     // 行先音声
     // 存在する「〇〇行がまいります.mp3」だけpreloadする
@@ -977,7 +983,7 @@
         try {
           const res = await fetch(src, { method: 'HEAD' });
           if (res.ok) preloadFiles.push(src);
-        } catch (e) {}
+        } catch (e) { }
       };
       for (const dest of destList) {
         await checkAndPush(`atos/w/${dest}行がまいります.mp3`);
@@ -1249,6 +1255,44 @@
 
     // --- playAudioSequence2 ---
     function playAudioSequence2(train) {
+      function playGreenCarInfo2() {
+        // グリーン車案内音声を再生
+        const files = [
+          'atos/w/グリーン車は足元の数字4番と5番でお待ちください.mp3'
+        ];
+        let i = 0;
+        function playNextGreen() {
+          if (i >= files.length) {
+            audioPlaying2 = false;
+            return;
+          }
+          let src = files[i];
+          let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
+          let advanced = false;
+          audio.addEventListener('ended', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextGreen();
+            }
+          });
+          audio.addEventListener('error', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextGreen();
+            }
+          });
+          audio.play().catch(() => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextGreen();
+            }
+          });
+        }
+        playNextGreen();
+      }
       // デバッグ用: destSingleFile, destArr, files配列の中身を出力
       setTimeout(() => {
         console.log('playAudioSequence2 destSingleFile:', destSingleFile);
@@ -1304,10 +1348,10 @@
           destArr.forEach((d, i) => {
             let dFull = d.replace(/\s/g, '').replace(/　/g, '');
             if (i === 0) {
-              let f = `atos/m/${dFull}.mp3`;
+              let f = `atos/w/${dFull}.mp3`;
               if (audioCache[f]) files.push(f);
             } else {
-              let f = `atos/m/${dFull}行がまいります.mp3`;
+              let f = `atos/w/${dFull}行がまいります.mp3`;
               if (audioCache[f]) files.push(f);
             }
           });
@@ -1325,7 +1369,7 @@
         } else {
           typeArr.forEach(t => {
             let tFull = t.replace(/\s/g, '').replace(/　/g, '');
-            let tFile = `atos/m/${tFull}.mp3`;
+            let tFile = `atos/w/${tFull}.mp3`;
             if (audioCache[tFile]) files.push(tFile);
           });
         }
@@ -1411,7 +1455,7 @@
       let lastTrainFiles = [];
       if (isLast) {
         lastTrainFiles = [
-          'atos/m/この電車は.mp3',
+          'atos/w/この列車は.mp3',
           destSingleFile,
           'atos/m/行の最終です.mp3'
         ];
@@ -1419,7 +1463,7 @@
 
       let idx = 0;
       audioPlaying2 = true;
-      function playKagoharaInfo2() {
+      function playKagoharaInfo2(callback) {
         // 籠原止まり5両案内音声を再生
         const files = [
           'atos/w/この列車の.mp3',
@@ -1431,7 +1475,7 @@
         let i = 0;
         function playNextKagohara() {
           if (i >= files.length) {
-            audioPlaying2 = false;
+            if (typeof callback === 'function') callback();
             return;
           }
           let src = files[i];
@@ -1471,11 +1515,26 @@
         let i = 0;
         function playNextCars() {
           if (i >= files.length) {
-            // 高崎・新前橋・前橋行きの場合のみ、2秒後に籠原止まり案内
+            // 高崎・新前橋・前橋行きの場合のみ、2秒後に籠原止まり案内→その後グリーン車案内
             const destArr = train.dest ? train.dest.split(',') : [];
             const targetDests = ['高崎', '新前橋', '前橋'];
+            const typeArr = train.type ? train.type.split(',') : [];
+            const typeFullArr = typeArr.map(t => abbrevTypeMap[t] || t);
+            // 特急・寝台特急・踊り子・サフィール踊り子・サンライズ出雲・サンライズ瀬戸は除外
+            const excludeTypes = ['特　急', '寝台特急', '踊り子', 'サフィール踊り子', 'サンライズ出雲', 'サンライズ瀬戸'];
             if (destArr.some(d => targetDests.includes(d))) {
-              setTimeout(playKagoharaInfo2, 2000);
+              setTimeout(() => {
+                playKagoharaInfo2(() => {
+                  if (!typeFullArr.some(t => excludeTypes.includes(t))) {
+                    setTimeout(playGreenCarInfo2, 2000);
+                  } else {
+                    audioPlaying2 = false;
+                  }
+                });
+              }, 2000);
+            } else if (!typeFullArr.some(t => excludeTypes.includes(t))) {
+              // 特急以外ならグリーン車案内
+              setTimeout(playGreenCarInfo2, 2000);
             } else {
               audioPlaying2 = false;
             }
