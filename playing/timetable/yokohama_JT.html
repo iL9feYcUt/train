@@ -455,7 +455,11 @@
           testSpanType.style.fontFamily = '"Helvetica","ShinGo"';
           testSpanType.style.whiteSpace = 'nowrap';
           testSpanType.textContent = typeToShow || '\u00A0';
-          testSpanType.style.fontSize = '28px';
+          if (!routeName) {
+            typeTextSpan.style.fontSize = '2.5rem';
+          } else {
+            typeTextSpan.style.fontSize = '28px';
+          }
           document.body.appendChild(testSpanType);
           const widthType = testSpanType.offsetWidth;
           document.body.removeChild(testSpanType);
