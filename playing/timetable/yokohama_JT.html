@@ -466,7 +466,7 @@
           document.body.appendChild(testSpanType);
           const widthType = testSpanType.offsetWidth;
           document.body.removeChild(testSpanType);
-          const maxWidthType = 190;
+          const maxWidthType = 110;
           if (widthType > maxWidthType) {
             const scaleXType = maxWidthType / widthType;
             typeTextSpan.style.display = 'inline-block';
@@ -1419,6 +1419,48 @@
 
       let idx = 0;
       audioPlaying2 = true;
+      function playKagoharaInfo2() {
+        // 籠原止まり5両案内音声を再生
+        const files = [
+          'atos/w/この列車の.mp3',
+          'atos/w/前より.mp3',
+          'atos/w/5両は.mp3',
+          'atos/w/籠原.mp3',
+          'atos/w/止まりとなります.mp3'
+        ];
+        let i = 0;
+        function playNextKagohara() {
+          if (i >= files.length) {
+            audioPlaying2 = false;
+            return;
+          }
+          let src = files[i];
+          let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
+          let advanced = false;
+          audio.addEventListener('ended', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextKagohara();
+            }
+          });
+          audio.addEventListener('error', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextKagohara();
+            }
+          });
+          audio.play().catch(() => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextKagohara();
+            }
+          });
+        }
+        playNextKagohara();
+      }
       function playCarsInfo2() {
         // 両数案内音声を再生
         const cars = train.cars || 15;
@@ -1429,7 +1471,14 @@
         let i = 0;
         function playNextCars() {
           if (i >= files.length) {
-            audioPlaying2 = false;
+            // 高崎・新前橋・前橋行きの場合のみ、2秒後に籠原止まり案内
+            const destArr = train.dest ? train.dest.split(',') : [];
+            const targetDests = ['高崎', '新前橋', '前橋'];
+            if (destArr.some(d => targetDests.includes(d))) {
+              setTimeout(playKagoharaInfo2, 2000);
+            } else {
+              audioPlaying2 = false;
+            }
             return;
           }
           let src = files[i];
