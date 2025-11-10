@@ -857,7 +857,9 @@
             // 省略記号や空文字対応
             if (!type || type === '無印') type = '普　通';
             // 両数判定
-            if (dest === '伊豆急下田' || dest === '修善寺' || dest === '中山' || dest === '逗子') {
+            if (type === '特,S踊') {
+              cars = 8;
+            } else if (dest === '伊豆急下田' || dest === '修善寺' || dest === '中山' || dest === '逗子') {
               cars = 9;
             } else if (dest === '下,修' || dest === '松本' || dest === '小淵沢' || dest === '甲府') {
               cars = 14;
@@ -922,7 +924,11 @@
             let type = div.getAttribute('data-train') || '普　通';
             if (!type || type === '無印') type = '普　通';
             // 両数判定
-            if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
+            if (type === '特,S踊') {
+              cars = 8;
+            } else if (type === '特,踊') {
+              cars = 14;
+            } else if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
               cars = 8;
             } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
               cars = 6;
@@ -959,7 +965,7 @@
     const preloadFiles = [
       'atos/ATOS接近音.mp3',
       'atos/w/まもなく1番線に.mp3',
-      'atos/w/まもなく2番線に.mp3',
+      'atos/w/まもなく7番線に.mp3',
       'atos/w/危ないですから.mp3',
       'atos/m/まもなく6番線に.mp3',
       'atos/m/まもなく2番線に.mp3',
@@ -975,7 +981,7 @@
       'atos/w/5両は.mp3',
       'atos/w/籠原.mp3',
       'atos/w/止まりとなります.mp3',
-      'atos/w/グリーン車は足元の数字4番と5番でお待ちください.mp3'
+      'atos/w/グリーン車はオレンジ色の柱番号4番と5番でお待ちください.mp3'
     ];
     // 行先音声
     // 存在する「〇〇行がまいります.mp3」だけpreloadする
@@ -1180,6 +1186,86 @@
 
       let idx = 0;
       audioPlaying = true;
+      function playSpecialExpressInfo() {
+        // 特急案内音声を再生
+        let typeArr = train.type ? train.type.split(',') : [];
+        typeArr = typeArr.map(t => abbrevTypeMap[t] || t);
+        let destArr = train.dest ? train.dest.split(',') : [];
+        destArr = destArr.map(d => abbrevDestMap[d] || d);
+        const isOdoriko = typeArr.includes('踊り子');
+        const isSaphir = typeArr.includes('サフィール踊り子');
+        const isTokkyu = typeArr.includes('特　急');
+        // 行先が2つ（下,修含む）かつ踊り子の場合のみ特別案内
+        const isShimodaOdoriko = isOdoriko && destArr.length === 2;
+        let files = [];
+        if (isShimodaOdoriko) {
+          files = [
+            'atos/m/下・修案内.mp3',
+            'DELAY2',
+            'atos/m/グリーン車は4.mp3',
+            'DELAY2',
+            'atos/m/全車指定席.mp3'
+          ];
+        } else if (isOdoriko) {
+          files = [
+            'atos/m/グリーン車は4.mp3',
+            'DELAY2',
+            'atos/m/全車指定席.mp3'
+          ];
+        } else if (isSaphir) {
+          files = [
+            'atos/m/ホームの大船寄りには止まりません.mp3',
+            'DELAY2',
+            'atos/m/グリーン車は1~8.mp3',
+            'DELAY2',
+            'atos/m/全車指定席.mp3'
+          ];
+        } else if (isTokkyu) {
+          files = [
+            'atos/m/全車指定席.mp3'
+          ];
+        } else {
+          audioPlaying = false;
+          return;
+        }
+        let i = 0;
+        function playNextSpecial() {
+          if (i >= files.length) {
+            audioPlaying = false;
+            return;
+          }
+          if (files[i] === 'DELAY2') {
+            i++;
+            setTimeout(playNextSpecial, 2000);
+            return;
+          }
+          let src = files[i];
+          let audio = audioCache[src] ? audioCache[src].cloneNode() : new Audio(src);
+          let advanced = false;
+          audio.addEventListener('ended', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextSpecial();
+            }
+          });
+          audio.addEventListener('error', () => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextSpecial();
+            }
+          });
+          audio.play().catch(() => {
+            if (!advanced) {
+              advanced = true;
+              i++;
+              playNextSpecial();
+            }
+          });
+        }
+        playNextSpecial();
+      }
       function playCarsInfo() {
         // 両数案内音声を再生
         const cars = train.cars || 15;
@@ -1190,7 +1276,14 @@
         let i = 0;
         function playNextCars() {
           if (i >= files.length) {
-            audioPlaying = false;
+            // 特急系の場合のみ2秒後に特別案内
+            let typeArr = train.type ? train.type.split(',') : [];
+            typeArr = typeArr.map(t => abbrevTypeMap[t] || t);
+            if (typeArr.includes('特　急') || typeArr.includes('踊り子') || typeArr.includes('サフィール踊り子')) {
+              setTimeout(playSpecialExpressInfo, 2000);
+            } else {
+              audioPlaying = false;
+            }
             return;
           }
           let src = files[i];
@@ -1259,7 +1352,7 @@
       function playGreenCarInfo2() {
         // グリーン車案内音声を再生
         const files = [
-          'atos/w/グリーン車は足元の数字4番と5番でお待ちください.mp3'
+          'atos/w/グリーン車はオレンジ色の柱番号4番と5番でお待ちください.mp3'
         ];
         let i = 0;
         function playNextGreen() {
@@ -1329,7 +1422,7 @@
         }
       }
 
-      let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく2番線に.mp3'];
+      let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく7番線に.mp3'];
       if (routeName === '上野東京ライン直通') {
         files.push('atos/w/上野東京ライン.mp3');
         // 種別
