@@ -519,7 +519,66 @@
         playBtn.style.marginTop = '20px';
         randomUI.appendChild(playBtn);
 
+        // IKSTボタン生成
+        const ikstBtn = document.createElement('button');
+        ikstBtn.textContent = 'IKST';
+        ikstBtn.style.marginLeft = '10px';
+        playBtn.after(ikstBtn);
+        ikstBtn.style.display = 'none'; // 初期は非表示
+
         document.body.appendChild(randomUI);
+
+        // IKST再生用変数
+        let ikstList = [];
+        let ikstIndex = 0;
+        let isIKSTPlaying = false;
+
+        function playNextIKST() {
+            // 既存のaudio要素を削除
+            const old = document.getElementById('ikstAudio');
+            if (old) old.remove();
+
+            if (ikstList.length === 0) return;
+
+            if (ikstIndex >= ikstList.length) {
+                ikstIndex = 0; // 最初に戻る
+            }
+            const file = ikstList[ikstIndex];
+            h1.textContent = file.replace(/\.mp3$/i, '');
+
+            // 新しいaudio要素を作成
+            const audio = document.createElement('audio');
+            audio.id = 'ikstAudio';
+            audio.src = 'sounds/' + file;
+            audio.autoplay = true;
+            audio.addEventListener('ended', function () {
+                ikstIndex++;
+                if (isIKSTPlaying) playNextIKST();
+            });
+            document.body.appendChild(audio);
+        }
+
+        ikstBtn.onclick = function () {
+            // JRE-IKSTシリーズ＋新幹線シリーズを昇順で結合
+            ikstList = groups['JRE-IKST']
+                .concat(groups['JRE-IKST（新幹線）'])
+                .sort((a, b) => a.localeCompare(b, 'ja'));
+            if (ikstList.length === 0) {
+                alert('JRE-IKSTシリーズがありません');
+                return;
+            }
+            randomUI.style.display = 'none';
+            isIKSTPlaying = true;
+            ikstIndex = 0;
+            playNextIKST();
+        };
+
+        function stopIKST() {
+            isIKSTPlaying = false;
+            h1.textContent = '発車ベル';
+            const old = document.getElementById('ikstAudio');
+            if (old) old.remove();
+        }
 
         function playNextRandom() {
             // 既存のaudio要素を削除
@@ -556,10 +615,17 @@
                 h1.textContent = '発車ベル';
                 const old = document.getElementById('randomAudio');
                 if (old) old.remove();
+                ikstBtn.style.display = 'none';
+                return;
+            }
+            if (isIKSTPlaying) {
+                stopIKST();
+                ikstBtn.style.display = 'none';
                 return;
             }
             // UI表示
             randomUI.style.display = 'block';
+            ikstBtn.style.display = 'inline-block';
         });
 
         playBtn.onclick = function () {
@@ -578,6 +644,7 @@
             playList = shuffle(selectedFiles);
             playIndex = 0;
             playNextRandom();
+            ikstBtn.style.display = 'none';
             console.log('今回のランダム再生順:', playList);
         };
     </script>
