@@ -355,13 +355,18 @@
             "接近メロディー京都線.mp3",
             "接近メロディーオリジナルチャイム7.mp3",
             "接近メロディー阪急.mp3",
-            "ｺﾞ大阪梅田 京都線.mp3",
+            "私大阪梅田 京都線.mp3",
             "ｺﾞ浜辺の歌A.mp3",
             "ｺﾞ浜辺の歌B.mp3",
             "ｺﾞWe are F・Marinos①.mp3",
             "ｺﾞWe are F・Marinos②.mp3",
             "ｺﾞWe are F・Marinos③.mp3",
-            "ｺﾞうなりくんなう！.mp3"
+            "ｺﾞうなりくんなう！.mp3",
+            "私東横線上り.mp3",
+            "私東横線下り.mp3",
+            "私みなとみらい線上り.mp3",
+            "私みなとみらい線下り.mp3",
+            "私東急渋谷.mp3",
         ];
 
         const musicSelect = document.getElementById('musicSelect');
@@ -380,7 +385,8 @@
             'JRE-IKST（新幹線）': [],
             '一般': [],
             'ご当地': [],
-            '接近メロディー': []
+            '接近メロディー': [],
+            '私鉄': []
         };
 
         // ファイルをグループに分類
@@ -395,13 +401,15 @@
                 groups['ご当地'].push(file);
             } else if (file.includes('接近メロディー')) {
                 groups['接近メロディー'].push(file);
+            } else if (file.includes('私')) {
+                groups['私鉄'].push(file);
             } else {
                 groups['一般'].push(file);
             }
         });
 
         // 表示順を指定
-        const displayOrder = ['JR-SH', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー'];
+        const displayOrder = ['JR-SH', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー', '私鉄'];
 
         displayOrder.forEach(label => {
             const files = groups[label];
@@ -422,6 +430,8 @@
                         .trim();
                 } else if (label === 'ご当地') {
                     option.textContent = file.replace(/\.mp3$/i, '').replace(/^ｺﾞ/, '');
+                } else if (label === '私鉄') {
+                    option.textContent = file.replace(/\.mp3$/i, '').replace(/^私/, '');
                 } else {
                     option.textContent = file.replace(/\.mp3$/i, '');
                 }
@@ -604,6 +614,10 @@
             h1.textContent = file.replace(/\.mp3$/i, '');
             if (file.startsWith('ｺﾞ')) {
                 h1.textContent = h1.textContent.replace(/^ｺﾞ/, '');
+            } else if (file.includes('接近メロディー')) {
+                h1.textContent = h1.textContent.replace(/接近メロディー/i, '').trim();
+            } else if (file.startsWith('私')) {
+                h1.textContent = h1.textContent.replace(/^私/, '');
             }
 
             // 新しいaudio要素を作成
