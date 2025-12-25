@@ -501,6 +501,10 @@
         let playList = [];
         let playIndex = 0;
         let isRandomPlaying = false;
+        // ランダム再生で何コーラス鳴らすか
+        let chorusesCount = 1;
+        // 現在のトラックで残っているコーラス数
+        let chorusRemaining = 0;
 
         const hiddenBtn = document.getElementById('hiddenBtn');
         const h1 = document.querySelector('h1');
@@ -537,6 +541,19 @@
         const playBtn = document.createElement('button');
         playBtn.textContent = '再生';
         playBtn.style.marginTop = '20px';
+        // コーラス数入力
+        const chorusLabel = document.createElement('label');
+        chorusLabel.style.display = 'block';
+        chorusLabel.style.margin = '10px 0';
+        chorusLabel.textContent = 'コーラス数: ';
+        const chorusInput = document.createElement('input');
+        chorusInput.type = 'number';
+        chorusInput.min = '1';
+        chorusInput.max = '10';
+        chorusInput.value = '1';
+        chorusInput.style.width = '60px';
+        chorusLabel.appendChild(chorusInput);
+        randomUI.appendChild(chorusLabel);
         randomUI.appendChild(playBtn);
 
         // IKSTボタン生成
@@ -621,13 +638,27 @@
             }
 
             // 新しいaudio要素を作成
+            // そのトラックを指定コーラス分繰り返す
+            chorusRemaining = chorusesCount;
             const audio = document.createElement('audio');
             audio.id = 'randomAudio';
             audio.src = 'sounds/' + file;
             audio.autoplay = true;
             audio.addEventListener('ended', function () {
-                playIndex++;
-                if (isRandomPlaying) playNextRandom();
+                chorusRemaining--;
+                if (chorusRemaining > 0) {
+                    // 同じ曲をもう一度再生
+                    try {
+                        audio.currentTime = 0;
+                        audio.play();
+                    } catch (e) {
+                        console.error('再生再試行エラー:', e);
+                    }
+                } else {
+                    // 次の曲へ
+                    playIndex++;
+                    if (isRandomPlaying) playNextRandom();
+                }
             });
             document.body.appendChild(audio);
         }
@@ -639,6 +670,8 @@
                 h1.textContent = '発車ベル';
                 const old = document.getElementById('randomAudio');
                 if (old) old.remove();
+                // コーラス状態をリセット
+                chorusRemaining = 0;
                 ikstBtn.style.display = 'none';
                 return;
             }
@@ -664,6 +697,9 @@
                 return;
             }
             randomUI.style.display = 'none';
+            // コーラス数を取得
+            chorusesCount = parseInt(chorusInput.value, 10) || 1;
+            chorusRemaining = chorusesCount;
             isRandomPlaying = true;
             playList = shuffle(selectedFiles);
             playIndex = 0;
