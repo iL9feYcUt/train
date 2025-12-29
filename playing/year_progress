@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year Progress (Win11)</title>
+    <style>
+        :root {
+            --win-blue: #0067C0;
+            --win-blue-hover: #005a9e;
+            --win-bg: #f3f3f3;
+            --card-bg: #ffffff;
+            --text-main: #202020;
+            --text-sub: #5d5d5d;
+            --track-color: #e0e0e0; /* プログレスバーの背景 */
+            --radius-window: 12px;
+            --radius-control: 4px;
+            --shadow-depth: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            /* Windows 11のBloom壁紙をイメージした淡いグラデーション */
+            background: linear-gradient(135deg, #eef2f3 0%, #dcecfb 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+            color: var(--text-main);
+            user-select: none;
+        }
+
+        /* アクリル/マイカ風カードデザイン */
+        .fluent-card {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px); /* すりガラス効果 */
+            -webkit-backdrop-filter: blur(20px);
+            width: 420px;
+            padding: 24px;
+            border-radius: var(--radius-window);
+            box-shadow: var(--shadow-depth);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* ヘッダーエリア */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            background-color: #e0f0ff;
+            color: var(--win-blue);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        .title-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        /* プログレスバー */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .progress-track {
+            height: 6px; /* Win11は細め */
+            width: 100%;
+            background-color: var(--track-color);
+            border-radius: 10px; /* ピル型 */
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--win-blue);
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.3s cubic-bezier(0.33, 1, 0.68, 1); /* 自然なイージング */
+        }
+
+        .detail-text {
+            font-size: 12px;
+            color: var(--text-sub);
+            text-align: right;
+        }
+
+        /* ボタングループ */
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .btn {
+            background-color: #ffffff;
+            border: 1px solid #d1d1d1;
+            padding: 6px 24px;
+            border-radius: var(--radius-control);
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: #f6f6f6;
+            border-color: #b1b1b1;
+        }
+
+        .btn:active {
+            background-color: #ededed;
+            color: rgba(0,0,0,0.6);
+            transform: scale(0.98);
+        }
+        
+        /* 強調ボタン */
+        .btn-primary {
+            background-color: var(--win-blue);
+            color: white;
+            border: 1px solid transparent;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--win-blue-hover);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="fluent-card">
+        <div class="header">
+            <div class="icon-box">📅</div>
+            <div class="title-group">
+                <h2 id="year-title">202X年</h2>
+                <span class="subtitle">システム更新の進行状況</span>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-labels">
+                <span>進行中</span>
+                <span id="percentage-text">0%</span>
+            </div>
+            
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-bar"></div>
+            </div>
+            
+            <div class="detail-text">
+                残り日数: <span id="remaining-days">--</span> 日
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" onclick="alert('時間は止められません...')">一時停止</button>
+            <button class="btn btn-primary" style="margin-left: 8px;" onclick="location.reload()">更新</button>
+        </div>
+    </div>
+
+    <script>
+        function updateFluentProgress() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const startOfYear = new Date(currentYear, 0, 1);
+            const startOfNextYear = new Date(currentYear + 1, 0, 1);
+            
+            const totalDuration = startOfNextYear - startOfYear;
+            const elapsed = now - startOfYear;
+            const remaining = startOfNextYear - now;
+            
+            // パーセンテージ計算 (Win11はシンプルさを好むため小数点1桁)
+            const percent = (elapsed / totalDuration) * 100;
+            const percentDisplay = percent.toFixed(1);
+
+            // 残り日数
+            const remainingDays = Math.ceil(remaining / (1000 * 60 * 60 * 24));
+
+            // DOM更新
+            document.getElementById('year-title').textContent = currentYear + "年";
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('percentage-text').textContent = percentDisplay + '%';
+            document.getElementById('remaining-days').textContent = remainingDays;
+
+            requestAnimationFrame(updateFluentProgress);
+        }
+
+        updateFluentProgress();
+    </script>
+</body>
+</html>
