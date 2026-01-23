@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ATOS Departure Board Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --atos-orange: #ff9900;
+            --atos-red: #ff4400;
+            --atos-bg: #000000;
+            --atos-border: #333333;
+        }
+
+        body {
+            background-color: #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'DotGothic16', sans-serif;
+        }
+
+        /* 発車標本体 */
+        .atos-board {
+            background-color: var(--atos-bg);
+            border: 6px solid var(--atos-border);
+            padding: 10px 20px;
+            width: 800px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 走査線エフェクト（より本物らしく） */
+        .atos-board::before {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 列のレイアウト */
+        .train-row {
+            display: flex;
+            align-items: center;
+            height: 60px;
+            border-bottom: 2px solid #111;
+            font-size: 36px;
+            color: var(--atos-orange);
+        }
+
+        .train-row:last-child { border-bottom: none; }
+
+        .time { width: 120px; text-shadow: 0 0 8px var(--atos-orange); }
+        .type { width: 180px; text-align: center; }
+        .type.rapid { color: var(--atos-red); text-shadow: 0 0 8px var(--atos-red); }
+        .destination { width: 200px; }
+        .remarks { flex-grow: 1; text-align: right; font-size: 28px; }
+
+        /* 点滅アニメーション */
+        .blink {
+            animation: blink-animation 0.8s step-end infinite;
+        }
+
+        @keyframes blink-animation {
+            50% { opacity: 0; }
+        }
+
+        .info-panel {
+            margin-top: 20px;
+            color: #ccc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="atos-board" id="board">
+        </div>
+
+    <div class="info-panel">
+        <p>※公共交通オープンデータAPIと連携させて「接近」をシミュレート中</p>
+    </div>
+
+
+
+<script>
+// 設定情報
+const CONFIG = {
+    API_KEY: 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx',
+    STATION_ID: 'odpt.Station:JR-East.Negishi.Yamate', // 山手駅
+    // 根岸線単体ではなく、京浜東北・根岸線のIDを指定します
+    RAILWAY_ID: 'odpt.Railway:JR-East.KeihinTohokuNegishi', 
+    DIRECTION_ID: 'odpt.RailDirection:Outbound', // 下り（大船方面）
+    UPDATE_INTERVAL: 30000
+};
+
+let dailyTimetable = []; // 当日の時刻表キャッシュ
+
+/**
+ * 1. 当日の時刻表を取得 (初回のみ)
+ */
+async function fetchTimetable() {
+    // 路線IDを「京浜東北・根岸線」にして、駅指定を外して全駅分取得します
+    const railwayId = 'odpt.Railway:JR-East.KeihinTohokuNegishi';
+    const url = `https://api.odpt.org/api/v4/odpt:StationTimetable?odpt:railway=${railwayId}&acl:consumerKey=${CONFIG.API_KEY}`;
+    
+    try {
+        console.log("時刻表取得リクエスト中...");
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (!data || data.length === 0) {
+            console.error("データが空でした。路線IDかキーを確認してください。");
+            return;
+        }
+
+        // 全駅のデータから「山手駅」かつ「下り(大船方面)」を探す
+        const timetable = data.find(t => 
+            t['odpt:station'].includes('Yamate') && 
+            t['odpt:railDirection'].includes('Outbound')
+        );
+        
+        if (!timetable) {
+            console.error("データの中に山手駅が見つかりませんでした。取得された駅一覧:", data.map(d => d['odpt:station']));
+            return;
+        }
+
+        console.log("山手駅の時刻表が見つかりました:", timetable);
+        processTimetable(timetable);
+
+    } catch (e) {
+        console.error("APIアクセスに失敗しました:", e);
+    }
+}
+
+function processTimetable(timetable) {
+    dailyTimetable = timetable['odpt:stationTimetableObject'].map(obj => ({
+        time: obj['odpt:departureTime'],
+        trainNumber: obj['odpt:trainNumber'],
+        destination: obj['odpt:destinationStation'][0].split('.').pop(),
+        type: obj['odpt:trainType'] ? obj['odpt:trainType'].split('.').pop() : "Local"
+    }));
+    console.log("時刻表の解析に成功しました:", dailyTimetable);
+    updateDisplay();
+}
+
+/**
+ * 2. リアルタイム位置情報を取得して表示を更新
+ */
+async function updateDisplay() {
+    const url = `https://api.odpt.org/api/v4/odpt:Train?odpt:railway=${CONFIG.RAILWAY_ID}&acl:consumerKey=${CONFIG.API_KEY}`;
+    
+    try {
+        const response = await fetch(url);
+        const liveTrains = await response.json();
+        
+        // 現在時刻以降の列車を3本抽出
+        const now = new Date();
+        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const upcomingTrains = dailyTimetable
+            .filter(t => t.time >= currentTimeStr)
+            .slice(0, 3);
+
+        // リアルタイム情報をマージ
+        const displayData = upcomingTrains.map(train => {
+            const liveInfo = liveTrains.find(lt => lt['odpt:trainNumber'] === train.trainNumber);
+            
+            let status = "";
+            // 自分の駅に向かっている（toStationが自駅）なら「接近」
+            if (liveInfo && liveInfo['odpt:toStation'] === CONFIG.STATION_ID) {
+                status = "接近";
+            } else if (liveInfo && liveInfo['odpt:delay'] > 0) {
+                status = `約${Math.floor(liveInfo['odpt:delay'] / 60)}分遅れ`;
+            }
+
+            return {
+                time: train.time,
+                type: translateType(train.type),
+                typeClass: train.type.toLowerCase().includes('rapid') ? 'rapid' : 'local',
+                destination: translateStation(train.destination),
+                status: status
+            };
+        });
+
+        renderBoard(displayData); // 前回の描画関数を呼び出し
+    } catch (e) {
+        console.error("リアルタイム情報の取得に失敗", e);
+    }
+}
+
+// 簡易翻訳関数（本番はマスタを作るのがベスト）
+function translateType(type) {
+    if (type.includes('Rapid')) return '快速';
+    if (type.includes('SpecialRapid')) return '中央特快';
+    return '各駅停車';
+}
+
+function translateStation(id) {
+    const masters = { 
+        'Ofuna': '大船', 
+        'Isogo': '磯子', 
+        'Sakuragicho': '桜木町',
+        'Omiya': '大宮',
+        'Minami-Urawa': '南浦和'
+    };
+    return masters[id] || id;
+}
+
+// 実行開始
+fetchTimetable();
+setInterval(updateDisplay, CONFIG.UPDATE_INTERVAL);
+</script>
+</body>
+</html>
