@@ -594,7 +594,7 @@
         }
 
         document.getElementById('enable-audio-btn').onclick = function () { audioEnabled = true; this.style.display = 'none'; };
-        setInterval(() => { langTimer++; showEnglish = (langTimer % 180 >= 120); }, 50);
+        setInterval(() => { langTimer++; showEnglish = (langTimer % 180 >= 120); }, 100);
 
         window.onload = async () => {
             preloadAudios();
