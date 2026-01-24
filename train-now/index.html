@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>列車走行位置 - 京浜東北・根岸線</title>
+    <style>
+        :root {
+            --jk-blue: #00baee;
+            --jh-green: #8cc63f;
+            --bg-light: #f4f6f9;
+            --text-dark: #333;
+        }
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", sans-serif; background: white; margin: 0; color: var(--text-dark); }
+
+        .container { max-width: 600px; margin: 0 auto; position: relative; padding-top: 0px; }
+
+        /* ステータスバー（時刻と最大遅延） */
+        .max-delay-display {
+            position: fixed; top: 5px; width: fit-content; border-radius: 6px;
+            text-align: center; left: 50%; transform: translateX(-50%);
+            padding: 3px 25px; z-index: 30; color: white; font-weight: bold;
+        }
+        .status-delay {
+            background: #f87171;
+        }
+        .status-normal {
+            background: #1f71ff;
+        }
+
+        .timestamp { color: #777; font-size: 12px; font-weight: bold; z-index: 20; }
+        
+        .direction-label {
+            background: #d1d5db; color: #4b5563; font-weight: bold; padding: 6px 25px;
+            border-radius: 8px; width: fit-content; margin: 0 auto 30px; font-size: 12px; z-index: 20;
+        }
+
+        .rail-track {
+            position: absolute; left: 50%; top: 90px; bottom: 80px;
+            width: 10px; background: var(--jk-blue); transform: translateX(-50%); z-index: 1;
+        }
+
+        .station-row { display: flex; height: 160px; position: relative; z-index: 2; }
+        .station-row:nth-child(even) { background-color: var(--bg-light); }
+
+        .side-lane { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: row; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative; 
+        }
+        .center-lane { width: 60px; display: flex; justify-content: center; align-items: center; position: relative; }
+
+        .station-name-box { position: absolute; right: 0px; gap: 8px; width: 20px;}
+        .station-name { font-size: 20px; font-weight: bold; right: 50px; position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; }
+        .jk-code {
+            border: 4px solid var(--jk-blue); font-weight: bold; border-radius: 4px; line-height: 80%; color: black; 
+            display: flex; flex-direction: column; align-items: center; width: 26px ; height: 25px !important; margin: 0 0 0 10px; font-family: 'Frutiger';
+        }
+        .jk-label { font-size: 11px; }
+        .jk-num { font-size: 15px; margin-top: -2px; }
+
+        .station-dot { width: 16px; height: 16px; background: white; border: 4px solid var(--jk-blue); border-radius: 50%; z-index: 5; }
+
+        .train-card {
+            width: 68px;
+            position: relative;
+            margin: 0 -10px; 
+            z-index: 10;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4)); 
+        }
+
+        .delay-badge { 
+            background: #f87171; 
+            color: white; 
+            border-radius: 12px; 
+            font-size: 12px; 
+            font-weight: bold;
+            padding: 1px 8px; 
+            border: 2px solid white; 
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .northbound .delay-badge { bottom: -10px; } /* 北行は下から */
+        .southbound .delay-badge { top: -12px; }    /* 南行は上から */
+
+        .train-body {
+            position: relative;
+            z-index: 5; /* バッジより手前に設定 */
+            background: var(--jk-blue);
+            color: white;
+            text-align: center;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 6px 4px;
+        }
+        .eight-cars .train-body { background: var(--jh-green); }
+
+        .northbound .train-body { 
+            clip-path: polygon(0% 20%, 50% 0%, 100% 20%, 100% 100%, 0% 100%); 
+            padding-top: 15px; 
+        }
+        .southbound .train-body { 
+            clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 50% 100%, 0% 80%); 
+            padding-top: 12px; 
+        }
+
+        .congestion { display: flex; justify-content: center; gap: 2px; margin: 4px 0; }
+        .train-img { font-size: 20px; background: white; border-radius: 4px; color: black; width: 30px; margin: 0 auto; line-height: 1.2; }
+
+        .between-row { height: 80px; position: relative; z-index: 2; display: flex; }
+
+        #extra-alert { 
+        background: #fb2424; color: #fff237; font-size: 15px; font-weight: bold; 
+        padding: 2px 8px; border-radius: 6px; display: none; animation: blink 1s infinite;
+        position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 50;
+        }@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+    <div class="timestamp" id="clock" style="position: fixed; left: 77%; top: 10px;">--:-- 現在</div>
+    <div id="max-delay" class="max-delay-display">平常運転</div>
+    <div class="direction-label" style="position: fixed; left: 50%; transform: translateX(-50%); top: 40px;" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">大宮方面(北行)</div>
+    <div class="rail-track"></div>
+    <div id="railway-list" style="margin-top: 80px; margin-bottom: 60px;"></div>
+    <div class="direction-label" style="position: fixed; left: 50%; transform: translateX(-50%); bottom: 10px" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})">大船方面(南行)</div>
+    <div id="extra-alert">非定期列車</div>
+</div>
+
+<script>
+const KEY = 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx';
+
+const RAIL_JK_API = `https://api-challenge.odpt.org/api/v4/odpt:Railway?odpt:operator=odpt.Operator:JR-East&dc:title=%E4%BA%AC%E6%B5%9C%E6%9D%B1%E5%8C%97%E7%B7%9A%E3%83%BB%E6%A0%B9%E5%B2%B8%E7%B7%9A&acl:consumerKey=${KEY}`;
+const RAIL_JH_API = `https://api-challenge.odpt.org/api/v4/odpt:Railway?odpt:operator=odpt.Operator:JR-East&dc:title=%E6%A8%AA%E6%B5%9C%E7%B7%9A&acl:consumerKey=${KEY}`;
+const TRAIN_API = `https://api-challenge.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.KeihinTohokuNegishi&acl:consumerKey=${KEY}`;
+
+let stationMap = {}; 
+let stationList = [];
+
+async function init() {
+    const [resJK, resJH] = await Promise.all([
+        fetch(RAIL_JK_API),
+        fetch(RAIL_JH_API)
+    ]);
+    const dataJK = await resJK.json();
+    const dataJH = await resJH.json();
+
+    stationList = dataJK[0]['odpt:stationOrder'];
+    
+    const processRailway = (data) => {
+        data[0]['odpt:stationOrder'].forEach(st => {
+            stationMap[st['odpt:station']] = {
+                name: st['odpt:stationTitle']['ja'],
+                jk: String(48 - st['odpt:index']).padStart(2, '0')
+            };
+        });
+    };
+    processRailway(dataJK);
+    processRailway(dataJH);
+
+    update();
+    setInterval(update, 1000); 
+}
+
+async function update() {
+    const res = await fetch(TRAIN_API);
+    const trains = await res.json();
+    
+    // 時刻の更新
+    const now = new Date();
+    document.getElementById('clock').innerText = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')} 現在`;
+    
+    // --- 最大遅延の計算 ---
+    const delays = trains.map(t => t['odpt:delay'] || 0);
+    const maxDelaySec = Math.max(0, ...delays);
+    const maxDelayMin = Math.floor(maxDelaySec / 60);
+    
+    const delayEl = document.getElementById('max-delay');
+    if (maxDelayMin > 0) {
+        delayEl.innerText = `遅れ ${maxDelayMin} 分`;
+        delayEl.className = 'max-delay-display status-delay';
+    } else {
+        delayEl.innerText = '平常運転';
+        delayEl.className = 'max-delay-display status-normal';
+    }
+
+    // --- 非定期列車の判定 ---
+    const regularSouth = ["大船", "磯子", "桜木町", "東神奈川", "鶴見", "蒲田", "赤羽", "南浦和"];
+    const regularNorth = ["磯子", "蒲田", "上野", "赤羽", "南浦和", "大宮", "橋本", "八王子"];
+    
+    const hasExtraTrain = trains.some(t => {
+        const dest = stationMap[t['odpt:destinationStation'][0]]?.name;
+        const trainNum = t['odpt:trainNumber'] || "";
+        const isNorth = t['odpt:railDirection'].includes('Northbound');
+        const isSouth = t['odpt:railDirection'].includes('Southbound');
+
+        // 1. 9000番台の判定
+        if (trainNum.startsWith('9')) return true;
+
+        // 2. 行先の判定
+        if (isSouth && dest && !regularSouth.includes(dest)) return true;
+        if (isNorth && dest && !regularNorth.includes(dest)) return true;
+
+        return false;
+    });
+
+    const extraEl = document.getElementById('extra-alert');
+    if (hasExtraTrain) {
+        extraEl.innerText = "⚠️ 非定期列車";
+        extraEl.style.display = "block";
+    } else {
+        extraEl.style.display = "none";
+    }
+    
+    render(trains);
+}
+
+function render(trains) {
+    const list = document.getElementById('railway-list');
+    list.innerHTML = '';
+
+    stationList.forEach((st, i) => {
+        const stId = st['odpt:station'];
+        const info = stationMap[stId];
+
+        const row = document.createElement('div');
+        row.className = 'station-row';
+        
+        const left = createLane('northbound');
+        trains.filter(t => t['odpt:fromStation'] === stId && !t['odpt:toStation'] && t['odpt:railDirection'].includes('Northbound'))
+              .forEach(t => left.appendChild(createTrain(t)));
+
+        const center = document.createElement('div');
+        center.className = 'center-lane';
+        center.innerHTML = `
+            <div class="station-name-box">
+                <div class="jk-code"><div class="jk-label">JK</div><div class="jk-num">${info.jk}</div></div>
+                <div class="station-name">${info.name}</div>
+            </div>
+            <div class="station-dot"></div>
+        `;
+
+        const right = createLane('southbound');
+        trains.filter(t => t['odpt:fromStation'] === stId && !t['odpt:toStation'] && t['odpt:railDirection'].includes('Southbound'))
+              .forEach(t => right.appendChild(createTrain(t)));
+
+        row.append(left, center, right);
+        list.appendChild(row);
+
+        if (i < stationList.length - 1) {
+            const nextStId = stationList[i+1]['odpt:station'];
+            const between = document.createElement('div');
+            between.className = 'between-row';
+
+            const bLeft = createLane('northbound');
+            trains.filter(t => t['odpt:fromStation'] === nextStId && t['odpt:toStation'] === stId)
+                  .forEach(t => bLeft.appendChild(createTrain(t)));
+
+            const bCenter = document.createElement('div'); bCenter.className = 'center-lane';
+
+            const bRight = createLane('southbound');
+            trains.filter(t => t['odpt:fromStation'] === stId && t['odpt:toStation'] === nextStId)
+                  .forEach(t => bRight.appendChild(createTrain(t)));
+
+            between.append(bLeft, bCenter, bRight);
+            list.appendChild(between);
+        }
+    });
+}
+
+function createLane(dir) {
+    const el = document.createElement('div');
+    el.className = `side-lane ${dir}`;
+    return el;
+}
+
+function createTrain(t) {
+    const card = document.createElement('div');
+    const typeLabel = t['odpt:trainType'] === 'odpt.TrainType:JR-East.Rapid' ? '快速' : '各停';
+    const isEightCars = t['odpt:carComposition'] === 8;
+    card.className = `train-card ${isEightCars ? 'eight-cars' : ''}`;
+    
+    const delayVal = t['odpt:delay'];
+    const delay = delayVal > 0 ? `<div class="delay-badge">+${Math.floor(delayVal/60)}分</div>` : '';
+    const dest = stationMap[t['odpt:destinationStation'][0]]?.name || 'ー';
+    
+    // 列車番号(odpt:trainNumber)を取得
+    const trainNumber = t['odpt:trainNumber'] || '----';
+
+    card.innerHTML = `
+        ${delay}
+        <div class="train-body">
+            <div>${typeLabel}・${dest}</div>
+            <div>${trainNumber}</div> <div>${t['odpt:carComposition']}両</div>
+            <div class="congestion"></div>
+            <div class="train-img"></div>
+        </div>
+    `;
+    return card;
+}
+
+init();
+</script>
+</body>
+</html>
