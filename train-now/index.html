@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>列車走行位置 - 京浜東北・根岸線</title>
     <style>
+        @font-face {
+            font-family: 'Frutiger';
+            src: url(Frutiger_bold.ttf) format("truetype");
+        }
         :root {
             --jk-blue: #00baee;
             --jh-green: #8cc63f;
@@ -60,14 +64,14 @@
             display: flex; flex-direction: column; align-items: center; width: 26px ; height: 25px !important; margin: 0 0 0 10px; font-family: 'Frutiger';
         }
         .jk-label { font-size: 11px; }
-        .jk-num { font-size: 15px; margin-top: -2px; }
+        .jk-num { font-size: 16px; margin-top: -2px; }
 
         .station-dot { width: 16px; height: 16px; background: white; border: 4px solid var(--jk-blue); border-radius: 50%; z-index: 5; }
 
         .train-card {
             width: 65px;
             position: relative;
-            margin: 0 -10px; 
+            margin: 0 -15px; 
             z-index: 10;
             filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4)); 
         }
@@ -98,17 +102,17 @@
             text-align: center;
             font-size: 11px;
             font-weight: bold;
-            padding: 3px 2px;
+            padding: 2px 2px;
         }
         .eight-cars .train-body { background: var(--jh-green); }
 
         .northbound .train-body { 
             clip-path: polygon(0% 20%, 50% 0%, 100% 20%, 100% 100%, 0% 100%); 
-            padding-top: 15px; 
+            padding-top: 16px; 
         }
         .southbound .train-body { 
             clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 50% 100%, 0% 80%); 
-            padding-top: 12px; 
+            padding-top: 10px; 
         }
 
         .congestion { display: flex; justify-content: center; gap: 2px; margin: 4px 0; }
