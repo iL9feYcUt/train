@@ -61,7 +61,7 @@
         .station-name { font-size: 20px; font-weight: bold; right: 50px; position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; }
         .jk-code {
             border: 4px solid var(--jk-blue); font-weight: bold; border-radius: 4px; line-height: 80%; color: black; 
-            display: flex; flex-direction: column; align-items: center; width: 26px ; height: 25px !important; margin: 0 0 0 10px; font-family: 'Frutiger';
+            display: flex; flex-direction: column; align-items: center; width: 26px ; height: 25px !important; margin: 0 0 0 10px; font-family: 'Frutiger' 'Helvetica';
         }
         .jk-label { font-size: 11px; }
         .jk-num { font-size: 16px; margin-top: -2px; }
@@ -206,8 +206,10 @@ async function update() {
         const isNorth = t['odpt:railDirection'].includes('Northbound');
         const isSouth = t['odpt:railDirection'].includes('Southbound');
 
-        // 1. 9000番台の判定
-        if (trainNum.startsWith('9')) return true;
+    // --- 1. 9000番台の判定（4桁の数字の先頭が9の場合のみ） ---
+    // 正規表現で「9から始まる4桁の数字」が含まれているかチェック
+    const is9000s = /^9\d{3}[A-Z]?$/.test(trainNum);
+    if (is9000s) return true;
 
         // 2. 行先の判定
         if (isSouth && dest && !regularSouth.includes(dest)) return true;

@@ -226,6 +226,7 @@
             color: #ff0000;
             font-size: 40px;
             text-align: right;
+            width: 201px;
         }
 
         /* 遅延表示用 */
@@ -270,342 +271,365 @@
     </div>
     <button id="enable-audio-btn" style="position:fixed;top:30px;right:30px;z-index:1000;">ATOS放送</button>
 
-    <script>
-        const API_KEY = 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx';
-        let stationNameMap = {};
-        let realtimeTrainInfo = {};
-        let trains1 = [];
-        let trains2 = [];
-        let lastAnnouncedTime1 = null;
-        let lastAnnouncedTime2 = null;
-        let audioEnabled = false;
-        let audioPlaying = false;
-        let audioPlaying2 = false;
-        let showEnglish = false;
-        let langTimer = 0;
+<script>
+    const API_KEY = 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx';
+    let stationNameMap = {};
+    let realtimeTrainInfo = {}; // { trainNumber: { delay: sec, cars: num } }
+    let trains1 = [];
+    let trains2 = [];
+    let lastAnnouncedTime1 = null;
+    let lastAnnouncedTime2 = null;
+    let audioEnabled = false;
+    let audioPlaying = false;
+    let audioPlaying2 = false;
+    let showEnglish = false;
+    let langTimer = 0;
 
-        const stationNumbers = {
-            '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
-            '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19', '逗子': 'JO06'
+    const stationNumbers = {
+      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
+      '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19', '逗子': 'JO06'
+    };
+    const lineColors = { JK: '#00bae8', JH: '#80C342', JO: '#0055a4' };
+    const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
+    const typeEn = { '各駅停車': 'Local', '快　速': 'Rapid', 'アクティー': 'Acty', '通勤快速': 'Commuters Rapid', '特別快速': 'Special Rapid', '普通': 'Local', '特　急': 'Limited Express', 'はまかいじ': 'Hamakaiji' };
+    const destEn = { '逗子': 'Zushi', '大船': 'Ōfuna', '磯子': 'Isogo', '桜木町': 'Sakuragichō', '横浜': 'Yokohama', '鶴見': 'Tsurumi', '蒲田': 'Kamata', '品川': 'Shinagawa', '上野': 'Ueno', '赤羽': 'Akabane', '東十条': 'Higashi-Jūjō', '南浦和': 'Minami-Urawa', '大宮': 'Ōmiya', '東神奈川': 'Higashi-Kanagawa', '八王子': 'Hachiōji', '町田': 'Machida', '川越': 'Kawagoe', '橋本': 'Hashimoto', '中山': 'Nakayama' };
+    const routeEn = { '京浜東北線': 'Keihin-Tōhoku Line', '横浜線': 'Yokohama Line', '横須賀線': 'Yokosuka Line' };
+    const abbrevTypeMap = { '特': '特　急', 'は': 'はまかいじ', '快': '快　速', 'ア': 'アクティー', '通': '通勤快速', '別': '特別快速', '普': '普　通' };
+    const abbrevDestMap = { '赤': '赤羽', '大': '大船', '磯': '磯子', '桜': '桜木町', '横': '横浜', '鶴': '鶴見', '蒲': '蒲田', '品': '品川', '東': '東十条', '浦': '南浦和', '宮': '大宮', '神': '東神奈川', '八': '八王子', '町': '町田', '川': '川越', '橋': '橋本', '中': '中山' };
+
+    const audioCache = {};
+    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
+    const preloadFiles = [
+      'atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3', 'atos/w/まもなく2番線に.mp3', 'atos/w/危ないですから.mp3',
+      'atos/m/まもなく1番線に.mp3', 'atos/m/まもなく2番線に.mp3', 'atos/m/危ないですから.mp3', 'atos/w/電車がまいります.mp3',
+      'atos/m/この電車は.mp3', 'atos/m/行の最終です.mp3', 'atos/w/この電車は.mp3', 'atos/w/行の最終です.mp3', 'atos/w/行がまいります.mp3', 'atos/m/行がまいります.mp3'
+    ];
+    destList.forEach(dest => {
+      preloadFiles.push(`atos/w/${dest}行がまいります.mp3`, `atos/m/${dest}行がまいります.mp3`, `atos/m/${dest}.mp3`, `atos/w/${dest}.mp3`);
+    });
+    typeList.forEach(type => {
+      preloadFiles.push(`atos/w/${type}.mp3`, `atos/m/${type}.mp3`);
+    });
+
+    function preloadAudios() {
+      preloadFiles.forEach(src => {
+        const audio = new Audio(src);
+        audio.preload = 'auto';
+        audioCache[src] = audio;
+      });
+    }
+
+    async function fetchMaster() {
+      const url = `https://api-challenge.odpt.org/api/v4/odpt:Station?odpt:operator=odpt.Operator:JR-East&acl:consumerKey=${API_KEY}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        data.forEach(s => { stationNameMap[s['owl:sameAs']] = s['dc:title']; });
+      } catch (e) {}
+    }
+
+    async function fetchRealtime() {
+      const urls = [
+        `https://api-challenge.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.KeihinTohokuNegishi&acl:consumerKey=${API_KEY}`,
+        `https://api-challenge.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.Yokohama&acl:consumerKey=${API_KEY}`
+      ];
+      const newInfo = {};
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          data.forEach(t => {
+            const tNo = t['odpt:trainNumber'];
+            if (tNo) {
+              newInfo[tNo] = {
+                delay: t['odpt:delay'] || 0,
+                cars: t['odpt:carComposition'] || null // 列番検索から取得
+              };
+            }
+          });
+        } catch (e) {}
+      }
+      realtimeTrainInfo = newInfo;
+    }
+
+    async function loadTimetables() {
+      await fetchRealtime();
+      const calendar = isHoliday(new Date()) ? 'odpt.Calendar:SaturdayHoliday' : 'odpt.Calendar:Weekday';
+      const url = `https://api-challenge.odpt.org/api/v4/odpt:StationTimetable?odpt:operator=odpt.Operator:JR-East&odpt:station=odpt.Station:JR-East.KeihinTohokuNegishi.Yamate&acl:consumerKey=${API_KEY}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const process = (dir) => {
+          const entry = data.find(d => d['odpt:railDirection'].includes(dir) && d['odpt:calendar'] === calendar);
+          if (!entry) return [];
+          return entry['odpt:stationTimetableObject'].map((obj, index) => {
+            const tNo = obj['odpt:trainNumber'];
+            const info = realtimeTrainInfo[tNo] || { delay: 0, cars: null }; // 検索に引っかからなければnull
+            const [h, m] = obj['odpt:departureTime'].split(':').map(Number);
+            let baseSec = (h < 4 ? h + 24 : h) * 3600 + m * 60;
+            return {
+              time: obj['odpt:departureTime'],
+              baseSec: baseSec,
+              estimatedSec: baseSec + info.delay,
+              delay: info.delay,
+              dest: stationNameMap[obj['odpt:destinationStation'][0]] || "大宮",
+              type: obj['odpt:trainType'].includes('Rapid') ? '快　速' : '各駅停車',
+              cars: info.cars, // 列番検索結果をそのまま保持
+              trainNo: tNo,
+              origOrder: index
+            };
+          });
         };
-        const lineColors = { JK: '#00bae8', JH: '#80C342', JO: '#0055a4' };
-        const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
-        const typeEn = { '各駅停車': 'Local', '快　速': 'Rapid', 'アクティー': 'Acty', '通勤快速': 'Commuters Rapid', '特別快速': 'Special Rapid', '普通': 'Local', '特　急': 'Limited Express', 'はまかいじ': 'Hamakaiji' };
-        const destEn = { '逗子': 'Zushi', '大船': 'Ōfuna', '磯子': 'Isogo', '桜木町': 'Sakuragichō', '横浜': 'Yokohama', '鶴見': 'Tsurumi', '蒲田': 'Kamata', '品川': 'Shinagawa', '赤羽': 'Akabane', '東十条': 'Higashi-Jūjō', '南浦和': 'Minami-Urawa', '大宮': 'Ōmiya', '東神奈川': 'Higashi-Kanagawa', '八王子': 'Hachiōji', '町田': 'Machida', '川越': 'Kawagoe', '橋本': 'Hashimoto', '中山': 'Nakayama' };
-        const routeEn = { '京浜東北線': 'Keihin-Tōhoku Line', '横浜線': 'Yokohama Line', '横須賀線': 'Yokosuka Line' };
-        const abbrevTypeMap = { '特': '特　急', 'は': 'はまかいじ', '快': '快　速', 'ア': 'アクティー', '通': '通勤快速', '別': '特別快速', '普': '普　通' };
-        const abbrevDestMap = { '赤': '赤羽', '大': '大船', '磯': '磯子', '桜': '桜木町', '横': '横浜', '鶴': '鶴見', '蒲': '蒲田', '品': '品川', '東': '東十条', '浦': '南浦和', '宮': '大宮', '神': '東神奈川', '八': '八王子', '町': '町田', '川': '川越', '橋': '橋本', '中': '中山' };
+        trains1 = process('Southbound');
+        trains2 = process('Northbound');
+      } catch (e) {}
+    }
 
-        const audioCache = {};
-        const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
-        const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
-        const preloadFiles = [
-            'atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3', 'atos/w/まもなく2番線に.mp3', 'atos/w/危ないですから.mp3',
-            'atos/m/まもなく1番線に.mp3', 'atos/m/まもなく2番線に.mp3', 'atos/m/危ないですから.mp3', 'atos/w/電車がまいります.mp3',
-            'atos/m/この電車は.mp3', 'atos/m/行の最終です.mp3', 'atos/w/この電車は.mp3', 'atos/w/行の最終です.mp3', 'atos/w/行がまいります.mp3', 'atos/m/行がまいります.mp3'
-        ];
-        destList.forEach(dest => {
-            preloadFiles.push(`atos/w/${dest}行がまいります.mp3`, `atos/m/${dest}行がまいります.mp3`, `atos/m/${dest}.mp3`, `atos/w/${dest}.mp3`);
-        });
-        typeList.forEach(type => {
-            preloadFiles.push(`atos/w/${type}.mp3`, `atos/m/${type}.mp3`);
-        });
+    function getAutoScaledSpan(text, maxWidth, fontSize, fontFamily) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      span.style.fontSize = fontSize;
+      span.style.fontFamily = fontFamily;
+      const test = document.createElement('span');
+      test.style.visibility = 'hidden'; test.style.position = 'absolute'; test.style.whiteSpace = 'nowrap';
+      test.style.fontSize = fontSize; test.style.fontFamily = fontFamily;
+      test.textContent = text;
+      document.body.appendChild(test);
+      const width = test.offsetWidth;
+      document.body.removeChild(test);
+      if (width > maxWidth) {
+        const scaleX = maxWidth / width;
+        span.style.display = 'inline-block'; span.style.transformOrigin = 'left center';
+        span.style.whiteSpace = 'nowrap'; span.style.transform = `scaleX(${scaleX})`;
+      }
+      return span;
+    }
 
-        function preloadAudios() {
-            preloadFiles.forEach(src => {
-                const audio = new Audio(src);
-                audio.preload = 'auto';
-                audioCache[src] = audio;
-            });
+    function buildTable(data) {
+      const table = document.createElement('table');
+      data.forEach(datum => {
+        const tr = document.createElement('tr');
+        // 空行プレースホルダ: time が無ければレイアウトだけ作る
+        if (!datum || !datum.time) {
+          const td1 = document.createElement('td');
+          td1.style.width = '120px';
+          td1.innerHTML = '<div class="route-label">&nbsp;</div><div class="type" style="background:transparent">&nbsp;</div>';
+
+          const td2 = document.createElement('td');
+          td2.style.textAlign = 'right';
+          td2.innerHTML = `<div class="time" style="width:201px;">&nbsp;</div>`;
+
+          const td3 = document.createElement('td');
+          td3.style.paddingLeft = '16px';
+          const destWrap = document.createElement('div');
+          destWrap.className = 'dest-text';
+          destWrap.innerHTML = '&nbsp;';
+          td3.appendChild(destWrap);
+
+          const td4 = document.createElement('td');
+          td4.style.textAlign = 'right';
+          td4.style.width = '105px';
+          td4.innerHTML = '&nbsp;';
+
+          tr.append(td1, td2, td3, td4);
+          table.appendChild(tr);
+          return;
         }
 
-        async function fetchMaster() {
-            const url = `https://api-challenge.odpt.org/api/v4/odpt:Station?odpt:operator=odpt.Operator:JR-East&acl:consumerKey=${API_KEY}`;
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                data.forEach(s => { stationNameMap[s['owl:sameAs']] = s['dc:title']; });
-            } catch (e) { }
+        const sn = stationNumbers[datum.dest];
+        const prefix = sn ? sn.match(/([A-Za-z]+)/)[1] : 'JK';
+        const routeName = prefix === 'JH' ? '横浜線' : '京浜東北線';
+        const routeColor = lineColors[prefix] || '#fff';
+
+        const typeTd = document.createElement('td');
+        typeTd.style.width = '120px';
+        const routeLabel = document.createElement('div');
+        routeLabel.className = 'route-label';
+        routeLabel.style.color = routeColor;
+        routeLabel.textContent = showEnglish ? routeEn[routeName] : routeName;
+        typeTd.appendChild(routeLabel);
+
+        const typeDiv = document.createElement('div');
+        typeDiv.className = 'type';
+        typeDiv.style.background = typeColors[datum.type];
+        if (showEnglish) {
+          typeDiv.appendChild(getAutoScaledSpan(typeEn[datum.type], 190, '28px', '"Helvetica","ShinGo"'));
+        } else {
+          typeDiv.textContent = datum.type;
+        }
+        typeTd.appendChild(typeDiv);
+
+        const timeTd = document.createElement('td');
+        timeTd.style.textAlign = 'right';
+        const delayMin = Math.floor(datum.delay / 60);
+        const cycle = langTimer % 180;
+        const shouldShowDelay = (delayMin > 0) && ((cycle >= 60 && cycle < 120) || (cycle >= 150 && cycle < 180));
+        if (shouldShowDelay) {
+          timeTd.innerHTML =  `<div class="delay-text" style="width:201px;">${delayMin}${showEnglish ? '<span style="font-size:0.9em;">min delay</span>' : '<span style="font-size:0.9em;">分遅れ</span>'}</div>`;
+        } else {
+          const [h, m] = datum.time.split(':');
+          const displayH = Number(h);
+          timeTd.innerHTML = `<div class="time" style="width:201px;">${displayH}:${m}</div>`;
         }
 
-        async function fetchRealtime() {
-            const urls = [
-                `https://api-challenge.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.KeihinTohokuNegishi&acl:consumerKey=${API_KEY}`,
-                `https://api-challenge.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.Yokohama&acl:consumerKey=${API_KEY}`
-            ];
-            const newInfo = {};
-            for (const url of urls) {
-                try {
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    data.forEach(t => {
-                        if (t['odpt:trainNumber']) {
-                            newInfo[t['odpt:trainNumber']] = {
-                                delay: t['odpt:delay'] || 0,
-                                cars: t['odpt:carComposition'] || null
-                            };
-                        }
-                    });
-                } catch (e) { }
-            }
-            realtimeTrainInfo = newInfo;
+        const destTd = document.createElement('td');
+        destTd.style.paddingLeft = '16px';
+        const destWrap = document.createElement('div');
+        destWrap.className = 'dest-text';
+        if (sn) {
+          const [p, n] = sn.match(/([A-Za-z]+)(\d+)/).slice(1);
+          const badge = document.createElement('div');
+          badge.className = 'station-badge';
+          badge.style.borderColor = lineColors[p];
+          badge.innerHTML = `<span class="station-prefix">${p}</span><span class="station-number">${n}</span>`;
+          destWrap.appendChild(badge);
+        }
+        const destName = showEnglish ? (destEn[datum.dest] || datum.dest) : datum.dest;
+        const maxWidth = sn ? 225 : 275;
+        destWrap.appendChild(getAutoScaledSpan(destName, maxWidth, '52px', '"Helvetica","ShinGo"'));
+        destTd.appendChild(destWrap);
+
+        const carsTd = document.createElement('td');
+        carsTd.style.textAlign = 'right';
+        carsTd.style.width = '105px';
+        if (datum.cars) {
+          carsTd.innerHTML = `<span class="cars-badge">${datum.cars}<span style="font-size:0.7em;">${showEnglish ? 'cars' : '両'}</span></span>`;
+        } else {
+          carsTd.innerHTML = '&nbsp;';
         }
 
-        async function loadTimetables() {
-            await fetchRealtime();
-            const calendar = isHoliday(new Date()) ? 'odpt.Calendar:SaturdayHoliday' : 'odpt.Calendar:Weekday';
-            const url = `https://api-challenge.odpt.org/api/v4/odpt:StationTimetable?odpt:operator=odpt.Operator:JR-East&odpt:station=odpt.Station:JR-East.KeihinTohokuNegishi.Yamate&acl:consumerKey=${API_KEY}`;
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                const process = (dir) => {
-                    const entry = data.find(d => d['odpt:railDirection'].includes(dir) && d['odpt:calendar'] === calendar);
-                    if (!entry) return [];
-                    return entry['odpt:stationTimetableObject'].map((obj, index) => {
-                        const info = realtimeTrainInfo[obj['odpt:trainNumber']] || { delay: 0, cars: 10 };
-                        const [h, m] = obj['odpt:departureTime'].split(':').map(Number);
-                        let baseSec = (h < 4 ? h + 24 : h) * 3600 + m * 60;
-                        return {
-                            time: obj['odpt:departureTime'],
-                            baseSec: baseSec,
-                            estimatedSec: baseSec + info.delay,
-                            delay: info.delay,
-                            dest: stationNameMap[obj['odpt:destinationStation'][0]] || "大宮",
-                            type: obj['odpt:trainType'].includes('Rapid') ? '快　速' : '各駅停車',
-                            cars: info.cars || (obj['odpt:destinationStation'][0].includes('Yokohama') ? 8 : 10),
-                            trainNo: obj['odpt:trainNumber'],
-                            origOrder: index
-                        };
-                    });
-                };
-                trains1 = process('Southbound');
-                trains2 = process('Northbound');
-            } catch (e) { }
+        tr.append(typeTd, timeTd, destTd, carsTd);
+        table.appendChild(tr);
+      });
+      return table;
+    }
+
+    function render() {
+      const now = new Date();
+      const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const getUp = (list) => list.filter(t => t.estimatedSec >= (nowSec - 60))
+                                  .sort((a, b) => a.estimatedSec - b.estimatedSec || a.origOrder - b.origOrder)
+                                  .slice(0, 2);
+      const r1 = document.getElementById('rows1'); r1.innerHTML = '';
+      const up1 = getUp(trains1);
+      while (up1.length < 2) up1.push({});
+      r1.appendChild(buildTable(up1));
+
+      const r2 = document.getElementById('rows2'); r2.innerHTML = '';
+      const up2 = getUp(trains2);
+      while (up2.length < 2) up2.push({});
+      r2.appendChild(buildTable(up2));
+    }
+
+    function playAudioSequence1(train) {
+      if (!audioEnabled || audioPlaying) return;
+      let typePhrase = abbrevTypeMap[train.type] || train.type;
+      let destPhrase = abbrevDestMap[train.dest] || train.dest;
+      let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3'];
+      let tFile = `atos/w/${typePhrase.replace(/\s/g, '')}.mp3`;
+      if (audioCache[tFile]) files.push(tFile);
+      let dFile = `atos/w/${destPhrase}行がまいります.mp3`;
+      if (audioCache[dFile]) files.push(dFile);
+      else { files.push(`atos/w/${destPhrase}.mp3`, 'atos/w/行がまいります.mp3'); }
+      files.push('atos/w/危ないですから.mp3');
+      let idx = 0; audioPlaying = true;
+      function playNext() {
+        if (idx >= files.length) { audioPlaying = false; return; }
+        let audio = audioCache[files[idx]] ? audioCache[files[idx]].cloneNode() : new Audio(files[idx]);
+        audio.onended = () => { idx++; playNext(); };
+        audio.play().catch(() => { idx++; playNext(); });
+      }
+      playNext();
+    }
+
+    function playAudioSequence2(train) {
+      if (!audioEnabled || audioPlaying2) return;
+      let typePhrase = abbrevTypeMap[train.type] || train.type;
+      let destPhrase = abbrevDestMap[train.dest] || train.dest;
+      let files = ['atos/ATOS接近音.mp3', 'atos/m/まもなく2番線に.mp3'];
+      let tFile = `atos/m/${typePhrase.replace(/\s/g, '')}.mp3`;
+      if (audioCache[tFile]) files.push(tFile);
+      let dFile = `atos/m/${destPhrase}行がまいります.mp3`;
+      if (audioCache[dFile]) files.push(dFile);
+      else { files.push(`atos/m/${destPhrase}.mp3`, 'atos/m/行がまいります.mp3'); }
+      files.push('atos/m/危ないですから.mp3');
+      let isLast = isLastTrainToday(trains2, train);
+      let idx = 0; audioPlaying2 = true;
+      function playNext() {
+        if (idx === files.length && isLast) { setTimeout(() => { idx = -100; playNext(); }, 2000); return; }
+        if (idx === -100) {
+          let lastFiles = ['atos/m/この電車は.mp3', `atos/m/${destPhrase}.mp3`, 'atos/m/行の最終です.mp3'];
+          let lIdx = 0;
+          function playLast() {
+            if (lIdx >= lastFiles.length) { audioPlaying2 = false; return; }
+            let audio = new Audio(lastFiles[lIdx]);
+            audio.onended = () => { lIdx++; playLast(); };
+            audio.play();
+          }
+          playLast(); return;
         }
+        if (idx >= files.length) { audioPlaying2 = false; return; }
+        let audio = audioCache[files[idx]] ? audioCache[files[idx]].cloneNode() : new Audio(files[idx]);
+        audio.onended = () => { idx++; playNext(); };
+        audio.play().catch(() => { idx++; playNext(); });
+      }
+      playNext();
+    }
 
-        // ★幅計測用のユーティリティ関数（元のコードのロジックを再現）
-        function getAutoScaledSpan(text, maxWidth, fontSize, fontFamily) {
-            const span = document.createElement('span');
-            span.textContent = text;
-            span.style.fontSize = fontSize;
-            span.style.fontFamily = fontFamily;
-
-            const test = document.createElement('span');
-            test.style.visibility = 'hidden';
-            test.style.position = 'absolute';
-            test.style.whiteSpace = 'nowrap';
-            test.style.fontSize = fontSize;
-            test.style.fontFamily = fontFamily;
-            test.textContent = text;
-            document.body.appendChild(test);
-            const width = test.offsetWidth;
-            document.body.removeChild(test);
-
-            if (width > maxWidth) {
-                const scaleX = maxWidth / width;
-                span.style.display = 'inline-block';
-                span.style.transformOrigin = 'left center';
-                span.style.whiteSpace = 'nowrap';
-                span.style.transform = `scaleX(${scaleX})`;
-            }
-            return span;
+    function checkAndAnnounce1() {
+      if (!trains1.length) return;
+      const now = new Date();
+      const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const next = trains1.filter(t => t.estimatedSec >= nowSec).sort((a,b)=>a.estimatedSec-b.estimatedSec)[0];
+      if (next && next.estimatedSec - nowSec <= 60 && next.estimatedSec - nowSec > 0) {
+        if (lastAnnouncedTime1 !== next.time + next.trainNo) {
+          playAudioSequence1(next); lastAnnouncedTime1 = next.time + next.trainNo;
         }
+      } else if (next && next.estimatedSec - nowSec > 60) { lastAnnouncedTime1 = null; }
+    }
 
-        function buildTable(data) {
-            const table = document.createElement('table');
-            data.forEach(datum => {
-                if (!datum.time) return;
-                const tr = document.createElement('tr');
-                const sn = stationNumbers[datum.dest];
-                const prefix = sn ? sn.match(/([A-Za-z]+)/)[1] : 'JK';
-                const routeName = prefix === 'JH' ? '横浜線' : '京浜東北線';
-                const routeColor = lineColors[prefix] || '#fff';
-
-                const typeTd = document.createElement('td');
-                typeTd.style.width = '120px';
-
-                // 路線ラベル
-                const routeLabel = document.createElement('div');
-                routeLabel.className = 'route-label';
-                routeLabel.style.color = routeColor;
-                routeLabel.textContent = showEnglish ? routeEn[routeName] : routeName;
-                typeTd.appendChild(routeLabel);
-
-                // 種別（自動幅調整を適用）
-                const typeDiv = document.createElement('div');
-                typeDiv.className = 'type';
-                typeDiv.style.background = typeColors[datum.type];
-                if (showEnglish) {
-                    typeDiv.appendChild(getAutoScaledSpan(typeEn[datum.type], 190, '28px', '"Helvetica","ShinGo"'));
-                } else {
-                    typeDiv.textContent = datum.type;
-                }
-                typeTd.appendChild(typeDiv);
-
-                const timeTd = document.createElement('td');
-                timeTd.style.textAlign = 'right';
-                // --- 遅延表示ロジックの修正 ---
-                const delayMin = Math.floor(datum.delay / 60);
-                const cycle = langTimer % 180;
-
-                // 遅延がある、かつ (日本語後半 60~120) または (英語後半 150~180) のとき
-                const shouldShowDelay = (delayMin > 0) && ((cycle >= 60 && cycle < 120) || (cycle >= 150 && cycle < 180));
-
-                if (shouldShowDelay) {
-                    timeTd.innerHTML = `<div class="delay-text" style="width:201px;">${delayMin}${showEnglish ? '<span style="font-size:0.9em;">min delay</span>' : '<span style="font-size:0.9em;">分遅れ</span>'}</div>`;
-                } else {
-                    timeTd.innerHTML = `<div class="time" style="min-width:110px;">${datum.time}</div>`;
-                }
-
-                const destTd = document.createElement('td');
-                destTd.style.paddingLeft = '16px';
-                const destWrap = document.createElement('div');
-                destWrap.className = 'dest-text';
-
-                // 駅ナンバリングバッジ
-                if (sn) {
-                    const [p, n] = sn.match(/([A-Za-z]+)(\d+)/).slice(1);
-                    const badge = document.createElement('div');
-                    badge.className = 'station-badge';
-                    badge.style.borderColor = lineColors[p];
-                    badge.innerHTML = `<span class="station-prefix">${p}</span><span class="station-number">${n}</span>`;
-                    destWrap.appendChild(badge);
-                }
-
-                // 行先名（自動幅調整を適用）
-                const destName = showEnglish ? (destEn[datum.dest] || datum.dest) : datum.dest;
-                const maxWidth = sn ? 225 : 275;
-                destWrap.appendChild(getAutoScaledSpan(destName, maxWidth, '52px', '"Helvetica","ShinGo"'));
-                destTd.appendChild(destWrap);
-
-                const carsTd = document.createElement('td');
-                carsTd.style.textAlign = 'right';
-                carsTd.innerHTML = `<span class="cars-badge">${datum.cars}<span style="font-size:0.7em;">${showEnglish ? 'cars' : '両'}</span></span>`;
-
-                tr.append(typeTd, timeTd, destTd, carsTd);
-                table.appendChild(tr);
-            });
-            return table;
+    function checkAndAnnounce2() {
+      if (!trains2.length) return;
+      const now = new Date();
+      const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const next = trains2.filter(t => t.estimatedSec >= nowSec).sort((a,b)=>a.estimatedSec-b.estimatedSec)[0];
+      if (next && next.estimatedSec - nowSec <= 30 && next.estimatedSec - nowSec > 0) {
+        if (lastAnnouncedTime2 !== next.time + next.trainNo) {
+          playAudioSequence2(next); lastAnnouncedTime2 = next.time + next.trainNo;
         }
+      } else if (next && next.estimatedSec - nowSec > 30) { lastAnnouncedTime2 = null; }
+    }
 
-        function render() {
-            const now = new Date();
-            const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            const getUp = (list) => list.filter(t => t.estimatedSec >= (nowSec - 60))
-                .sort((a, b) => a.estimatedSec - b.estimatedSec || a.origOrder - b.origOrder)
-                .slice(0, 2);
-            const r1 = document.getElementById('rows1'); r1.innerHTML = ''; r1.appendChild(buildTable(getUp(trains1)));
-            const r2 = document.getElementById('rows2'); r2.innerHTML = ''; r2.appendChild(buildTable(getUp(trains2)));
-        }
+    function isLastTrainToday(trains, train) {
+      if (!train.time || !train.dest) return false;
+      const sameDest = trains.filter(t => t.dest === train.dest).map(t => {
+        const [h, m] = t.time.split(':').map(Number);
+        return { ...t, min: (h < 4 ? h + 24 : h) * 60 + m };
+      });
+      const max = sameDest.reduce((a, b) => (a.min > b.min ? a : b), { min: 0 });
+      return max.time === train.time;
+    }
 
-        function playAudioSequence1(train) {
-            if (!audioEnabled || audioPlaying) return;
-            let typePhrase = abbrevTypeMap[train.type] || train.type;
-            let destPhrase = abbrevDestMap[train.dest] || train.dest;
-            let files = ['atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3'];
-            let tFile = `atos/w/${typePhrase.replace(/\s/g, '')}.mp3`;
-            if (audioCache[tFile]) files.push(tFile);
-            let dFile = `atos/w/${destPhrase}行がまいります.mp3`;
-            if (audioCache[dFile]) files.push(dFile);
-            else { files.push(`atos/w/${destPhrase}.mp3`, 'atos/w/行がまいります.mp3'); }
-            files.push('atos/w/危ないですから.mp3');
-            let idx = 0; audioPlaying = true;
-            function playNext() {
-                if (idx >= files.length) { audioPlaying = false; return; }
-                let audio = audioCache[files[idx]] ? audioCache[files[idx]].cloneNode() : new Audio(files[idx]);
-                audio.onended = () => { idx++; playNext(); };
-                audio.play().catch(() => { idx++; playNext(); });
-            }
-            playNext();
-        }
+    function isHoliday(d) {
+      const day = d.getDay(); if (day === 0 || day === 6) return true;
+      const mmdd = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return ['01-01', '02-11', '02-23', '04-29', '05-03', '05-04', '05-05', '08-11', '11-03', '11-23'].includes(mmdd);
+    }
 
-        function playAudioSequence2(train) {
-            if (!audioEnabled || audioPlaying2) return;
-            let typePhrase = abbrevTypeMap[train.type] || train.type;
-            let destPhrase = abbrevDestMap[train.dest] || train.dest;
-            let files = ['atos/ATOS接近音.mp3', 'atos/m/まもなく2番線に.mp3'];
-            let tFile = `atos/m/${typePhrase.replace(/\s/g, '')}.mp3`;
-            if (audioCache[tFile]) files.push(tFile);
-            let dFile = `atos/m/${destPhrase}行がまいります.mp3`;
-            if (audioCache[dFile]) files.push(dFile);
-            else { files.push(`atos/m/${destPhrase}.mp3`, 'atos/m/行がまいります.mp3'); }
-            files.push('atos/m/危ないですから.mp3');
-            let isLast = isLastTrainToday(trains2, train);
-            let idx = 0; audioPlaying2 = true;
-            function playNext() {
-                if (idx === files.length && isLast) { setTimeout(() => { idx = -100; playNext(); }, 2000); return; }
-                if (idx === -100) {
-                    let lastFiles = ['atos/m/この電車は.mp3', `atos/m/${destPhrase}.mp3`, 'atos/m/行の最終です.mp3'];
-                    let lIdx = 0;
-                    function playLast() {
-                        if (lIdx >= lastFiles.length) { audioPlaying2 = false; return; }
-                        let audio = new Audio(lastFiles[lIdx]);
-                        audio.onended = () => { lIdx++; playLast(); };
-                        audio.play();
-                    }
-                    playLast(); return;
-                }
-                if (idx >= files.length) { audioPlaying2 = false; return; }
-                let audio = audioCache[files[idx]] ? audioCache[files[idx]].cloneNode() : new Audio(files[idx]);
-                audio.onended = () => { idx++; playNext(); };
-                audio.play().catch(() => { idx++; playNext(); });
-            }
-            playNext();
-        }
-
-        function checkAndAnnounce1() {
-            if (!trains1.length) return;
-            const now = new Date();
-            const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            const next = trains1.filter(t => t.estimatedSec >= nowSec).sort((a, b) => a.estimatedSec - b.estimatedSec)[0];
-            if (next && next.estimatedSec - nowSec <= 60 && next.estimatedSec - nowSec > 0) {
-                if (lastAnnouncedTime1 !== next.time + next.trainNo) {
-                    playAudioSequence1(next); lastAnnouncedTime1 = next.time + next.trainNo;
-                }
-            } else if (next && next.estimatedSec - nowSec > 60) { lastAnnouncedTime1 = null; }
-        }
-
-        function checkAndAnnounce2() {
-            if (!trains2.length) return;
-            const now = new Date();
-            const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            const next = trains2.filter(t => t.estimatedSec >= nowSec).sort((a, b) => a.estimatedSec - b.estimatedSec)[0];
-            if (next && next.estimatedSec - nowSec <= 30 && next.estimatedSec - nowSec > 0) {
-                if (lastAnnouncedTime2 !== next.time + next.trainNo) {
-                    playAudioSequence2(next); lastAnnouncedTime2 = next.time + next.trainNo;
-                }
-            } else if (next && next.estimatedSec - nowSec > 30) { lastAnnouncedTime2 = null; }
-        }
-
-        function isLastTrainToday(trains, train) {
-            if (!train.time || !train.dest) return false;
-            const sameDest = trains.filter(t => t.dest === train.dest).map(t => {
-                const [h, m] = t.time.split(':').map(Number);
-                return { ...t, min: (h < 4 ? h + 24 : h) * 60 + m };
-            });
-            const max = sameDest.reduce((a, b) => (a.min > b.min ? a : b), { min: 0 });
-            return max.time === train.time;
-        }
-
-        function isHoliday(d) {
-            const day = d.getDay(); if (day === 0 || day === 6) return true;
-            const mmdd = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            return ['01-01', '02-11', '02-23', '04-29', '05-03', '05-04', '05-05', '08-11', '11-03', '11-23'].includes(mmdd);
-        }
-
-        document.getElementById('enable-audio-btn').onclick = function () { audioEnabled = true; this.style.display = 'none'; };
-        setInterval(() => { langTimer++; showEnglish = (langTimer % 180 >= 120); }, 100);
-
-        window.onload = async () => {
-            preloadAudios();
-            await fetchMaster();
-            await loadTimetables();
-            setInterval(loadTimetables, 100);
-            setInterval(render, 100);
-            setInterval(checkAndAnnounce1, 100);
-            setInterval(checkAndAnnounce2, 100);
-        };
-    </script>
+    document.getElementById('enable-audio-btn').onclick = function() { audioEnabled = true; this.style.display = 'none'; };
+    setInterval(() => { langTimer++; showEnglish = (langTimer % 180 >= 120); }, 100);
+    
+    window.onload = async () => {
+      preloadAudios();
+      await fetchMaster();
+      await loadTimetables();
+      setInterval(loadTimetables, 1000);
+      setInterval(render, 100);
+      setInterval(checkAndAnnounce1, 100);
+      setInterval(checkAndAnnounce2, 100);
+    };
+  </script>
 </body>
 
 </html>
