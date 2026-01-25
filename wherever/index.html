@@ -595,13 +595,28 @@
             h1.textContent = file.replace(/\.mp3$/i, '');
 
             // 新しいaudio要素を作成
+            // このトラックを指定コーラス分繰り返す
+            chorusRemaining = chorusesCount;
             const audio = document.createElement('audio');
             audio.id = 'ikstAudio';
             audio.src = 'sounds/' + file;
             audio.autoplay = true;
             audio.addEventListener('ended', function () {
-                ikstIndex++;
-                if (isIKSTPlaying) playNextIKST();
+                chorusRemaining--;
+                if (chorusRemaining > 0) {
+                    try {
+                        audio.currentTime = 0;
+                        audio.play();
+                    } catch (e) {
+                        console.error('IKST再生再試行エラー:', e);
+                    }
+                } else {
+                    ikstIndex++;
+                    if (ikstIndex >= ikstList.length) {
+                        ikstIndex = 0;
+                    }
+                    if (isIKSTPlaying) playNextIKST();
+                }
             });
             document.body.appendChild(audio);
         }
@@ -615,6 +630,9 @@
                 alert('JRE-IKSTシリーズがありません');
                 return;
             }
+            // コーラス数を取得して設定
+            chorusesCount = parseInt(chorusInput.value, 10) || 1;
+            chorusRemaining = chorusesCount;
             randomUI.style.display = 'none';
             isIKSTPlaying = true;
             ikstIndex = 0;
@@ -626,6 +644,8 @@
             h1.textContent = '発車ベル';
             const old = document.getElementById('ikstAudio');
             if (old) old.remove();
+            // コーラス状態をリセット
+            chorusRemaining = 0;
         }
 
         function playNextRandom() {
