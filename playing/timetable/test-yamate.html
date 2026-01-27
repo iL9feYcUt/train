@@ -285,6 +285,8 @@
     let audioPlaying2 = false;
     let showEnglish = false;
     let langTimer = 0;
+    let lastDepartedTime1 = null;
+    let lastDepartedTime2 = null;
 
     const stationNumbers = {
       '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
@@ -312,6 +314,8 @@
     typeList.forEach(type => {
       preloadFiles.push(`atos/w/${type}.mp3`, `atos/m/${type}.mp3`);
     });
+    // Preload departure announcement sounds
+    preloadFiles.push('atos/sounds/JRE-IKST-007-02.mp3', 'atos/sounds/JRE-IKST-007-01.mp3', 'atos/sounds/w/1.mp3', 'atos/sounds/m/2.mp3');
 
     function preloadAudios() {
       preloadFiles.forEach(src => {
@@ -588,6 +592,18 @@
           playAudioSequence1(next); lastAnnouncedTime1 = next.time + next.trainNo;
         }
       } else if (next && next.estimatedSec - nowSec > 60) { lastAnnouncedTime1 = null; }
+
+      // Departure-time playback (considering delay). Play once when train is at its estimated departure time.
+      if (next) {
+        const diff = next.estimatedSec - nowSec;
+        if (diff <= 0 && diff > -2) {
+          const key = next.time + next.trainNo;
+          if (lastDepartedTime1 !== key) {
+            playDepartureSequence1(next);
+            lastDepartedTime1 = key;
+          }
+        }
+      }
     }
 
     function checkAndAnnounce2() {
@@ -600,6 +616,48 @@
           playAudioSequence2(next); lastAnnouncedTime2 = next.time + next.trainNo;
         }
       } else if (next && next.estimatedSec - nowSec > 30) { lastAnnouncedTime2 = null; }
+
+      // Departure-time playback (considering delay). Play once when train is at its estimated departure time.
+      if (next) {
+        const diff = next.estimatedSec - nowSec;
+        if (diff <= 0 && diff > -2) {
+          const key = next.time + next.trainNo;
+          if (lastDepartedTime2 !== key) {
+            playDepartureSequence2(next);
+            lastDepartedTime2 = key;
+          }
+        }
+      }
+    }
+
+    // Play additional departure audio for 1番線: JRE file, 2s silence, then atos/sounds/w/1.mp3
+    function playDepartureSequence1(train) {
+      if (!audioEnabled) return;
+      const first = 'atos/sounds/JRE-IKST-007-02.mp3';
+      const second = 'atos/sounds/w/1.mp3';
+      const a1 = audioCache[first] ? audioCache[first].cloneNode() : new Audio(first);
+      a1.onended = () => {
+        setTimeout(() => {
+          const a2 = audioCache[second] ? audioCache[second].cloneNode() : new Audio(second);
+          a2.play().catch(() => {});
+        }, 1800);
+      };
+      a1.play().catch(() => {});
+    }
+
+    // Play additional departure audio for 2番線: JRE file, 2s silence, then atos/sounds/m/2.mp3
+    function playDepartureSequence2(train) {
+      if (!audioEnabled) return;
+      const first = 'atos/sounds/JRE-IKST-007-01.mp3';
+      const second = 'atos/sounds/m/2.mp3';
+      const a1 = audioCache[first] ? audioCache[first].cloneNode() : new Audio(first);
+      a1.onended = () => {
+        setTimeout(() => {
+          const a2 = audioCache[second] ? audioCache[second].cloneNode() : new Audio(second);
+          a2.play().catch(() => {});
+        }, 1500);
+      };
+      a1.play().catch(() => {});
     }
 
     function isLastTrainToday(trains, train) {
