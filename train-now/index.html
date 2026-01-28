@@ -115,6 +115,26 @@
             padding-top: 10px; 
         }
 
+        .formation-label {
+            position: absolute;
+            font-size: 10px;
+            color: black;
+            white-space: nowrap;
+        }
+        
+        .northbound .formation-label {
+            left: 50%;
+            transform: translateX(-50%);
+            top: -15px;
+        }
+        
+        .southbound .formation-label {
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: -15px;
+        }
+    
+
         .congestion { display: flex; justify-content: center; gap: 2px; margin: 4px 0; }
         .train-img { font-size: 20px; background: white; border-radius: 4px; color: black; width: 30px; margin: 0 auto; line-height: 1.2; }
 
@@ -125,6 +145,13 @@
         padding: 2px 8px; border-radius: 6px; display: none; animation: blink 1s infinite;
         position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 50;
         }@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* サイ101・サイ102の列車本体を赤く */
+        .formation-red .train-body {
+            background: #e60000;
+        }
+
+
     </style>
 </head>
 <body>
@@ -141,6 +168,9 @@
 
 <script>
 const KEY = 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx';
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz-pqpXHL4WVQpWApwHBq2zQz2lDDODt3MLPXdxboLje3NoAUXZ-wuNA-LK51ILYpVp/exec';
+const formationCache = {};
+
 
 const RAIL_JK_API = `https://api-challenge.odpt.org/api/v4/odpt:Railway?odpt:operator=odpt.Operator:JR-East&dc:title=%E4%BA%AC%E6%B5%9C%E6%9D%B1%E5%8C%97%E7%B7%9A%E3%83%BB%E6%A0%B9%E5%B2%B8%E7%B7%9A&acl:consumerKey=${KEY}`;
 const RAIL_JH_API = `https://api-challenge.odpt.org/api/v4/odpt:Railway?odpt:operator=odpt.Operator:JR-East&dc:title=%E6%A8%AA%E6%B5%9C%E7%B7%9A&acl:consumerKey=${KEY}`;
@@ -288,6 +318,25 @@ function createLane(dir) {
     return el;
 }
 
+async function getFormationNumber(trainNo) {
+    if (!trainNo) return '???';
+    if (formationCache[trainNo]) return formationCache[trainNo];
+
+    try {
+        const res = await fetch(
+          `${GAS_WEBAPP_URL}?train=${encodeURIComponent(trainNo)}`
+        );
+        const data = await res.json();
+        const result = data?.result || '???';
+        formationCache[trainNo] = result;
+        return result;
+    } catch {
+        formationCache[trainNo] = '???';
+        return '???';
+    }
+}
+
+
 function createTrain(t) {
     const card = document.createElement('div');
     let typeLabel;
@@ -318,6 +367,20 @@ function createTrain(t) {
             <div class="train-img"></div>
         </div>
     `;
+
+    const label = document.createElement('div');
+    label.className = 'formation-label';
+    label.textContent = '???';
+    card.appendChild(label);
+
+    getFormationNumber(trainNumber).then(v => {
+        label.textContent = v;
+        label.dataset.formation = v;
+
+        if (v === 'サイ101' || v === 'サイ102') {
+        card.classList.add('formation-red');
+    }
+    });
     return card;
 }
 

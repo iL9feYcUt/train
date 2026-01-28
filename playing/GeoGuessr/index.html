@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Free GeoGuessr (Mapillary)</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Mapillary JS -->
+    <link rel="stylesheet" href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css" />
+    <script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div id="container">
+        <div id="viewer"></div>
+        <div id="map"></div>
+    </div>
+
+    <div id="info">
+        <button id="guessBtn">決定</button>
+        <button id="nextBtn">次の問題</button>
+        <span id="result"></span>
+        <span id="score"></span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="main.js" defer></script>
+
+</body>
+
+</html>
