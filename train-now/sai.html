@@ -2,27 +2,121 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>編成番号検索</title>
+  <title>列車・編成 双方向検索</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 20px;
+    }
+
+    input {
+      font-size: 16px;
+      padding: 6px;
+      width: 220px;
+    }
+
+    button {
+      font-size: 16px;
+      padding: 6px 12px;
+      margin-left: 8px;
+    }
+
+    #result {
+      margin-top: 20px;
+      white-space: pre-line;
+    }
+
+    /* プログレスバー */
+    #progress {
+      margin-top: 12px;
+      width: 260px;
+      height: 8px;
+      background: #ddd;
+      overflow: hidden;
+      display: none;
+    }
+
+    #bar {
+      height: 100%;
+      width: 40%;
+      background: #4a90e2;
+      animation: move 1s linear infinite;
+    }
+
+    @keyframes move {
+      0%   { margin-left: -40%; }
+      100% { margin-left: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <input id="train" placeholder="1124A">
-  <button onclick="search()">検索</button>
-  <p id="result"></p>
 
-  <script>
-    function search() {
-      const train = document.getElementById("train").value;
-      const url = "https://script.google.com/macros/s/AKfycbz-pqpXHL4WVQpWApwHBq2zQz2lDDODt3MLPXdxboLje3NoAUXZ-wuNA-LK51ILYpVp/exec?train="
-                  + encodeURIComponent(train);
-      fetch(url)
-        .then(r => r.json())
-        .then(d => {
-          document.getElementById("result").textContent = d.result;
-        })
-        .catch(() => {
-          document.getElementById("result").textContent = "通信エラー";
-        });
-    }
-  </script>
+<h2>列車番号・編成番号 双方向検索</h2>
+
+<input id="input" placeholder="1124A / サイ123">
+<button onclick="search()">検索</button>
+
+<div id="progress">
+  <div id="bar"></div>
+</div>
+
+<div id="result"></div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz-pqpXHL4WVQpWApwHBq2zQz2lDDODt3MLPXdxboLje3NoAUXZ-wuNA-LK51ILYpVp/exec";
+
+function showProgress(show) {
+  document.getElementById("progress").style.display =
+    show ? "block" : "none";
+}
+
+function search() {
+  const v = document.getElementById("input").value.trim();
+  const result = document.getElementById("result");
+
+  let url;
+
+  if (/^\d+[A-Za-z]$/.test(v)) {
+    url = GAS_URL + "?train=" + encodeURIComponent(v);
+  }
+  else if (/^(サイ)?\d{3}$/.test(v)) {
+    url = GAS_URL + "?hensei=" + encodeURIComponent(v);
+  }
+  else {
+    result.textContent = "入力形式エラー";
+    return;
+  }
+
+  result.textContent = "検索中…";
+  showProgress(true);
+
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      if (d.result !== undefined) {
+        result.textContent = "編成番号： " + d.result;
+      }
+      else if (d.status === "ok") {
+        if (d.count === 0) {
+          result.textContent = "該当なし";
+        } else {
+          result.textContent =
+            "運行番号（" + d.count + "件）\n" +
+            d.data.join("\n");
+        }
+      }
+      else {
+        result.textContent = "エラー";
+      }
+    })
+    .catch(() => {
+      result.textContent = "通信エラー";
+    })
+    .finally(() => {
+      showProgress(false);
+    });
+}
+</script>
+
 </body>
 </html>
