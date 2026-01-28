@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>編成番号検索</title>
+</head>
+<body>
+  <input id="train" placeholder="1124A">
+  <button onclick="search()">検索</button>
+  <p id="result"></p>
+
+  <script>
+    function search() {
+      const train = document.getElementById("train").value;
+      const url = "https://script.google.com/macros/s/AKfycbz-pqpXHL4WVQpWApwHBq2zQz2lDDODt3MLPXdxboLje3NoAUXZ-wuNA-LK51ILYpVp/exec?train="
+                  + encodeURIComponent(train);
+      fetch(url)
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById("result").textContent = d.result;
+        })
+        .catch(() => {
+          document.getElementById("result").textContent = "通信エラー";
+        });
+    }
+  </script>
+</body>
+</html>
