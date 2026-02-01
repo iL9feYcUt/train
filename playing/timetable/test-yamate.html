@@ -301,7 +301,7 @@
     const abbrevDestMap = { '赤': '赤羽', '大': '大船', '磯': '磯子', '桜': '桜木町', '横': '横浜', '鶴': '鶴見', '蒲': '蒲田', '品': '品川', '東': '東十条', '浦': '南浦和', '宮': '大宮', '神': '東神奈川', '八': '八王子', '町': '町田', '川': '川越', '橋': '橋本', '中': '中山' };
 
     const audioCache = {};
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '蒲田', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
+    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
     const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
     const preloadFiles = [
       'atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3', 'atos/w/まもなく2番線に.mp3', 'atos/w/危ないですから.mp3',
@@ -633,14 +633,14 @@
     // Play additional departure audio for 1番線: JRE file, 2s silence, then atos/sounds/w/1.mp3
     function playDepartureSequence1(train) {
       if (!audioEnabled) return;
-      const first = 'atos/sounds/JRE-IKST-007-02.mp3';
+      const first = 'atos/sounds/Verde Rayo.mp3';
       const second = 'atos/sounds/w/1.mp3';
       const a1 = audioCache[first] ? audioCache[first].cloneNode() : new Audio(first);
       a1.onended = () => {
         setTimeout(() => {
           const a2 = audioCache[second] ? audioCache[second].cloneNode() : new Audio(second);
           a2.play().catch(() => {});
-        }, 1800);
+        }, 1500);
       };
       a1.play().catch(() => {});
     }
@@ -648,14 +648,14 @@
     // Play additional departure audio for 2番線: JRE file, 2s silence, then atos/sounds/m/2.mp3
     function playDepartureSequence2(train) {
       if (!audioEnabled) return;
-      const first = 'atos/sounds/JRE-IKST-007-01.mp3';
+      const first = 'atos/sounds/Water Crown.mp3';
       const second = 'atos/sounds/m/2.mp3';
       const a1 = audioCache[first] ? audioCache[first].cloneNode() : new Audio(first);
       a1.onended = () => {
         setTimeout(() => {
           const a2 = audioCache[second] ? audioCache[second].cloneNode() : new Audio(second);
           a2.play().catch(() => {});
-        }, 1500);
+        }, 1200);
       };
       a1.play().catch(() => {});
     }
