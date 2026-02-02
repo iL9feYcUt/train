@@ -293,7 +293,7 @@
       <label>ホーム</label>
       <select id="debug-platform"><option value="1">1番線</option><option value="2">2番線</option></select>
       <label>発車時刻 (HH:MM)</label>
-      <input id="debug-time" type="text" value="00:00" />
+      <input id="debug-time" type="text"/>
       <label>行先</label>
       <select id="debug-dest"></select>
       <label>種別</label>
@@ -327,20 +327,22 @@
     let lastDepartedTime2 = null;
 
     const stationNumbers = {
-      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
+      '大船': 'JK01', '磯子': 'JK06', '桜木町': 'JK11', '横浜': 'JK12', '東神奈川': 'JK13', '鶴見': 'JK15', '蒲田': 'JK17', '品川': 'JK20', '田町': 'JK21', '上野': 'JK30', '東十条': 'JK37', '赤羽': 'JK38', '南浦和': 'JK42', '大宮': 'JK47',
       '八王子': 'JH32', '橋本': 'JH28', '町田': 'JH23', '中山': 'JH19', '逗子': 'JO06'
     };
     const lineColors = { JK: '#00bae8', JH: '#80C342', JO: '#0055a4' };
     const typeColors = { '快': 'red', '快　速': 'red', '各駅停車': '#383838', '普　通': '#383838', '通勤快速': 'purple', '特別快速': 'green', '特　急': 'red', 'はまかいじ': 'red' };
     const typeEn = { '各駅停車': 'Local', '快　速': 'Rapid', 'アクティー': 'Acty', '通勤快速': 'Commuters Rapid', '特別快速': 'Special Rapid', '普通': 'Local', '特　急': 'Limited Express', 'はまかいじ': 'Hamakaiji' };
-    const destEn = { '逗子': 'Zushi', '大船': 'Ōfuna', '磯子': 'Isogo', '桜木町': 'Sakuragichō', '横浜': 'Yokohama', '鶴見': 'Tsurumi', '蒲田': 'Kamata', '品川': 'Shinagawa', '上野': 'Ueno', '赤羽': 'Akabane', '東十条': 'Higashi-Jūjō', '南浦和': 'Minami-Urawa', '大宮': 'Ōmiya', '東神奈川': 'Higashi-Kanagawa', '八王子': 'Hachiōji', '町田': 'Machida', '川越': 'Kawagoe', '橋本': 'Hashimoto', '中山': 'Nakayama' };
+    const destEn = { '逗子': 'Zushi', '大船': 'Ōfuna', '磯子': 'Isogo', '桜木町': 'Sakuragichō', '横浜': 'Yokohama', '鶴見': 'Tsurumi', '蒲田': 'Kamata', '品川': 'Shinagawa', '田町': 'Tamachi', '上野': 'Ueno', '赤羽': 'Akabane', '東十条': 'Higashi-Jūjō', '南浦和': 'Minami-Urawa', '大宮': 'Ōmiya', '東神奈川': 'Higashi-Kanagawa', '八王子': 'Hachiōji', '町田': 'Machida', '川越': 'Kawagoe', '橋本': 'Hashimoto', '中山': 'Nakayama' };
     const routeEn = { '京浜東北線': 'Keihin-Tōhoku Line', '横浜線': 'Yokohama Line', '横須賀線': 'Yokosuka Line' };
     const abbrevTypeMap = { '特': '特　急', 'は': 'はまかいじ', '快': '快　速', 'ア': 'アクティー', '通': '通勤快速', '別': '特別快速', '普': '普　通' };
     const abbrevDestMap = { '赤': '赤羽', '大': '大船', '磯': '磯子', '桜': '桜木町', '横': '横浜', '鶴': '鶴見', '蒲': '蒲田', '品': '品川', '東': '東十条', '浦': '南浦和', '宮': '大宮', '神': '東神奈川', '八': '八王子', '町': '町田', '川': '川越', '橋': '橋本', '中': '中山' };
 
     const audioCache = {};
-    const destList = ['大船', '磯子', '桜木町', '横浜', '鶴見', '品川', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖', '逗子'];
-    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'アクティー'];
+    const destList = ['大船', '磯子', '桜木町', '横浜', '品川', '東京', '上野', '赤羽', '南浦和', '大宮', '東神奈川', '八王子', '町田', '河口湖'];
+    // debug用に別配列を用意
+    const debugDestList = ['大船', '磯子', '桜木町', '横浜', '蒲田', '品川', '田町','東京', '上野', '東十条','赤羽', '南浦和', '大宮', '東神奈川', '橋本','八王子', '町田', '河口湖', '逗子', '川越', '池袋', '新宿', '渋谷', '茅ヶ崎', '伊東', '熱海', '鴨宮', '小田原', '伊豆急下田','沼津', '高松', '出雲市', '松本'];
+    const typeList = ['各駅停車', '快速', '通勤快速', '特別快速', '普通', '特急', 'はまかいじ', 'かいじ', 'アクティー'];
     const preloadFiles = [
       'atos/ATOS接近音.mp3', 'atos/w/まもなく1番線に.mp3', 'atos/w/まもなく2番線に.mp3', 'atos/w/危ないですから.mp3',
       'atos/m/まもなく1番線に.mp3', 'atos/m/まもなく2番線に.mp3', 'atos/m/危ないですから.mp3', 'atos/w/電車がまいります.mp3',
@@ -875,7 +877,8 @@
     function populateDebugOptions() {
       const destSelect = document.getElementById('debug-dest');
       destSelect.innerHTML = '';
-      destList.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; destSelect.appendChild(o); });
+      // デバッグ用の候補は debugDestList から取得する
+      debugDestList.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; destSelect.appendChild(o); });
       const typeSelect = document.getElementById('debug-type');
       typeSelect.innerHTML = '';
       typeList.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; typeSelect.appendChild(o); });
