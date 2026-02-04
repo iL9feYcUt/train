@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>HND International FIDS - High Precision Replica</title>
+    <style>
+        :root {
+            /* 本物のフォントを最優先。なければシステムで近いものを */
+            --font-main: 'Frutiger', 'Frutiger Next', 'Segoe UI', 'Roboto', sans-serif;
+            --font-ja: 'Shin Go', 'A-OTF Shin Go Pro', 'Hiragino Sans', 'Meiryo', sans-serif;
+            
+            --bg-deep: #000000;
+            --bg-stripe: #0f1218; /* 縞模様用のわずかに明るいグレー */
+            --hnd-blue: #003399;
+            --text-white: #ffffff;
+            --text-orange: #ff9d00;
+            --border-line: #1a2a3a;
+            --header-label: #88aadd;
+        }
+
+        body {
+            background-color: #0c0c0c;
+            margin: 0;
+            padding: 5px;
+            color: var(--text-white);
+            font-family: var(--font-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .fids-board {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: var(--bg-deep);
+            border: 1px solid #222;
+        }
+
+        /* ヘッダー */
+        .fids-header {
+            background-color: var(--hnd-blue);
+            padding: 4px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--text-white);
+        }
+
+        .title-box h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .clock-box { text-align: right; }
+        .time-display { font-size: 34px; font-weight: 400; line-height: 1; }
+
+        /* タブ */
+        .tab-bar { display: flex; background: #001a33; }
+        .tab-btn {
+            padding: 6px 25px;
+            font-size: 15px;
+            font-weight: bold;
+            background: none; border: none;
+            color: #556677; cursor: pointer;
+            font-family: var(--font-ja);
+        }
+        .tab-btn.active {
+            background: #002a55;
+            color: var(--text-white);
+            border-bottom: 2px solid var(--text-orange);
+        }
+
+        /* テーブル */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th {
+            background-color: #001a33;
+            color: var(--header-label);
+            text-align: left;
+            padding: 4px 15px;
+            font-size: 11px;
+            font-family: var(--font-ja);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border-line);
+        }
+
+        /* 縞模様の適用 */
+        tbody tr:nth-child(odd) { background-color: var(--bg-deep); }
+        tbody tr:nth-child(even) { background-color: var(--bg-stripe); }
+
+        td {
+            padding: 5px 15px;
+            border-bottom: 1px solid var(--border-line);
+            font-size: 23px; /* 高解像度向けに微調整 */
+            font-weight: 400;
+            height: 30px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* 列別設定 */
+        .col-time { width: 140px; }
+        .sched-time { color: var(--text-white); margin-right: 10px; }
+        .estim-time { color: var(--text-orange); }
+
+        .col-dest { width: 450px; font-family: var(--font-ja); }
+        .col-dest span { font-family: var(--font-main); font-size: 17px; margin-left: 8px; }
+
+        .col-flight { width: 230px; }
+        .main-flight { margin-right: 6px; }
+        .sub-flight { font-size: 19px; }
+
+        .col-gate { width: 70px; text-align: center; }
+        .col-status { width: 240px; font-size: 17px; font-family: var(--font-ja); }
+
+        .status-orange { color: var(--text-orange); }
+        .fade-out { opacity: 0; transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="fids-board">
+    <div class="fids-header">
+        <div class="title-box"><h1 id="js-mode-title">DEPARTURES</h1></div>
+        <div class="clock-box">
+            <div class="time-display" id="js-clock">00:00</div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" id="btn-dep" onclick="switchMode('departure')">出発 DEPARTURES</button>
+        <button class="tab-btn" id="btn-arr" onclick="switchMode('arrival')">到着 ARRIVALS</button>
+    </div>
+
+    <table>
+        <thead id="js-thead"></thead>
+        <tbody id="js-tbody"></tbody>
+    </table>
+</div>
+
+<script>
+    const API_KEY = 'od5dwqe1ja91vjtdq6uij9tfgqhrce8wgzx20jt76z68tswjetzgxtfxqng09vwx';
+    let currentMode = 'departure';
+    let flightEntries = [];
+
+    // ステータスの日本語マッピング
+    const statusMap = {
+        'CHECKIN': '搭乗手続中',
+        'CHECKINCLOSE': '搭乗終了',
+        'NOWBOARDING': '搭乗中',
+        'FINALCALL': '最終搭乗案内',
+        'DEPARTED': '出発済',
+        'ARRIVED': '到着済',
+        'CANCELLED': '欠航',
+        'DELAYED': '遅延',
+        'ONTIME': '定刻',
+        'BAGGAGEAVAILABLE': '手荷物受取',
+    };
+
+    const cityMap = {
+        'DXB': ['ドバイ', 'DUBAI'], 'HKG': ['香港', 'HONG KONG'], 'ICN': ['ソウル/仁川', 'SEOUL/INCHEON'],
+        'TSA': ['台北/松山', 'TAIPEI/SONGSHAN'], 'LAX': ['ロサンゼルス', 'LOS ANGELES'], 'GMP': ['ソウル/金浦', 'SEOUL/GIMPO'], 'BKK': ['バンコク', 'BANGKOK'], 'SIN': ['シンガポール', 'SINGAPORE'], 'PVG': ['上海/浦東', 'SHANGHAI/PUDONG'],
+        'EWR': ['ニューヨーク/ラガーディア', 'NEW YORK/LAGUARDIA'], 'SFO': ['サンフランシスコ', 'SAN FRANCISCO'], 'JFK': ['ニューヨーク/JFK', 'NEW YORK/JFK'], 'DTW': ['デトロイト', 'DETROIT'], 'HAN': ['ハノイ', 'HANOI'], 'SEA': ['シアトル', 'SEATTLE'], 'PEK': ['北京', 'BEIJING'],
+        'PKX': ['北京/大興', 'BEIJING/DA XING'], 'MNL': ['マニラ', 'MANILA'], 'CDG': ['パリ', 'PARIS'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'DLC': ['大連', 'DALIAN'], 'SHA': ['上海/虹橋', 'SHANGHAI/HONGQIAO'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'YYZ': ['トロント', 'TORONTO'], 'SYD': ['シドニー', 'SYDNEY']
+    };
+
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('js-clock').innerText = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function fetchFlights() {
+        const type = currentMode === 'departure' ? 'odpt:FlightInformationDeparture' : 'odpt:FlightInformationArrival';
+        const url = `https://api-challenge.odpt.org/api/v4/${type}?odpt:operator=odpt.Operator:HND-TIAT&acl:consumerKey=${API_KEY}`;
+        
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            const nowTime = new Date().getHours().toString().padStart(2, '0') + ":" + new Date().getMinutes().toString().padStart(2, '0');
+
+            flightEntries = data.map(f => {
+                const sched = f['odpt:scheduledDepartureTime'] || f['odpt:scheduledArrivalTime'];
+                const estim = f['odpt:estimatedDepartureTime'] || f['odpt:estimatedArrivalTime'];
+                const rawStatus = (f['odpt:flightStatus'] || '').split(':').pop().toUpperCase();
+
+                return {
+                    sched,
+                    estim: (estim && estim !== sched) ? estim : null,
+                    dest: (f['odpt:destinationAirport'] || f['odpt:originAirport'] || '').split(':').pop(),
+                    flights: f['odpt:flightNumber'] || [],
+                    gate: f['odpt:departureGate'] || (f['odpt:arrivalAirportTerminal'] || '').split('.').pop() || '-',
+                    status: statusMap[rawStatus] || rawStatus,
+                    subIdx: 1
+                };
+            })
+            .filter(f => (f.estim || f.sched) >= nowTime)
+            .sort((a, b) => (a.estim || a.sched).localeCompare(b.estim || b.sched))
+            .slice(0, 10);
+
+            renderBoard();
+        } catch (e) { console.error(e); }
+    }
+
+    function renderBoard() {
+        const thead = document.getElementById('js-thead');
+        const tbody = document.getElementById('js-tbody');
+        
+        thead.innerHTML = `<tr><th class="col-time">TIME</th><th class="col-dest">${currentMode === 'departure' ? 'DESTINATION' : 'ORIGIN'}</th><th class="col-flight">FLIGHT</th><th class="col-gate">${currentMode === 'departure' ? 'GATE' : 'TERM'}</th><th class="col-status">REMARKS</th></tr>`;
+
+        tbody.innerHTML = '';
+        flightEntries.forEach((f, idx) => {
+            const tr = document.createElement('tr');
+            const city = cityMap[f.dest] || [f.dest, f.dest];
+            
+            let subFlightHtml = '';
+            if (f.flights.length === 2) {
+                subFlightHtml = `<span class="sub-flight">${f.flights[1]}</span>`;
+            } else if (f.flights.length > 2) {
+                subFlightHtml = `<span class="sub-flight" id="sub-${idx}">${f.flights[1]}</span>`;
+            }
+
+            tr.innerHTML = `
+                <td class="col-time"><span class="sched-time">${f.sched}</span><span class="estim-time">${f.estim || ''}</span></td>
+                <td class="col-dest">${city[0]} <span>${city[1]}</span></td>
+                <td class="col-flight"><span class="main-flight">${f.flights[0]}</span>${subFlightHtml}</td>
+                <td class="col-gate">${f.gate}</td>
+                <td class="col-status ${f.estim ? 'status-orange' : ''}">${f.status}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function rotateSubFlights() {
+        flightEntries.forEach((f, idx) => {
+            if (f.flights.length <= 2) return;
+            const el = document.getElementById(`sub-${idx}`);
+            if (!el) return;
+            el.classList.add('fade-out');
+            setTimeout(() => {
+                f.subIdx = (f.subIdx % (f.flights.length - 1)) + 1;
+                el.innerText = f.flights[f.subIdx];
+                el.classList.remove('fade-out');
+            }, 300);
+        });
+    }
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.getElementById('js-mode-title').innerText = mode.toUpperCase() + 'S';
+        document.getElementById('btn-dep').classList.toggle('active', mode === 'departure');
+        document.getElementById('btn-arr').classList.toggle('active', mode === 'arrival');
+        fetchFlights();
+    }
+
+    fetchFlights();
+    setInterval(fetchFlights, 60000);
+    setInterval(rotateSubFlights, 4000);
+</script>
+
+</body>
+</html>
