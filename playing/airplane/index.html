@@ -5,10 +5,18 @@
     <meta name="viewport" content="width=1500px">
     <title>HND International FIDS - High Precision Replica</title>
     <style>
+        @font-face {
+            font-family: 'Frutiger';
+            src: url(fonts/Frutiger.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: 'ShinGo';
+            src: url(fonts/AOTFSHINGOPROREGULAR.OTF) format('opentype');
+        }
         :root {
             /* 本物のフォントを最優先。なければシステムで近いものを */
-            --font-main: 'Frutiger', 'Frutiger Next', 'Segoe UI', 'Roboto', sans-serif;
-            --font-ja: 'Shin Go', 'A-OTF Shin Go Pro', 'Hiragino Sans', 'Meiryo', sans-serif;
+            --font-main: 'Frutiger', sans-serif;
+            --font-ja: 'ShinGo', sans-serif;
             
             --bg-deep: #000000;
             --bg-stripe: #2b2d30; /* 縞模様用のわずかに明るいグレー */
@@ -113,6 +121,7 @@
             overflow: hidden;
             line-height: 100%;
             white-space: nowrap;
+            vertical-align: middle;
         }
 
         /* 列別設定 */
@@ -121,27 +130,27 @@
         .sched-time { font-size: 25px; color: var(--text-white); margin-right: 10px; }
         .estim-time { font-size: 25px; color: var(--text-orange); }
 
-        .col-dest { width: 350px; font-family: var(--font-ja); }
+        .col-dest { width: 380px; font-family: var(--font-ja); }
         .col-dest span { font-family: var(--font-main); font-size: 17px; margin-left: 8px; }
 
         .col-flight { width: 100px; }
-        .main-flight { font-size: 23px; margin-right: 6px; }
+        .main-flight { font-size: 23px; margin-right: 6px; margin-left: 4px; display: inline-block; vertical-align: middle; line-height: 1; }
         .sub-flight { font-size: 23px; }
 
         /* 航空会社ロゴ */
         .airline-logos { display: inline-flex; gap: 6px; align-items: center; }
-        .airline-logo { display: inline-flex; align-items: center; justify-content: center; width: 40px; margin-right: 0; }
-        .airline-logo img { width: 36px; height: 24px; object-fit: contain; display: block; }
+        .airline-logo { display: inline-flex; align-items: center; justify-content: center; width: 40px; margin-right: 0; vertical-align: middle; }
+        .airline-logo img { width: 36px; height: 24px; object-fit: contain; display: block; vertical-align: middle; }
         .airline-logo.secondary img { width: 24px; height: 16px; }
         .airline-fallback { display: none; align-items: center; justify-content: center; width: 36px; height: 24px; background: #222; color: #fff; font-size: 12px; border-radius: 2px; }
 
-        .col-gate { width: 100px; text-align: center; }
-        .col-codeshare { width: 180px; }
-        .col-status { width: 240px; font-family: var(--font-ja); }
+        .col-gate { width: 80px; text-align: left; }
+        .col-codeshare { width: 100px; }
+        .col-status { width: 200px; font-family: var(--font-ja); vertical-align: top;}
 
         /* コードシェア列 */
         .codeshare-list { display: inline-flex; gap: 8px; align-items: center; overflow: hidden; white-space: nowrap; }
-        .codeshare-item { display: inline-flex; align-items: center; gap: 6px; }
+        .codeshare-item { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
         .codeshare-item img { width: 36px; height: 24px; object-fit: contain; display: block; }
         .codeshare-text { font-size: 23px; }
 
@@ -212,9 +221,11 @@
     const cityMap = {
         'DXB': ['ドバイ', 'DUBAI'], 'HKG': ['香港', 'HONG KONG'], 'ICN': ['ソウル(仁川)', 'SEOUL(INCHEON)'], 'LHR': ['ロンドン/ヒースロー', 'LONDON'], 'FRA': ['フランクフルト', 'FRANKFURT'], 'ORD': ['シカゴ', 'CHICAGO'],
         'TSA': ['台北(松山)', 'TAIPEI(SONGSHAN)'], 'LAX': ['ロサンゼルス', 'LOS ANGELES'], 'GMP': ['ソウル(金浦)', 'SEOUL(GIMPO)'], 'BKK': ['バンコク', 'BANGKOK'], 'SIN': ['シンガポール', 'SINGAPORE'], 'PVG': ['上海(浦東)', 'SHANGHAI(PUDONG)'],
-        'EWR': ['ニューヨーク/ラガーディア', 'NEW YORK/LAGUARDIA'], 'SFO': ['サンフランシスコ', 'SAN FRANCISCO'], 'JFK': ['ニューヨーク(JFK)', 'NEW YORK(JFK)'], 'DTW': ['デトロイト', 'DETROIT'], 'HAN': ['ハノイ', 'HANOI'], 'SEA': ['シアトル', 'SEATTLE'], 'PEK': ['北京', 'BEIJING'],
+        'EWR': ['ニューヨーク(LGA)', 'NEW YORK(LGA)'], 'SFO': ['サンフランシスコ', 'SAN FRANCISCO'], 'JFK': ['ニューヨーク(JFK)', 'NEW YORK(JFK)'], 'DTW': ['デトロイト', 'DETROIT'], 'HAN': ['ハノイ', 'HANOI'], 'SEA': ['シアトル', 'SEATTLE'], 'PEK': ['北京', 'BEIJING'],
         'PKX': ['北京/大興', 'BEIJING/DA XING'], 'MNL': ['マニラ', 'MANILA'], 'CDG': ['パリ(CDG)', 'PARIS(CDG)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'DLC': ['大連', 'DALIAN'], 'SHA': ['上海(虹橋)', 'SHANGHAI(HONGQIAO)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'YYZ': ['トロント', 'TORONTO'], 'SYD': ['シドニー', 'SYDNEY'],
-        'ATL': ['アトランタ', 'ATLANTA'], 'MEX': ['メキシコシティ', 'MEXICO CITY'], 'HNL': ['ホノルル', 'HONOLULU'], 'IST': ['イスタンブール', 'ISTANBUL'], 'YVR': ['バンクーバー', 'VANCOUVER'], 'KUL': ['クアラルンプール', 'KUALA LUMPUR'], 'SZX': ['深圳', 'SHENZHEN']
+        'ATL': ['アトランタ', 'ATLANTA'], 'MEX': ['メキシコシティ', 'MEXICO CITY'], 'HNL': ['ホノルル', 'HONOLULU'], 'IST': ['イスタンブール', 'ISTANBUL'], 'YVR': ['バンクーバー', 'VANCOUVER'], 'KUL': ['クアラルンプール', 'KUALA LUMPUR'], 'SZX': ['深圳', 'SHENZHEN'],
+        'CAN': ['広州', 'GUANGZHOU'], 'BOM': ['ムンバイ', 'MUMBAI'], 'CJU': ['済州', 'JEJU'], 'COK': ['コーチン', 'KOCHI'], 'DEL': ['デリー', 'DELHI'], 'GUM': ['グアム', 'GUAM'], 'VIE': ['ウィーン', 'VIENNA'], 'DOH': ['ドーハ', 'DOHA'],
+        'MUC': ['ミュンヘン', 'MUNICH'], 'MXP': ['ミラノ', 'MILAN'], 'ARN': ['ストックホルム', 'STOCKHOLM'], 'CPH': ['コペンハーゲン', 'COPENHAGEN'], 'ZRH': ['チューリッヒ', 'ZURICH']
     };
 
     function updateClock() {
@@ -238,12 +249,29 @@
                 const estim = f['odpt:estimatedDepartureTime'] || f['odpt:estimatedArrivalTime'];
                 const rawStatus = (f['odpt:flightStatus'] || '').split(':').pop().toUpperCase();
 
+                // 到着モード時はターミナル表示を T1/T2/T3 形式に正規化する
+                let gateVal = '-';
+                if (currentMode === 'departure') {
+                    gateVal = f['odpt:departureGate'] || '-';
+                } else {
+                    let t = f['odpt:arrivalAirportTerminal'] || '';
+                    if (t && t.indexOf('.') !== -1) t = t.split('.').pop();
+                    // 例: 'T1', 'Terminal 1', 'Terminal1', '1' などに対応
+                    const mT = t.match(/T(\d+)/i);
+                    const mTerm = t.match(/Terminal[\s-_]*(\d+)/i);
+                    const mNum = t.match(/(\d+)/);
+                    if (mT) t = 'T' + mT[1];
+                    else if (mTerm) t = 'T' + mTerm[1];
+                    else if (mNum) t = 'T' + mNum[1];
+                    gateVal = t || '-';
+                }
+
                 return {
                     sched,
                     estim: (estim && estim !== sched) ? estim : null,
                     dest: (f['odpt:destinationAirport'] || f['odpt:originAirport'] || '').split(':').pop(),
                     flights: f['odpt:flightNumber'] || [],
-                    gate: f['odpt:departureGate'] || (f['odpt:arrivalAirportTerminal'] || '').split('.').pop() || '-',
+                    gate: gateVal,
                     status: statusMap[rawStatus] || rawStatus,
                     subIdx: 1
                 };
@@ -296,17 +324,18 @@
             }
 
             const flightsHtml = `${mainLogo}<span class="main-flight">${firstFlight}</span>`;
-            const isHighlighted = ((f.status === '搭乗中') || (f.status === '最終搭乗案内') || (f.status === '遅延') || (f.status === '手荷物受取'));
+            const isStatusOrange = (f.status === '搭乗中' || f.status === '最終搭乗案内' || f.status === '遅延' || f.status === '手荷物受取');
+            const isHighlightLine = (f.status === '搭乗中' || f.status === '最終搭乗案内' || f.status === '手荷物受取');
 
             tr.innerHTML = `
                 <td class="col-time"><span class="sched-time">${f.sched}</span><span class="estim-time">${f.estim || ''}</span></td>
                 <td class="col-dest">${city[0]} <span>${city[1]}</span></td>
                 <td class="col-flight">${flightsHtml}</td>
-                <td class="col-codeshare">${codeshareHtml || '-'}</td>
+                <td class="col-codeshare">${codeshareHtml || ''}</td>
                 <td class="col-gate">${f.gate}</td>
-                <td class="col-status ${isHighlighted ? 'status-orange' : ''}">${f.status}</td>
+                <td class="col-status ${isStatusOrange ? 'status-orange' : ''}">${f.status}</td>
             `;
-            tr.classList.toggle('highlight-line', isHighlighted);
+            tr.classList.toggle('highlight-line', isHighlightLine);
             tbody.appendChild(tr);
         });
     }
@@ -353,7 +382,7 @@
 
     fetchFlights();
     setInterval(fetchFlights, 60000);
-    setInterval(rotateSubFlights, 4000);
+    setInterval(rotateSubFlights, 6000);
 </script>
 
 </body>
