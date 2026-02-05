@@ -299,8 +299,8 @@
             const flightsArray = Array.isArray(f.flights) ? f.flights : [f.flights];
             const firstFlight = flightsArray[0] || '';
 
-            const mainCodeMatch = (firstFlight || '').match(/[A-Za-z]{2}/);
-            const mainCode = mainCodeMatch ? mainCodeMatch[0].toUpperCase() : '';
+            const mainCodeMatch = (firstFlight || '').match(/^\s*([A-Za-z0-9]{2})/);
+            const mainCode = mainCodeMatch ? mainCodeMatch[1].toUpperCase() : '';
             const mainLogo = `<span class="airline-logo">` +
                 `<img src="logos/${mainCode}.png" alt="${mainCode}" ` +
                 `onerror="this.style.display='none'; this.parentNode.querySelector('.airline-fallback').style.display='inline-flex';" ` +
@@ -314,8 +314,8 @@
             if (codeshares.length) {
                 // 初期は2番目の便を表示（インライン要素にidを付けてローテーションで差し替える）
                 const cs0 = codeshares[0];
-                const m0 = (cs0 || '').match(/[A-Za-z]{2}/);
-                const c0 = m0 ? m0[0].toUpperCase() : '';
+                const m0 = (cs0 || '').match(/^\s*([A-Za-z0-9]{2})/);
+                const c0 = m0 ? m0[1].toUpperCase() : '';
                 codeshareHtml = `<span class="codeshare-item" id="codeshare-${idx}">` +
                     `<img src="logos/${c0}.png" alt="${c0}" ` +
                     `onerror="this.style.display='none'; this.parentNode.querySelector('.codeshare-text').style.display='inline-block';">` +
@@ -338,6 +338,21 @@
             tr.classList.toggle('highlight-line', isHighlightLine);
             tbody.appendChild(tr);
         });
+
+        // 空行で15行分にする
+        const currentCount = flightEntries.length;
+        for (let i = currentCount; i < 15; i++) {
+            const trEmpty = document.createElement('tr');
+            trEmpty.innerHTML = `
+                <td class="col-time"></td>
+                <td class="col-dest"></td>
+                <td class="col-flight"></td>
+                <td class="col-codeshare"></td>
+                <td class="col-gate"></td>
+                <td class="col-status"></td>
+            `;
+            tbody.appendChild(trEmpty);
+        }
     }
 
     function rotateSubFlights() {
@@ -349,8 +364,8 @@
             setTimeout(() => {
                 f.subIdx = (f.subIdx % (f.flights.length - 1)) + 1;
                 const newFlight = f.flights[f.subIdx];
-                const m = (newFlight || '').match(/[A-Za-z]{2}/);
-                const code = m ? m[0].toUpperCase() : '';
+                const m = (newFlight || '').match(/^\s*([A-Za-z0-9]{2})/);
+                const code = m ? m[1].toUpperCase() : '';
                 const img = el.querySelector('img');
                 const txt = el.querySelector('.codeshare-text');
                 if (img) { img.src = `logos/${code}.png`; img.alt = code; img.style.display = ''; }
