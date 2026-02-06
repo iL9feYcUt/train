@@ -225,7 +225,8 @@
         'PKX': ['北京/大興', 'BEIJING/DA XING'], 'MNL': ['マニラ', 'MANILA'], 'CDG': ['パリ(CDG)', 'PARIS(CDG)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'DLC': ['大連', 'DALIAN'], 'SHA': ['上海(虹橋)', 'SHANGHAI(HONGQIAO)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'YYZ': ['トロント', 'TORONTO'], 'SYD': ['シドニー', 'SYDNEY'],
         'ATL': ['アトランタ', 'ATLANTA'], 'MEX': ['メキシコシティ', 'MEXICO CITY'], 'HNL': ['ホノルル', 'HONOLULU'], 'IST': ['イスタンブール', 'ISTANBUL'], 'YVR': ['バンクーバー', 'VANCOUVER'], 'KUL': ['クアラルンプール', 'KUALA LUMPUR'], 'SZX': ['深圳', 'SHENZHEN'],
         'CAN': ['広州', 'GUANGZHOU'], 'BOM': ['ムンバイ', 'MUMBAI'], 'CJU': ['済州', 'JEJU'], 'COK': ['コーチン', 'KOCHI'], 'DEL': ['デリー', 'DELHI'], 'GUM': ['グアム', 'GUAM'], 'VIE': ['ウィーン', 'VIENNA'], 'DOH': ['ドーハ', 'DOHA'],
-        'MUC': ['ミュンヘン', 'MUNICH'], 'MXP': ['ミラノ', 'MILAN'], 'ARN': ['ストックホルム', 'STOCKHOLM'], 'CPH': ['コペンハーゲン', 'COPENHAGEN'], 'ZRH': ['チューリッヒ', 'ZURICH']
+        'MUC': ['ミュンヘン', 'MUNICH'], 'MXP': ['ミラノ', 'MILAN'], 'ARN': ['ストックホルム', 'STOCKHOLM'], 'CPH': ['コペンハーゲン', 'COPENHAGEN'], 'ZRH': ['チューリッヒ', 'ZURICH'], 'CGK': ['ジャカルタ', 'JAKARTA'],
+        'FCO': ['ローマ', 'ROME']
     };
 
     function updateClock() {
@@ -324,7 +325,7 @@
             }
 
             const flightsHtml = `${mainLogo}<span class="main-flight">${firstFlight}</span>`;
-            const isStatusOrange = (f.status === '搭乗中' || f.status === '最終搭乗案内' || f.status === '遅延' || f.status === '手荷物受取');
+            const isStatusOrange = (f.status === '搭乗中' || f.status === '最終搭乗案内' || f.status === '遅延' || f.status === '欠航' || f.status === '手荷物受取');
             const isHighlightLine = (f.status === '搭乗中' || f.status === '最終搭乗案内' || f.status === '手荷物受取');
 
             tr.innerHTML = `
