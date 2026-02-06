@@ -139,9 +139,9 @@
 
         /* 航空会社ロゴ */
         .airline-logos { display: inline-flex; gap: 6px; align-items: center; }
-        .airline-logo { display: inline-flex; align-items: center; justify-content: center; width: 40px; margin-right: 0; vertical-align: middle; }
-        .airline-logo img { width: 36px; height: 24px; object-fit: contain; display: block; vertical-align: middle; }
-        .airline-logo.secondary img { width: 24px; height: 16px; }
+        .airline-logo { display: inline-flex; align-items: center; justify-content: center; width: 44px; margin-right: 4px; vertical-align: middle; }
+        .airline-logo img { width: 36px; height: 24px; object-fit: contain; display: block; vertical-align: middle; transform-origin: center center; transform: scale(1.4); }
+        .airline-logo.secondary img { width: 24px; height: 16px; transform-origin: center center; transform: scale(1.2); }
         .airline-fallback { display: none; align-items: center; justify-content: center; width: 36px; height: 24px; background: #222; color: #fff; font-size: 12px; border-radius: 2px; }
 
         .col-gate { width: 80px; text-align: left; }
@@ -150,8 +150,8 @@
 
         /* コードシェア列 */
         .codeshare-list { display: inline-flex; gap: 8px; align-items: center; overflow: hidden; white-space: nowrap; }
-        .codeshare-item { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
-        .codeshare-item img { width: 36px; height: 24px; object-fit: contain; display: block; }
+        .codeshare-item { display: inline-flex; align-items: center; gap: 11px; vertical-align: middle; }
+        .codeshare-item img { width: 36px; height: 24px; object-fit: contain; display: block; transform-origin: center center; transform: scale(1.4); }
         .codeshare-text { font-size: 23px; }
 
         /* ハイライト行の左に縦線を表示 */
@@ -221,12 +221,12 @@
     const cityMap = {
         'DXB': ['ドバイ', 'DUBAI'], 'HKG': ['香港', 'HONG KONG'], 'ICN': ['ソウル(仁川)', 'SEOUL(INCHEON)'], 'LHR': ['ロンドン/ヒースロー', 'LONDON'], 'FRA': ['フランクフルト', 'FRANKFURT'], 'ORD': ['シカゴ', 'CHICAGO'],
         'TSA': ['台北(松山)', 'TAIPEI(SONGSHAN)'], 'LAX': ['ロサンゼルス', 'LOS ANGELES'], 'GMP': ['ソウル(金浦)', 'SEOUL(GIMPO)'], 'BKK': ['バンコク', 'BANGKOK'], 'SIN': ['シンガポール', 'SINGAPORE'], 'PVG': ['上海(浦東)', 'SHANGHAI(PUDONG)'],
-        'EWR': ['ニューヨーク(LGA)', 'NEW YORK(LGA)'], 'SFO': ['サンフランシスコ', 'SAN FRANCISCO'], 'JFK': ['ニューヨーク(JFK)', 'NEW YORK(JFK)'], 'DTW': ['デトロイト', 'DETROIT'], 'HAN': ['ハノイ', 'HANOI'], 'SEA': ['シアトル', 'SEATTLE'], 'PEK': ['北京', 'BEIJING'],
-        'PKX': ['北京/大興', 'BEIJING/DA XING'], 'MNL': ['マニラ', 'MANILA'], 'CDG': ['パリ(CDG)', 'PARIS(CDG)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'DLC': ['大連', 'DALIAN'], 'SHA': ['上海(虹橋)', 'SHANGHAI(HONGQIAO)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'YYZ': ['トロント', 'TORONTO'], 'SYD': ['シドニー', 'SYDNEY'],
+        'EWR': ['ニューヨーク(LGA)', 'NEW YORK(LGA)'], 'SFO': ['サンフランシスコ', 'SAN FRANCISCO'], 'JFK': ['ニューヨーク(JFK)', 'NEW YORK(JFK)'], 'DTW': ['デトロイト', 'DETROIT'], 'HAN': ['ハノイ', 'HANOI'], 'SEA': ['シアトル', 'SEATTLE'], 'PEK': ['北京(首都)', 'BEIJING(CAPITAL)'],
+        'PKX': ['北京(大興)', 'BEIJING(DA XING)'], 'MNL': ['マニラ', 'MANILA'], 'CDG': ['パリ(CDG)', 'PARIS(CDG)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'DLC': ['大連', 'DALIAN'], 'SHA': ['上海(虹橋)', 'SHANGHAI(HONGQIAO)'], 'HEL': ['ヘルシンキ', 'HELSINKI'], 'YYZ': ['トロント', 'TORONTO'], 'SYD': ['シドニー', 'SYDNEY'],
         'ATL': ['アトランタ', 'ATLANTA'], 'MEX': ['メキシコシティ', 'MEXICO CITY'], 'HNL': ['ホノルル', 'HONOLULU'], 'IST': ['イスタンブール', 'ISTANBUL'], 'YVR': ['バンクーバー', 'VANCOUVER'], 'KUL': ['クアラルンプール', 'KUALA LUMPUR'], 'SZX': ['深圳', 'SHENZHEN'],
         'CAN': ['広州', 'GUANGZHOU'], 'BOM': ['ムンバイ', 'MUMBAI'], 'CJU': ['済州', 'JEJU'], 'COK': ['コーチン', 'KOCHI'], 'DEL': ['デリー', 'DELHI'], 'GUM': ['グアム', 'GUAM'], 'VIE': ['ウィーン', 'VIENNA'], 'DOH': ['ドーハ', 'DOHA'],
         'MUC': ['ミュンヘン', 'MUNICH'], 'MXP': ['ミラノ', 'MILAN'], 'ARN': ['ストックホルム', 'STOCKHOLM'], 'CPH': ['コペンハーゲン', 'COPENHAGEN'], 'ZRH': ['チューリッヒ', 'ZURICH'], 'CGK': ['ジャカルタ', 'JAKARTA'],
-        'FCO': ['ローマ', 'ROME']
+        'FCO': ['ローマ', 'ROME'], 'IAD': ['ワシントンD.C.', 'WASHINGTON D.C.'], 'MSP': ['ミネアポリス', 'MINNEAPOLIS'], 'IAH': ['ヒューストン', 'HOUSTON'], 'DFW': ['ダラス', 'DALLAS']
     };
 
     function updateClock() {
@@ -253,7 +253,7 @@
                 // 到着モード時はターミナル表示を T1/T2/T3 形式に正規化する
                 let gateVal = '-';
                 if (currentMode === 'departure') {
-                    gateVal = f['odpt:departureGate'] || '-';
+                    gateVal = f['odpt:departureGate'] || '';
                 } else {
                     let t = f['odpt:arrivalAirportTerminal'] || '';
                     if (t && t.indexOf('.') !== -1) t = t.split('.').pop();
