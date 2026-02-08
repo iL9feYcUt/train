@@ -5,10 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GPS Speedometer</title>
     <style>
+        @font-face {
+            font-family: "CenturyGothicBI";
+            src: url(Century\ Gothic\ Bold\ Italic.ttf) format("truetype");
+        }
+        @font-face {
+            font-family: "MyriadBI";
+            src: url(Myriad\ Bold\ Italic.otf) format("opentype");
+        }
         body {
             margin: 0;
             padding: 0;
-            background-color: #2f3442; /* 画像に近い深い色 */
+            background-color: #2f3442;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,7 +37,6 @@
             pointer-events: none;
             z-index: 10;
         }
-        /* 右下のアイコンは削除しました */
     </style>
 </head>
 <body>
@@ -86,7 +93,7 @@
         ctx.fill();
 
         // 放射状のグリッド線 (20km/h間隔)
-        ctx.strokeStyle = '#ababab';
+        ctx.strokeStyle = '#999999';
         ctx.lineWidth = 2;
         for (let i = 0; i <= MAX_SPEED; i += 20) {
             const angle = START_ANGLE + (i / MAX_SPEED) * totalAngle;
@@ -146,7 +153,7 @@
                 const lx = cx + Math.cos(angle) * labelRadius;
                 const ly = cy + Math.sin(angle) * labelRadius;
                 
-                ctx.font = `italic bold ${fontSizeMain}px Arial, sans-serif`;
+                ctx.font = `italic bold ${fontSizeMain}px CenturyGothicBI, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillText(i.toString(), lx, ly);
@@ -210,13 +217,13 @@
         ctx.shadowOffsetY = 10;
         
         // 巨大な数字
-        ctx.font = `italic bold ${size * 0.22}px Arial, sans-serif`;
+        ctx.font = `italic bold ${size * 0.22}px MyriadBI, sans-serif`;
         ctx.textAlign = 'right';
         ctx.fillStyle = '#ffffff';
         ctx.fillText(dSpeed, dx + size * 0.10, dy);
         
         // 単位
-        ctx.font = `italic bold ${size * 0.05}px Arial, sans-serif`;
+        ctx.font = `italic bold ${size * 0.05}px MyriadBI, sans-serif`;
         ctx.textAlign = 'left';
         ctx.fillText("km/h", dx + size * 0.11, dy + size * 0.04);
         
