@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPS Speedometer</title>
+    <style>
+        @font-face {
+            font-family: "CenturyGothicBI";
+            src: url(Century\ Gothic\ Bold\ Italic.ttf) format("truetype");
+        }
+        @font-face {
+            font-family: "MyriadBI";
+            src: url(Myriad\ Bold\ Italic.otf) format("opentype");
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2f3442;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 11px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status">GPS待機中...</div>
+    <canvas id="speedometer"></canvas>
+
+<script>
+    const canvas = document.getElementById('speedometer');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+
+    let currentSpeed = 0;
+    let targetSpeed = 0;
+    let lastPos = null; // {lat, lon, t}
+    let smoothingAlpha = 0.15; // adaptive smoothing factor (0-1)
+
+    // --- 設定パラメータ ---
+    const MAX_SPEED = 160;
+    // 角度設定: 8時半方向(155度)から4時半方向(385度)
+    const START_ANGLE = 155 * (Math.PI / 180); 
+    const END_ANGLE = 385 * (Math.PI / 180);
+    
+    // レイアウト調整: 全体を少し小さくして見切れを防ぐ
+    const RADIUS_OFFSET = 0.72; 
+
+    function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        const size = Math.min(window.innerWidth, window.innerHeight);
+        canvas.width = size * dpr;
+        canvas.height = size * dpr;
+        canvas.style.width = `${size}px`;
+        canvas.style.height = `${size}px`;
+        // reset transform then scale to avoid accumulating scales on repeated resize
+        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0); else ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw() {
+        const size = canvas.width / (window.devicePixelRatio || 1);
+        const cx = size / 2;
+        const cy = size / 2;
+        const radius = (size / 2) * RADIUS_OFFSET;
+
+        // クリア
+        ctx.clearRect(0, 0, size, size);
+
+        // --- 1. 背景のグリッドと扇形 ---
+        const totalAngle = END_ANGLE - START_ANGLE;
+        
+        // 扇形の背景
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius * 0.9, START_ANGLE, END_ANGLE);
+        ctx.fillStyle = '#0f1116';
+        ctx.fill();
+
+        // 放射状のグリッド線 (20km/h間隔)
+        ctx.strokeStyle = '#999999';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= MAX_SPEED; i += 20) {
+            const angle = START_ANGLE + (i / MAX_SPEED) * totalAngle;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(angle) * radius * 0.98, cy + Math.sin(angle) * radius * 0.98);
+            ctx.stroke();
+        }
+
+        // 内側の円弧ライン
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.5, START_ANGLE, END_ANGLE);
+        ctx.stroke();
+
+        // 中心の黒円（針の根元隠し）
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius * 0.50, START_ANGLE, END_ANGLE);
+        ctx.fillStyle = '#0f1116';
+        ctx.fill();
+        ctx.stroke();
+
+        // --- 2. 目盛りと数字 ---
+        // フォントサイズを少し小さく修正
+        const fontSizeMain = size * 0.07; 
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineCap = 'round'; // 目盛りの端を丸く
+        
+        for (let i = 0; i <= MAX_SPEED; i += 2) {
+            const angle = START_ANGLE + (i / MAX_SPEED) * totalAngle;
+            const isMajor = (i % 20 === 0);
+            
+            const outerR = radius * 1.0;
+            let innerR;
+            
+            if (isMajor) {
+                innerR = radius * 0.91;
+                ctx.lineWidth = size * 0.007;
+            } else {
+                // 細かい目盛り
+                innerR = radius * 0.95;
+                ctx.lineWidth = size * 0.003;
+            }
+
+            // 目盛り描画
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+            ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // 数字描画 (イタリック体)
+            if (isMajor) {
+                const labelRadius = radius * 1.17; // 文字の位置
+                const lx = cx + Math.cos(angle) * labelRadius;
+                const ly = cy + Math.sin(angle) * labelRadius;
+                
+                ctx.font = `italic bold ${fontSizeMain}px CenturyGothicBI, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(i.toString(), lx, ly);
+            }
+        }
+
+        // --- 3. 針の描画 (修正版) ---
+        // adaptive smoothing based on last measured accuracy (smoothingAlpha)
+        currentSpeed += (targetSpeed - currentSpeed) * smoothingAlpha;
+        if (Math.abs(targetSpeed - currentSpeed) < 0.05) currentSpeed = targetSpeed;
+        
+        let displaySpeed = Math.max(0, Math.min(currentSpeed, MAX_SPEED));
+        const needleAngle = START_ANGLE + (displaySpeed / MAX_SPEED) * totalAngle;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(needleAngle);
+
+        const needleLen = radius * 0.92;
+        const needleW = size * 0.032; // 針の太さ
+
+        ctx.fillStyle = '#ffffff';
+
+        // 針の本体（シンプルな長方形）
+        // 根元の円から少しはみ出す位置からスタート
+        ctx.fillRect(- size * 0.05, -needleW / 2, needleLen + size * 0.021, needleW);
+
+        // 針の先端（三角形）
+        ctx.beginPath();
+        ctx.moveTo(needleLen - size * 0.03, -needleW / 2);
+        ctx.lineTo(needleLen, 0); // 先端
+        ctx.lineTo(needleLen - size * 0.03, needleW / 2);
+        ctx.fill();
+
+        // 根元の白い円
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.025, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 中心のグレーの点
+        ctx.beginPath();
+        ctx.fillStyle = '#8a9ba8';
+        ctx.arc(0, 0, size * 0.008, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // --- 4. デジタル速度計 (右下) ---
+        // 位置調整
+        const dAngle = 55 * (Math.PI / 180);
+        const dRadius = radius * 0.75;
+        const dx = cx + Math.cos(dAngle) * dRadius * 0.5;
+        const dy = cy + Math.sin(dAngle) * dRadius * 1.2;
+
+        const dSpeed = Math.round(currentSpeed);
+
+        ctx.save();
+        // 影を少し弱める
+        ctx.shadowColor = 'rgba(0,0,0,1)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 10;
+        ctx.shadowOffsetY = 10;
+        
+        // 巨大な数字
+        ctx.font = `italic bold ${size * 0.22}px MyriadBI, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(dSpeed, dx + size * 0.10, dy);
+        
+        // 単位
+        ctx.font = `italic bold ${size * 0.05}px MyriadBI, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText("km/h", dx + size * 0.11, dy + size * 0.04);
+        
+        ctx.restore();
+
+        requestAnimationFrame(draw);
+    }
+ 
+    // --- GPS処理 ---
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+    };
+
+    function success(pos) {
+        const crd = pos.coords;
+        // Use browser-provided speed when available (m/s), otherwise estimate from last position
+        const now = pos.timestamp || Date.now();
+        let measuredKmh = null;
+        if (typeof crd.speed === 'number' && !isNaN(crd.speed) && crd.speed >= 0) {
+            measuredKmh = crd.speed * 3.6;
+        } else if (lastPos && typeof lastPos.t === 'number' && now > lastPos.t) {
+            // estimate using haversine distance
+            const toRad = v => v * Math.PI / 180;
+            const R = 6371000;
+            const dLat = toRad(crd.latitude - lastPos.lat);
+            const dLon = toRad(crd.longitude - lastPos.lon);
+            const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lastPos.lat)) * Math.cos(toRad(crd.latitude)) * Math.sin(dLon/2)**2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const dist = R * c; // meters
+            const dt = (now - lastPos.t) / 1000; // seconds
+            if (dt > 0.05) {
+                const spdMs = dist / dt;
+                measuredKmh = spdMs * 3.6;
+            }
+        }
+
+        // Update smoothing factor based on reported accuracy (smaller accuracy -> faster response)
+        if (typeof crd.accuracy === 'number' && !isNaN(crd.accuracy) && crd.accuracy > 0) {
+            // accuracy in meters -> map to alpha in [0.06, 0.5]
+            const acc = crd.accuracy;
+            smoothingAlpha = Math.max(0.06, Math.min(0.5, 0.3 * (10 / acc)));
+        } else {
+            smoothingAlpha = 0.15;
+        }
+
+        if (measuredKmh !== null) {
+            // sanity checks
+            if (!isFinite(measuredKmh) || measuredKmh < 0) measuredKmh = 0;
+            if (measuredKmh > 400) {
+                // ignore unrealistic spikes
+                console.warn('Ignoring unrealistic speed:', measuredKmh);
+            } else {
+                targetSpeed = measuredKmh;
+                if (targetSpeed < 0.5) targetSpeed = 0;
+            }
+        } else {
+            // If no measurement available, keep previous targetSpeed but mark status
+            // do not force targetSpeed to 0 to avoid jitter when GPS temporarily lacks speed
+        }
+
+        statusDiv.textContent = `精度: ${crd.accuracy ? Math.round(crd.accuracy) + 'm' : '—'}`;
+
+        // store last good position for future estimation
+        lastPos = { lat: crd.latitude, lon: crd.longitude, t: now };
+    }
+
+    function error(err) {
+        statusDiv.textContent = "GPS待機中...";
+    }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(success, error, options);
+    } else {
+        statusDiv.textContent = "GPS非対応";
+    }
+
+    draw();
+</script>
+</body>
+</html>
