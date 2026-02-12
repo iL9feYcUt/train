@@ -37,11 +37,25 @@
             pointer-events: none;
             z-index: 10;
         }
+        #startBtn {
+            position: absolute;
+            top: 6px;
+            left: 140px;
+            z-index: 11;
+            padding: 6px 10px;
+            font-size: 13px;
+            border-radius: 4px;
+            border: none;
+            background: #4b7bec;
+            color: white;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
-    <div id="status">GPS待機中...</div>
+    <div id="status">測定を開始してください</div>
+    <button id="startBtn">測定</button>
     <canvas id="speedometer"></canvas>
 
 <script>
@@ -255,12 +269,41 @@
         statusDiv.textContent = "GPS待機中...";
     }
 
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(success, error, options);
-    } else {
-        statusDiv.textContent = "GPS非対応";
+    // watchPosition は測定開始ボタンを押すまで起動しない
+    let watchId = null;
+    let pollTimer = null;
+    const POLL_INTERVAL = 500; // ミリ秒 (必要に応じて 200-1000 に調整)
+
+    const startBtn = document.getElementById('startBtn');
+    function startMeasurement() {
+        if (!navigator.geolocation) {
+            statusDiv.textContent = "GPS非対応";
+            return;
+        }
+
+        // watchPosition を開始
+        watchId = navigator.geolocation.watchPosition(success, error, options);
+
+        // 追加ポーリング (多くのデバイス/ブラウザで更新頻度が向上します)
+        if (navigator.geolocation.getCurrentPosition) {
+            pollTimer = setInterval(() => {
+                navigator.geolocation.getCurrentPosition(success, error, options);
+            }, POLL_INTERVAL);
+        }
+
+        // ボタンを非表示にして画面上から取り除く
+        startBtn.style.display = 'none';
     }
 
+    startBtn.addEventListener('click', startMeasurement);
+
+    // ページ離脱時にタイマーと watch をクリア
+    window.addEventListener('beforeunload', () => {
+        if (watchId !== null && navigator.geolocation.clearWatch) navigator.geolocation.clearWatch(watchId);
+        if (pollTimer !== null) clearInterval(pollTimer);
+    });
+
+    // まずは描画だけ開始して待機状態を表示する
     draw();
 </script>
 </body>
