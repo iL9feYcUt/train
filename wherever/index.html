@@ -75,6 +75,7 @@
                 <option value="w">向山</option>
                 <option value="m">田中</option>
                 <option value="m2">津田</option>
+                <option value="cosmos">COSMOS</option>
             </select>
             <select id="trackSelect"></select>
         </div>
@@ -429,6 +430,9 @@
         const onSound = document.getElementById('onSound');
         const offSound = document.getElementById('offSound');
 
+        // COSMOS用: 再生開始から6秒後に1回だけ流すためのタイマーとaudio要素
+        let cosmosTimeoutId = null;
+        let cosmosAudio = null;
         const sortedMp3Files = mp3Files.slice().sort((a, b) => a.localeCompare(b, 'ja'));
 
 
@@ -513,6 +517,18 @@
         onSound.src = 'sounds/' + musicSelect.value;
 
         function playOn() {
+            // 既存のCOSMOSタイマー/オーディオがあればクリア
+            if (cosmosTimeoutId) {
+                clearTimeout(cosmosTimeoutId);
+                cosmosTimeoutId = null;
+            }
+            if (cosmosAudio) {
+                try { cosmosAudio.pause(); } catch (e) {}
+                try { cosmosAudio.currentTime = 0; } catch (e) {}
+                cosmosAudio.remove();
+                cosmosAudio = null;
+            }
+
             // オーディオが再生中の場合は一旦停止
             if (!onSound.paused) {
                 onSound.pause();
@@ -522,13 +538,50 @@
             onSound.play().catch(error => {
                 console.error('再生エラー:', error);
             });
+
+            // COSMOSが選択されている場合、再生開始から6秒後にCOSMOS/test.mp3を1回流す
+            if (peopleSelect.value === 'cosmos') {
+                onSound.loop = true;
+                cosmosTimeoutId = setTimeout(() => {
+                    // 既にある場合は消す
+                    if (cosmosAudio) {
+                        try { cosmosAudio.pause(); } catch (e) {}
+                        try { cosmosAudio.currentTime = 0; } catch (e) {}
+                        cosmosAudio.remove();
+                        cosmosAudio = null;
+                    }
+                    cosmosAudio = document.createElement('audio');
+                    cosmosAudio.id = 'cosmosTestAudio';
+                    cosmosAudio.src = 'COSMOS/test.mp3';
+                    cosmosAudio.autoplay = true;
+                    cosmosAudio.addEventListener('ended', function () {
+                        if (cosmosAudio) {
+                            try { cosmosAudio.remove(); } catch (e) {}
+                            cosmosAudio = null;
+                        }
+                    });
+                    document.body.appendChild(cosmosAudio);
+                }, 7000);
+            } else {
+                onSound.loop = true;
+            }
         }
 
         function playOff() {
+            // COSMOS用のタイマー/オーディオを停止・破棄
+            if (cosmosTimeoutId) {
+                clearTimeout(cosmosTimeoutId);
+                cosmosTimeoutId = null;
+            }
+            // NOTE: Do NOT stop `cosmosAudio` if it's already playing — let it finish.
+
             onSound.pause();
             onSound.currentTime = 0;
 
             const folder = peopleSelect.value;
+            // COSMOS選択時はOFF時に何も流さない
+            if (folder === 'cosmos') return;
+
             const trackNum = trackSelect.value;
             const filePath = `${folder}/${trackNum}.mp3`;
 
