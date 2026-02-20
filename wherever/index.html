@@ -539,29 +539,32 @@
                 console.error('再生エラー:', error);
             });
 
-            // COSMOSが選択されている場合、再生開始から6秒後にCOSMOS/test.mp3を1回流す
+            // COSMOSが選択されている場合、ONと同時にCOSMOS/test.mp3を1回だけ再生
             if (peopleSelect.value === 'cosmos') {
                 onSound.loop = true;
-                cosmosTimeoutId = setTimeout(() => {
-                    // 既にある場合は消す
+                // 保留中のタイマーがあればクリア
+                if (cosmosTimeoutId) {
+                    clearTimeout(cosmosTimeoutId);
+                    cosmosTimeoutId = null;
+                }
+                // 既にある場合は消す
+                if (cosmosAudio) {
+                    try { cosmosAudio.pause(); } catch (e) {}
+                    try { cosmosAudio.currentTime = 0; } catch (e) {}
+                    try { cosmosAudio.remove(); } catch (e) {}
+                    cosmosAudio = null;
+                }
+                cosmosAudio = document.createElement('audio');
+                cosmosAudio.id = 'cosmosTestAudio';
+                cosmosAudio.src = 'COSMOS/test.mp3';
+                cosmosAudio.autoplay = true;
+                cosmosAudio.addEventListener('ended', function () {
                     if (cosmosAudio) {
-                        try { cosmosAudio.pause(); } catch (e) {}
-                        try { cosmosAudio.currentTime = 0; } catch (e) {}
-                        cosmosAudio.remove();
+                        try { cosmosAudio.remove(); } catch (e) {}
                         cosmosAudio = null;
                     }
-                    cosmosAudio = document.createElement('audio');
-                    cosmosAudio.id = 'cosmosTestAudio';
-                    cosmosAudio.src = 'COSMOS/test.mp3';
-                    cosmosAudio.autoplay = true;
-                    cosmosAudio.addEventListener('ended', function () {
-                        if (cosmosAudio) {
-                            try { cosmosAudio.remove(); } catch (e) {}
-                            cosmosAudio = null;
-                        }
-                    });
-                    document.body.appendChild(cosmosAudio);
-                }, 7000);
+                });
+                document.body.appendChild(cosmosAudio);
             } else {
                 onSound.loop = true;
             }
