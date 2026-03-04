@@ -356,6 +356,7 @@ function createTrain(t) {
     const delayVal = t['odpt:delay'];
     const delay = delayVal > 0 ? `<div class="delay-badge">+${Math.floor(delayVal/60)}分</div>` : '';
     const dest = stationMap[t['odpt:destinationStation'][0]]?.name || 'ー';
+    const carCompText = (typeof t['odpt:carComposition'] !== 'undefined' && t['odpt:carComposition'] !== null) ? `${t['odpt:carComposition']}両` : '?両';
     
     // 列車番号(odpt:trainNumber)を取得
     const trainNumber = t['odpt:trainNumber'] || '----';
@@ -365,7 +366,7 @@ function createTrain(t) {
         <div class="train-body">
             <div>${typeLabel}</div>
             <div>${dest}</div>
-            <div>${trainNumber}</div> <div>${t['odpt:carComposition']}両</div>
+            <div>${trainNumber}</div> <div>${carCompText}</div>
             <div class="congestion"></div>
             <div class="train-img"></div>
         </div>
