@@ -412,6 +412,7 @@
           return entry['odpt:stationTimetableObject'].map((obj, index) => {
             const tNo = obj['odpt:trainNumber'];
             const info = realtimeTrainInfo[tNo] || { delay: 0, cars: null }; // 検索に引っかからなければnull
+            const matched = !!realtimeTrainInfo[tNo]; // realtime にヒットしたか
             const [h, m] = obj['odpt:departureTime'].split(':').map(Number);
             let baseSec = (h < 4 ? h + 24 : h) * 3600 + m * 60;
             return {
@@ -423,7 +424,8 @@
               type: obj['odpt:trainType'].includes('Rapid') ? '快　速' : '各駅停車',
               cars: info.cars, // 列番検索結果をそのまま保持
               trainNo: tNo,
-              origOrder: index
+              origOrder: index,
+              matched: matched
             };
           });
         };
@@ -622,9 +624,16 @@
     function render() {
       const now = new Date();
       const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
-      const getUp = (list) => list.filter(t => t && t.estimatedSec >= (nowSec - 60))
-                                  .sort((a, b) => a.estimatedSec - b.estimatedSec || a.origOrder - b.origOrder)
-                                  .slice(0, 2);
+      const getUp = (list) => list.filter(t => {
+                                  if (!t) return false;
+                                  // 発車 240秒前 ～ 60秒後 の間に realtime にヒットしなかった列車は表示しない
+                                  if (!t.__debug && t.matched === false && typeof t.baseSec === 'number') {
+                                    if (nowSec >= (t.baseSec - 240) && nowSec <= (t.baseSec + 60)) return false;
+                                  }
+                                  return t.estimatedSec >= (nowSec - 60);
+                                })
+                                .sort((a, b) => a.estimatedSec - b.estimatedSec || a.origOrder - b.origOrder)
+                                .slice(0, 2);
       const r1 = document.getElementById('rows1'); r1.innerHTML = '';
       const up1 = getUp(trains1.concat(debugTrains1));
       while (up1.length < 2) up1.push({});
