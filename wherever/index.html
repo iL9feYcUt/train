@@ -550,6 +550,7 @@
             });
 
             // COSMOSが選択されている場合、ONと同時にCOSMOS/test.mp3を1回だけ再生
+            const trackNum = trackSelect.value;
             if (peopleSelect.value === 'cosmos') {
                 onSound.loop = true;
                 // 保留中のタイマーがあればクリア
@@ -566,7 +567,7 @@
                 }
                 cosmosAudio = document.createElement('audio');
                 cosmosAudio.id = 'cosmosTestAudio';
-                cosmosAudio.src = 'COSMOS/test.mp3';
+                cosmosAudio.src = `COSMOS/${trackNum}.mp3`;
                 cosmosAudio.autoplay = true;
                 cosmosAudio.addEventListener('ended', function () {
                     if (cosmosAudio) {
