@@ -121,7 +121,24 @@
             "JR-SH7-1.mp3",
             "JR-SH8-1.mp3",
             "JR-SH9-3.mp3",
+            "JR-SHR1-1.mp3",
+            "JR-SHR1-3.mp3",
+            "JR-SHR2-1.mp3",
+            "JR-SHR2-3.mp3",
+            "JR-SHR3-1.mp3",
+            "JR-SHR3-3.mp3",
             "JR-SHR4-1.mp3",
+            "JR-SHR4-3.mp3",
+            "JR-SHR5-1.mp3",
+            "JR-SHR5-3.mp3",
+            "JR-SHR6-1.mp3",
+            "JR-SHR6-3.mp3",
+            "JR-SHR7-1.mp3",
+            "JR-SHR7-3.mp3",
+            "JR-SHR8-1.mp3",
+            "JR-SHR8-3.mp3",
+            "JR-SHR9-1.mp3",
+            "JR-SHR9-3.mp3",
             "mellow time.mp3",
             "スプリングボックス.mp3",
             "メロディー.mp3",
@@ -449,6 +466,7 @@
         // グループ分けのための初期化
         const groups = {
             'JR-SH': [],
+            'JR-SHR': [],
             'JRE-IKST': [],
             'JRE-IKST（新幹線）': [],
             '一般': [],
@@ -459,7 +477,9 @@
 
         // ファイルをグループに分類
         mp3Files.forEach(file => {
-            if (file.startsWith('JR-SH')) {
+            if (file.startsWith('JR-SHR')) {
+                groups['JR-SHR'].push(file);
+            } else if (file.startsWith('JR-SH')) {
                 groups['JR-SH'].push(file);
             } else if (file.startsWith('JRE-IKST-1')) {
                 groups['JRE-IKST（新幹線）'].push(file);
@@ -477,7 +497,7 @@
         });
 
         // 表示順を指定
-        const displayOrder = ['JR-SH', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー', '私鉄'];
+        const displayOrder = ['JR-SH', 'JR-SHR', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー', '私鉄'];
 
         displayOrder.forEach(label => {
             const files = groups[label];
