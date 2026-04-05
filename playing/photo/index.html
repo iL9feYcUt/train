@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoJSON Map Overlay</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            background: #ffffff;
+            color: rgb(0, 0, 0);
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        .controls {
+            padding: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <input type="file" id="file"><br><br>
+
+        路線 <input id="line"><br>
+        出発 <input id="from"><br>
+        到着 <input id="to"><br><br>
+
+        <label><input type="checkbox" id="mapToggle" checked> 地図表示</label><br><br>
+
+        <button onclick="generate()">生成</button>
+        <button onclick="save()">保存</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+    <script>
+        let img = new Image();
+        let lat, lon, date;
+        let place = "";
+        let geojson;
+
+        // ===== GeoJSON読み込み =====
+        fetch("map.geojson")
+            .then(r => r.json())
+            .then(data => geojson = data);
+
+        // ===== 画像読み込み =====
+        document.getElementById("file").onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = ev => {
+                img.src = ev.target.result;
+
+                EXIF.getData(file, function () {
+                    const latRaw = EXIF.getTag(this, "GPSLatitude");
+                    const lonRaw = EXIF.getTag(this, "GPSLongitude");
+                    date = EXIF.getTag(this, "DateTimeOriginal");
+
+                    function conv(d) { return d[0] + d[1] / 60 + d[2] / 3600; }
+
+                    if (latRaw && lonRaw) {
+                        lat = conv(latRaw);
+                        lon = conv(lonRaw);
+
+                        // 位置情報が取れたら逆ジオコーディングして地名を取得
+                        reverseGeocode(lat, lon).then(name => {
+                            place = name || "";
+                        }).catch(() => { place = ""; });
+                    }
+                });
+            };
+
+            reader.readAsDataURL(file);
+        };
+
+        // ===== 緯度経度 → 座標変換 (矩形幅/高さに対応) =====
+        function project(lon, lat, bounds, width, height) {
+            const lonSpan = (bounds.maxLon - bounds.minLon) || 0.0001;
+            const latSpan = (bounds.maxLat - bounds.minLat) || 0.0001;
+
+            const x = (lon - bounds.minLon) / lonSpan;
+            const y = (lat - bounds.minLat) / latSpan;
+
+            return [
+                x * width,
+                height - (y * height) // 上下反転
+            ];
+        }
+
+        // ===== 範囲計算 =====
+        function getBounds(geo) {
+            let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+
+            geo.features.forEach(f => {
+                forEachCoordinate(f.geometry, (pt) => {
+                    const lon = pt[0], lat = pt[1];
+                    minLat = Math.min(minLat, lat);
+                    maxLat = Math.max(maxLat, lat);
+                    minLon = Math.min(minLon, lon);
+                    maxLon = Math.max(maxLon, lon);
+                });
+            });
+
+            // フォールバック: GeoJSON に座標が無い場合は現在地周辺を返す
+            if (minLat === Infinity) {
+                if (typeof lat === 'number' && typeof lon === 'number') {
+                    return { minLat: lat - 0.01, maxLat: lat + 0.01, minLon: lon - 0.01, maxLon: lon + 0.01 };
+                }
+                return { minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 };
+            }
+
+            return { minLat, maxLat, minLon, maxLon };
+        }
+
+        // ビュー用の境界を計算（撮影地点があればそれを中心に拡大率を調整）
+        function computeViewBounds(bounds, opts = {}) {
+            const { centerLon: cLon, centerLat: cLat } = opts;
+
+            const lonSpan = Math.max(0.0001, bounds.maxLon - bounds.minLon);
+            const latSpan = Math.max(0.0001, bounds.maxLat - bounds.minLat);
+
+            // 撮影地点があればそれを中心に、なければ geojson 中心を使う
+            const centerLon = (typeof cLon === 'number') ? cLon : (bounds.minLon + bounds.maxLon) / 2;
+            const centerLat = (typeof cLat === 'number') ? cLat : (bounds.minLat + bounds.maxLat) / 2;
+
+            // ズーム係数（小さくするほど拡大）
+            const autoFactor = 0.005; // 元の範囲の 15% を表示領域にする
+            const minSpan = 0.005; // おおよそ ~500m 程度の最低表示幅
+
+            const targetLonSpan = Math.max(lonSpan * autoFactor, minSpan);
+            const targetLatSpan = Math.max(latSpan * autoFactor, minSpan);
+
+            return {
+                minLon: centerLon - targetLonSpan / 2,
+                maxLon: centerLon + targetLonSpan / 2,
+                minLat: centerLat - targetLatSpan / 2,
+                maxLat: centerLat + targetLatSpan / 2
+            };
+        }
+
+        // ===== 地図描画 =====
+        // 汎用的な座標イテレータ（どんなジオメトリ構造でも各 [lon, lat] をコールバックに渡す）
+        function forEachCoordinate(geometry, cb) {
+            const type = geometry.type;
+            const c = geometry.coordinates;
+
+            function visit(arr) {
+                if (!Array.isArray(arr)) return;
+                if (typeof arr[0] === 'number' && typeof arr[1] === 'number') {
+                    cb(arr);
+                    return;
+                }
+                for (let i = 0; i < arr.length; i++) visit(arr[i]);
+            }
+
+            if (type === 'Point') cb(c);
+            else visit(c);
+        }
+
+        // ジオメトリから描画用の連続線（配列の配列）を抽出する
+        function getLinesFromGeometry(geometry) {
+            const type = geometry.type;
+            const c = geometry.coordinates;
+            const lines = [];
+
+            function pushLine(arr) {
+                if (!Array.isArray(arr)) return;
+                // arr が [lon, lat] の配列か、配列の配列か判定
+                if (typeof arr[0] === 'number' && typeof arr[1] === 'number') {
+                    // 単一点
+                    lines.push([arr]);
+                    return;
+                }
+                // arr は配列の配列（線列またはリング）
+                for (let i = 0; i < arr.length; i++) {
+                    const item = arr[i];
+                    if (typeof item[0] === 'number') {
+                        // これは座標列
+                        lines.push(arr);
+                        break;
+                    } else {
+                        // ネストが深い（MultiPolygon 等）
+                        pushLine(item);
+                    }
+                }
+            }
+
+            if (type === 'Point') lines.push([c]);
+            else if (type === 'LineString') lines.push(c);
+            else if (type === 'Polygon') pushLine(c);
+            else if (type === 'MultiLineString') pushLine(c);
+            else if (type === 'MultiPolygon') pushLine(c);
+            else pushLine(c);
+
+            return lines;
+        }
+
+        // drawGeoJSON: viewBounds を受け取り、描画時に座標簡略化をする
+        function drawGeoJSON(ctx, geo, width, height, viewBounds) {
+            const bounds = viewBounds || getBounds(geo);
+
+            ctx.strokeStyle = "rgba(255,255,255,0.95)";
+            ctx.lineWidth = Math.max(1, Math.round(Math.min(width, height) / 220));
+            ctx.globalAlpha = 0.95;
+
+            const simplifyPx = Math.max(1, Math.round(Math.min(width, height) / 220));
+
+            geo.features.forEach(f => {
+                const lines = getLinesFromGeometry(f.geometry);
+                lines.forEach(line => {
+                    if (!Array.isArray(line) || line.length === 0) return;
+                    ctx.beginPath();
+                    let first = true;
+                    let lastX = null, lastY = null;
+
+                    for (let i = 0; i < line.length; i++) {
+                        const pt = line[i];
+                        const lon = pt[0], latPt = pt[1];
+                        const [x, y] = project(lon, latPt, bounds, width, height);
+
+                        if (first) {
+                            ctx.moveTo(x, y);
+                            first = false;
+                            lastX = x; lastY = y;
+                        } else {
+                            if (Math.hypot(x - lastX, y - lastY) < simplifyPx) continue;
+                            ctx.lineTo(x, y);
+                            lastX = x; lastY = y;
+                        }
+                    }
+
+                    ctx.stroke();
+                });
+            });
+
+            // 現在地ポイント（viewBounds 座標系での投影）
+            if (typeof lat === 'number' && typeof lon === 'number') {
+                const [x, y] = project(lon, lat, bounds, width, height);
+
+                ctx.fillStyle = "#00bfff";
+                ctx.beginPath();
+                // マーカを大きくして視認性を上げる
+                ctx.arc(x, y, Math.max(8, Math.round(Math.min(width, height) / 80)), 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalAlpha = 1.0;
+        }
+
+        // ===== メイン生成 =====
+        async function generate() {
+            await img.decode();
+
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            ctx.drawImage(img, 0, 0);
+
+            const padding = Math.round(Math.max(40, canvas.width * 0.05));
+            const size = Math.round(260 * 2); // specified: 表示領域を2倍
+
+            // ===== 地図 =====
+            if (document.getElementById("mapToggle").checked && geojson) {
+                const mapCanvas = document.createElement("canvas");
+
+                // 拡大: さらに2倍（前は260*2=520 を想定していたため、ここではさらに2倍）
+                const mapBase = 520 * 2; // 1040
+
+                // 境界から縦横比を決めて矩形にする
+                const bounds = getBounds(geojson);
+                const lonSpan = Math.max(0.0001, bounds.maxLon - bounds.minLon);
+                const latSpan = Math.max(0.0001, bounds.maxLat - bounds.minLat);
+
+                // 中心は撮影地点があればそこを使う
+                const usePhotoCenter = (typeof lat === 'number' && typeof lon === 'number');
+                const centerLon = usePhotoCenter ? lon : (bounds.minLon + bounds.maxLon) / 2;
+                const centerLat = usePhotoCenter ? lat : (bounds.minLat + bounds.maxLat) / 2;
+
+                // ビュー枠を撮影地点中心で小さめに取る
+                const viewBounds = computeViewBounds(bounds, { centerLon, centerLat });
+
+                // ユーザ指定: 横幅を2倍、縦幅を3倍に拡大
+                let mapWidth = Math.round(mapBase * 2);
+                let mapHeight = Math.round(mapBase * 3 * ((viewBounds.maxLat - viewBounds.minLat) / (viewBounds.maxLon - viewBounds.minLon)));
+
+                // 極端な比率を抑える
+                const minRatio = 0.5, maxRatio = 2.5;
+                const ratio = mapHeight / mapWidth;
+                if (ratio < minRatio) mapHeight = Math.round(mapWidth * minRatio);
+                if (ratio > maxRatio) mapHeight = Math.round(mapWidth * maxRatio);
+
+                mapCanvas.width = mapWidth;
+                mapCanvas.height = mapHeight;
+
+                const mctx = mapCanvas.getContext("2d");
+
+                // 透明背景で白線のウォーターマーク風
+                mctx.clearRect(0, 0, mapWidth, mapHeight);
+                mctx.globalCompositeOperation = 'source-over';
+
+                drawGeoJSON(mctx, geojson, mapWidth, mapHeight, viewBounds);
+
+                // 矩形表示（直接描画） — main canvas 側で半透明で表示してウォーターマーク化
+                const destX = padding;
+                const destY = canvas.height - padding - mapHeight;
+
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.drawImage(mapCanvas, destX, destY, mapWidth, mapHeight);
+                ctx.globalAlpha = 1.0;
+                ctx.restore();
+
+                // 枠（矩形）
+                ctx.beginPath();
+                ctx.rect(destX, destY, mapWidth, mapHeight);
+                ctx.strokeStyle = "rgba(255,255,255,0.95)";
+                ctx.lineWidth = Math.max(2, Math.round(Math.min(mapWidth, mapHeight) / 120));
+                ctx.stroke();
+            }
+
+            // ===== テキスト =====
+            const baseX = canvas.width - Math.round(Math.max(60, canvas.width * 0.06));
+            let baseY = canvas.height - Math.round(Math.max(160, canvas.height * 0.18));
+
+            ctx.textAlign = "right";
+            ctx.shadowColor = "rgba(0,0,0,0.7)";
+            ctx.shadowBlur = Math.max(6, Math.round(canvas.width / 300));
+
+            // フォントサイズを画像サイズに依存しない比率で設定（1回だけ計算）
+            const refWidth = 1200; // 基準幅
+            const scale = canvas.width / refWidth;
+            const titleSize = Math.max(18, Math.round(72 * scale));
+            const routeSize = Math.max(14, Math.round(60 * scale));
+            const placeSize = Math.max(12, Math.round(36 * scale));
+            const dateSize = Math.max(10, Math.round(32 * scale));
+
+            // テキストブロックの高さを計算して下にはみ出さないように上にずらす
+            const totalHeight = titleSize + routeSize + placeSize + dateSize + 40; // 総余白
+
+            if (baseY + totalHeight > canvas.height - Math.round(Math.max(20, canvas.height * 0.02))) {
+                baseY = canvas.height - Math.round(Math.max(20, canvas.height * 0.02)) - totalHeight;
+            }
+
+            // 文字色（常に白寄りで見やすく）
+            ctx.fillStyle = "rgba(255,255,255,0.95)";
+
+            ctx.font = `bold ${titleSize}px 'Noto Sans JP'`;
+            ctx.fillText(document.getElementById("line").value || "", baseX, baseY);
+
+            baseY += Math.round(20 + titleSize * 1.0);
+            ctx.font = `600 ${routeSize}px 'Noto Sans JP'`;
+            const fromVal = document.getElementById("from").value || "";
+            const toVal = document.getElementById("to").value || "";
+            ctx.fillText(`${fromVal} → ${toVal}`, baseX, baseY);
+
+            baseY += Math.round(12 + routeSize * 1.0);
+            ctx.font = `${placeSize}px sans-serif`;
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.fillText(place, baseX, baseY);
+
+            baseY += Math.round(12 + placeSize * 1.0);
+            if (date) {
+                ctx.font = `${dateSize}px sans-serif`;
+                ctx.fillText(formatExifDate(date), baseX, baseY);
+            }
+        }
+
+        // ===== 保存 =====
+        function save() {
+            const canvas = document.getElementById("canvas");
+
+            canvas.toBlob(blob => {
+                if (navigator.share) {
+                    navigator.share({
+                        files: [new File([blob], "result.jpg", { type: "image/jpeg" })]
+                    });
+                } else {
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "result.jpg";
+                    a.click();
+                }
+            }, "image/jpeg", 1.0);
+        }
+
+        // ===== 逆ジオコーディング（OpenStreetMap Nominatim） =====
+        async function reverseGeocode(latVal, lonVal) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latVal)}&lon=${encodeURIComponent(lonVal)}`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return "";
+                const data = await res.json();
+
+                // 使いやすい表示名を選択
+                if (data && data.address) {
+                    const a = data.address;
+                    return a.city || a.town || a.village || a.county || data.display_name || "";
+                }
+
+                return data.display_name || "";
+            } catch (e) {
+                return "";
+            }
+        }
+
+        // ===== EXIF日付フォーマット ("YYYY:MM:DD HH:MM:SS" -> "YYYY/MM/DD HH:MM") =====
+        function formatExifDate(d) {
+            if (!d || typeof d !== 'string') return '';
+            // 多くは "YYYY:MM:DD HH:MM:SS"
+            const parts = d.split(' ');
+            const datePart = parts[0] ? parts[0].replace(/:/g, '/') : '';
+            let timePart = parts[1] || '';
+            if (timePart) {
+                const t = timePart.split(':');
+                if (t.length >= 2) timePart = `${t[0]}:${t[1]}`;
+                else timePart = t[0];
+            }
+            return timePart ? `${datePart} ${timePart}` : datePart;
+        }
+    </script>
+
+</body>
+
+</html>
