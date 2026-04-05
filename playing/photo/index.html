@@ -9,11 +9,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
+        @font-face {
+            font-family: 'Frutiger';
+            src: url('Frutiger.ttf') format('truetype');
+        }
+
         body {
             margin: 0;
             background: #ffffff;
             color: rgb(0, 0, 0);
-            font-family: 'Noto Sans JP', sans-serif;
+            font-family: 'Frutiger', 'Noto Sans JP', sans-serif;
         }
 
         .controls {
@@ -31,10 +36,39 @@
             border-radius: 10px;
             backdrop-filter: blur(6px);
             box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-            font-size: 14px;
+            font-size: 16px;
             max-width: 320px;
             z-index: 1000;
         }
+
+        /* 折りたたみ用クラス */
+        .panel.closed {
+            transform: translateX(120%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 240ms ease, opacity 240ms ease;
+        }
+
+        /* パネル開閉ボタン */
+        #panelToggleBtn {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+            border: none;
+        }
+
+        #panelToggleBtn.small { width:36px; height:36px; border-radius:8px; }
 
         .panel label { display: block; margin: 6px 0 4px; font-weight: 600; }
         .panel input[type="text"], .panel input[type="file"], .panel select { width: 100%; box-sizing: border-box; padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #fff; }
@@ -69,8 +103,29 @@
         <label>ズーム（撮影地中心） <span id="zoomLabel" class="small">1.0</span></label>
         <input type="range" id="zoomScale" min="0.5" max="6" step="0.1" value="1">
 
-        <label>ウォーターマーク不透明度 <span id="opacityLabel" class="small">0.9</span></label>
+        <label>地図不透明度 <span id="opacityLabel" class="small">0.9</span></label>
         <input type="range" id="watermarkOpacity" min="0.1" max="1" step="0.05" value="0.9">
+
+        <label>文字縮小（バランス） <span id="textShrinkLabel" class="small">0.90</span></label>
+        <input type="range" id="textShrink" min="0.70" max="1.05" step="0.01" value="0.9">
+        <label>保存品質 <span id="qualityLabel" class="small">0.92</span></label>
+        <input type="range" id="saveQuality" min="0.5" max="1.0" step="0.01" value="0.92">
+
+        <label>テキスト位置</label>
+        <select id="textPosition">
+            <option value="bottom-right" selected>右下</option>
+            <option value="top-right">右上</option>
+            <option value="top-left">左上</option>
+            <option value="bottom-left">左下</option>
+        </select>
+
+        <label>地図位置</label>
+        <select id="mapPosition">
+            <option value="bottom-left" selected>左下</option>
+            <option value="bottom-right">右下</option>
+            <option value="top-right">右上</option>
+            <option value="top-left">左上</option>
+        </select>
 
         <label class="row"><input type="checkbox" id="centerToggle" checked> <span class="small">撮影地を強制中心にする</span></label>
 
@@ -82,38 +137,177 @@
 
     <canvas id="canvas"></canvas>
 
+    <button id="panelToggleBtn" aria-expanded="true" title="表示/非表示切替">◀</button>
+
+    <!-- ローディングオーバーレイ -->
+    <div id="loaderOverlay" style="display:flex;position:fixed;inset:0;background:#ffffff;color:#000000;align-items:center;justify-content:center;z-index:2000;">
+        <div style="text-align:center;">
+            <svg id="loaderSvg" width="140" height="140" viewBox="0 0 100 100" style="transform:rotate(-90deg);">
+                <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
+                <circle id="loaderProgress" cx="50" cy="50" r="45" stroke="#4ee" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283"></circle>
+            </svg>
+            <div id="loaderPercent" style="margin-top:12px;font-size:18px;">0%</div>
+            <div id="loaderMsg" style="margin-top:6px;font-size:12px;opacity:0.9;">読み込み中…</div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <script>
+        // ===== ローダー（フォント + GeoJSON をストリーム読み込みして進捗を表示） =====
+        async function loadWithProgress(url, onProgress, asText = false) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to fetch ' + url);
+
+            const contentLength = res.headers.get('Content-Length') ? parseInt(res.headers.get('Content-Length')) : null;
+            const reader = res.body.getReader();
+            const chunks = [];
+            let received = 0;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                received += value.length;
+                if (contentLength) onProgress(received / contentLength);
+                else onProgress(Math.min(0.99, (received / (received + 10000)))); // おおよその進捗
+            }
+
+            const blob = new Blob(chunks);
+            if (asText) {
+                const txt = await blob.text();
+                return txt;
+            }
+            return blob;
+        }
+
+        async function loadFontTtfWithProgress(url, onProgress) {
+            const blob = await loadWithProgress(url, onProgress, false);
+            const blobUrl = URL.createObjectURL(blob);
+            const ff = new FontFace('Frutiger', `url(${blobUrl})`);
+            await ff.load();
+            document.fonts.add(ff);
+            URL.revokeObjectURL(blobUrl);
+            onProgress(1);
+            return ff;
+        }
+
+        async function loadGeojsonWithProgress(url, onProgress) {
+            const txt = await loadWithProgress(url, onProgress, true);
+            try { return JSON.parse(txt); } catch (e) { throw e; }
+        }
+
+        function updateLoader(percent, message) {
+            const circle = document.getElementById('loaderProgress');
+            const pct = Math.max(0, Math.min(100, Math.round(percent * 100)));
+            const circumference = 2 * Math.PI * 45; // r=45
+            const offset = Math.round(circumference * (1 - pct / 100));
+            if (circle) circle.style.strokeDashoffset = String(offset);
+            const pctEl = document.getElementById('loaderPercent');
+            if (pctEl) pctEl.textContent = pct + '%';
+            const msgEl = document.getElementById('loaderMsg');
+            if (msgEl && message) msgEl.textContent = message;
+        }
+
+        async function startupLoader() {
+            const totalWeight = 2; // font + geojson
+            let fontProgress = 0, geoProgress = 0;
+
+            const updateAll = () => {
+                const combined = (fontProgress + geoProgress) / totalWeight;
+                updateLoader(combined, 'リソースを読み込んでいます…');
+            };
+
+            try {
+                const fontPromise = loadFontTtfWithProgress('Frutiger.ttf', p => { fontProgress = p; updateAll(); });
+                const geoPromise = loadGeojsonWithProgress('map.geojson', p => { geoProgress = p; updateAll(); });
+
+                const [ff, gj] = await Promise.all([fontPromise, geoPromise]);
+                geojson = gj;
+                updateLoader(1, '読み込み完了');
+            } catch (e) {
+                updateLoader(1, '読み込み完了（エラーが発生しました）');
+                console.error('Loader error', e);
+            } finally {
+                // 少し待ってからフェードアウトし、初回描画を実行
+                const overlay = document.getElementById('loaderOverlay');
+                if (overlay) {
+                    overlay.style.transition = 'opacity 300ms ease';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => { overlay.style.display = 'none'; try { generate(); } catch (e) {} }, 350);
+                } else {
+                    try { generate(); } catch (e) {}
+                }
+            }
+        }
+
+        // 起動時にローダーを開始
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startupLoader);
+        } else {
+            startupLoader();
+        }
+
         // UI 更新ラベル
         (function setupUiLabels(){
             const zoom = document.getElementById('zoomScale');
             const zoomLabel = document.getElementById('zoomLabel');
             const op = document.getElementById('watermarkOpacity');
             const opLabel = document.getElementById('opacityLabel');
-            if (zoom && zoomLabel) {
-                zoom.addEventListener('input', () => { zoomLabel.textContent = zoom.value; });
-                zoomLabel.textContent = zoom.value;
-            }
-            if (op && opLabel) {
-                op.addEventListener('input', () => { opLabel.textContent = op.value; });
-                opLabel.textContent = op.value;
-            }
+                if (zoom && zoomLabel) {
+                    zoom.addEventListener('input', () => { zoomLabel.textContent = zoom.value; });
+                    zoomLabel.textContent = zoom.value;
+                }
+                if (op && opLabel) {
+                    op.addEventListener('input', () => { opLabel.textContent = op.value; });
+                    opLabel.textContent = op.value;
+                }
+
+                // textShrink スライダーの初期化
+                const textShrinkEl = document.getElementById('textShrink');
+                const textShrinkLabel = document.getElementById('textShrinkLabel');
+                if (textShrinkEl && textShrinkLabel) {
+                    textShrinkEl.addEventListener('input', () => { textShrinkLabel.textContent = parseFloat(textShrinkEl.value).toFixed(2); });
+                    textShrinkLabel.textContent = parseFloat(textShrinkEl.value).toFixed(2);
+                }
+
+                        // 保存品質スライダー
+                        const saveQualityEl = document.getElementById('saveQuality');
+                        const qualityLabel = document.getElementById('qualityLabel');
+                        if (saveQualityEl && qualityLabel) {
+                            saveQualityEl.addEventListener('input', () => { qualityLabel.textContent = parseFloat(saveQualityEl.value).toFixed(2); });
+                            qualityLabel.textContent = parseFloat(saveQualityEl.value).toFixed(2);
+                        }
+
+                        // パネル開閉ボタンの初期化
+                        const panelBtn = document.getElementById('panelToggleBtn');
+                        const panelEl = document.querySelector('.panel');
+                        if (panelBtn && panelEl) {
+                            panelBtn.addEventListener('click', () => {
+                                const closed = panelEl.classList.toggle('closed');
+                                panelBtn.setAttribute('aria-expanded', String(!closed));
+                                panelBtn.textContent = closed ? '▶' : '◀';
+                            });
+                        }
         })();
 
         let img = new Image();
         let lat, lon, date;
         let place = "";
         let geojson;
+        let origImageArrayBuffer = null; // 元画像の ArrayBuffer（EXIF 抽出用）
+        let shareInProgress = false; // navigator.share の多重呼び出し防止フラグ
 
-        // ===== GeoJSON読み込み =====
-        fetch("map.geojson")
-            .then(r => r.json())
-            .then(data => geojson = data);
+        // GeoJSON / フォントは起動時にローダーで読み込む
 
         // ===== 画像読み込み =====
         document.getElementById("file").onchange = e => {
             const file = e.target.files[0];
+            if (!file) return;
+
+            // 元画像の ArrayBuffer を保持（EXIF を後で再注入するため）
+            file.arrayBuffer().then(buf => { origImageArrayBuffer = buf; }).catch(() => { origImageArrayBuffer = null; });
+
             const reader = new FileReader();
 
             reader.onload = ev => {
@@ -140,6 +334,47 @@
 
             reader.readAsDataURL(file);
         };
+
+        // === EXIF 抽出/挿入ユーティリティ ===
+        function extractApp1Segment(arrayBuffer) {
+            if (!arrayBuffer) return null;
+            const view = new DataView(arrayBuffer);
+            // 必要最少長チェック
+            if (view.byteLength < 4) return null;
+            // SOI
+            if (view.getUint8(0) !== 0xFF || view.getUint8(1) !== 0xD8) return null;
+
+            let offset = 2;
+            while (offset + 4 < view.byteLength) {
+                if (view.getUint8(offset) !== 0xFF) return null;
+                const marker = view.getUint8(offset + 1);
+                // Start of Scan -> no more APP segments
+                if (marker === 0xDA) break;
+                const len = view.getUint16(offset + 2, false); // big-endian
+                if (marker === 0xE1) {
+                    // return the APP1 segment including marker and length
+                    const segStart = offset;
+                    const segEnd = offset + 2 + len;
+                    return new Uint8Array(arrayBuffer.slice(segStart, segEnd));
+                }
+                offset += 2 + len;
+            }
+            return null;
+        }
+
+        async function insertApp1ToJpeg(app1Uint8, jpegArrayBuffer) {
+            if (!app1Uint8) return new Blob([jpegArrayBuffer], { type: 'image/jpeg' });
+            const jpeg = new Uint8Array(jpegArrayBuffer);
+            if (jpeg.length < 2 || jpeg[0] !== 0xFF || jpeg[1] !== 0xD8) return new Blob([jpegArrayBuffer], { type: 'image/jpeg' });
+
+            const soi = jpeg.subarray(0, 2);
+            const rest = jpeg.subarray(2);
+            const out = new Uint8Array(soi.length + app1Uint8.length + rest.length);
+            out.set(soi, 0);
+            out.set(app1Uint8, soi.length);
+            out.set(rest, soi.length + app1Uint8.length);
+            return new Blob([out], { type: 'image/jpeg' });
+        }
 
         // ===== 緯度経度 → 座標変換 (矩形幅/高さに対応) =====
         function project(lon, lat, bounds, width, height) {
@@ -317,7 +552,13 @@
 
         // ===== メイン生成 =====
         async function generate() {
-            await img.decode();
+            // 画像が未選択なら描画しない
+            if (!img.src) return;
+            try {
+                await img.decode();
+            } catch (e) {
+                return;
+            }
 
             const canvas = document.getElementById("canvas");
             const ctx = canvas.getContext("2d");
@@ -357,7 +598,17 @@
 
                 // ユーザ指定: 横幅を2倍、縦幅を3倍に拡大
                 let mapWidth = Math.round(mapBase * 2);
-                let mapHeight = Math.round(mapBase * 3 * ((viewBounds.maxLat - viewBounds.minLat) / (viewBounds.maxLon - viewBounds.minLon)));
+
+                // 経度は緯度によって地球上の距離が変わるため、中心緯度で補正して縦横比を正しく計算する
+                const vbLatSpan = Math.max(0.0001, viewBounds.maxLat - viewBounds.minLat);
+                const vbLonSpan = Math.max(0.0001, viewBounds.maxLon - viewBounds.minLon);
+                const centerLatForCorrection = (viewBounds.minLat + viewBounds.maxLat) / 2;
+                const latCorrection = Math.cos(centerLatForCorrection * Math.PI / 180) || 1; // 緯度で経度の実距離を補正
+                const adjustedLonSpan = Math.max(0.0001, vbLonSpan * latCorrection);
+
+                // mapHeight を mapWidth に対する実アスペクト比で算出（以前は余分な 1.5 倍が入っていた）
+                const aspect = vbLatSpan / adjustedLonSpan;
+                let mapHeight = Math.max(1, Math.round(mapWidth * aspect));
 
                 // 極端な比率を抑える
                 const minRatio = 0.5, maxRatio = 2.5;
@@ -377,8 +628,9 @@
                 drawGeoJSON(mctx, geojson, mapWidth, mapHeight, viewBounds);
 
                 // 矩形表示（直接描画） — main canvas 側で半透明で表示してウォーターマーク化
-                const destX = padding;
-                const destY = canvas.height - padding - mapHeight;
+                const mapPos = document.getElementById('mapPosition')?.value || 'bottom-left';
+                const destX = mapPos.endsWith('right') ? (canvas.width - padding - mapWidth) : padding;
+                const destY = mapPos.startsWith('top') ? padding : (canvas.height - padding - mapHeight);
 
                 ctx.save();
                 ctx.globalAlpha = watermarkOpacity;
@@ -395,20 +647,36 @@
             }
 
             // ===== テキスト =====
-            const baseX = canvas.width - Math.round(Math.max(60, canvas.width * 0.06));
-            let baseY = canvas.height - Math.round(Math.max(160, canvas.height * 0.18));
+            // テキスト位置の取得
+            const textPos = document.getElementById('textPosition')?.value || 'bottom-right';
+            // 初期 baseX / baseY を位置に応じて決定（あとで高さ調整）
+            const baseXRight = canvas.width - Math.round(Math.max(60, canvas.width * 0.06));
+            const baseXLeft = Math.round(Math.max(60, canvas.width * 0.06));
+            let baseX = textPos.endsWith('right') ? baseXRight : baseXLeft;
+            let baseY = textPos.startsWith('bottom') ? (canvas.height - Math.round(Math.max(160, canvas.height * 0.18))) : Math.round(Math.max(60, canvas.height * 0.06));
 
-            ctx.textAlign = "right";
             ctx.shadowColor = "rgba(0,0,0,0.7)";
             ctx.shadowBlur = Math.max(6, Math.round(canvas.width / 300));
+
+            // フォント読み込みを待ってからテキスト描画（英数字に Frutiger を適用するため）
+            try {
+                await document.fonts.load('16px "Frutiger"');
+                await document.fonts.ready;
+            } catch (e) {
+                // フォールバック: 無視して描画を続ける
+            }
 
             // フォントサイズを画像サイズに依存しない比率で設定（1回だけ計算）
             const refWidth = 1200; // 基準幅
             const scale = canvas.width / refWidth;
-            const titleSize = Math.max(18, Math.round(72 * scale));
-            const routeSize = Math.max(14, Math.round(60 * scale));
-            const placeSize = Math.max(12, Math.round(36 * scale));
-            const dateSize = Math.max(10, Math.round(32 * scale));
+            // 全テキストを均一に少し小さくしてバランスを保つ（0.0-1.0、1.0 が元サイズ）
+            const textShrink = parseFloat(document.getElementById('textShrink')?.value || 0.9);
+
+            // titleSize と routeSize を入れ替える（行間のバランスは既存の余白で保つ）
+            const titleSize = Math.max(18, Math.round(60 * scale * textShrink));
+            const routeSize = Math.max(14, Math.round(72 * scale * textShrink));
+            const placeSize = Math.max(12, Math.round(36 * scale * textShrink));
+            const dateSize = Math.max(10, Math.round(32 * scale * textShrink));
 
             // テキストブロックの高さを計算して下にはみ出さないように上にずらす
             const totalHeight = titleSize + routeSize + placeSize + dateSize + 40; // 総余白
@@ -417,46 +685,106 @@
                 baseY = canvas.height - Math.round(Math.max(20, canvas.height * 0.02)) - totalHeight;
             }
 
+            // 行間のバランス維持: 各行間は隣接するフォントサイズの大きい方に基づいて計算
+            const gapTitleRoute = Math.round(20 + Math.max(titleSize, routeSize) * 1.0);
+            // route と place の間隔を狭く調整
+            const gapRoutePlace = Math.round(8 + Math.max(routeSize, placeSize) * 0.7);
+            const gapPlaceDate = Math.round(12 + Math.max(placeSize, dateSize) * 1.0);
+
             // 文字色（常に白寄りで見やすく）
             ctx.fillStyle = "rgba(255,255,255,0.95)";
 
-            ctx.font = `bold ${titleSize}px 'Noto Sans JP'`;
+            // テキスト揃え（左/右）を選択に応じて設定
+            ctx.textAlign = textPos.endsWith('right') ? 'right' : 'left';
+
+            ctx.font = `bold ${titleSize}px 'Frutiger', 'Noto Sans JP', sans-serif`;
             ctx.fillText(document.getElementById("line").value || "", baseX, baseY);
 
-            baseY += Math.round(20 + titleSize * 1.0);
-            ctx.font = `600 ${routeSize}px 'Noto Sans JP'`;
+            baseY += gapTitleRoute;
+            ctx.font = `600 ${routeSize}px 'Frutiger', 'Noto Sans JP', sans-serif`;
             const fromVal = document.getElementById("from").value || "";
             const toVal = document.getElementById("to").value || "";
             ctx.fillText(`${fromVal} → ${toVal}`, baseX, baseY);
 
-            baseY += Math.round(12 + routeSize * 1.0);
-            ctx.font = `${placeSize}px sans-serif`;
+            baseY += gapRoutePlace;
+            ctx.font = `${placeSize}px 'Frutiger', 'Noto Sans JP', sans-serif`;
             ctx.fillStyle = "rgba(255,255,255,0.85)";
             ctx.fillText(place, baseX, baseY);
 
-            baseY += Math.round(12 + placeSize * 1.0);
+            baseY += gapPlaceDate;
             if (date) {
-                ctx.font = `${dateSize}px sans-serif`;
+                ctx.font = `${dateSize}px 'Frutiger', 'Noto Sans JP', sans-serif`;
                 ctx.fillText(formatExifDate(date), baseX, baseY);
             }
         }
 
         // ===== 保存 =====
-        function save() {
-            const canvas = document.getElementById("canvas");
+        // デバウンスと自動再描画: コントロール変更でリアルタイム更新
+        function debounce(fn, wait = 150) {
+            let t;
+            return function (...args) {
+                clearTimeout(t);
+                t = setTimeout(() => { try { fn.apply(this, args); } catch (e) {} }, wait);
+            };
+        }
 
-            canvas.toBlob(blob => {
+        (function attachAutoUpdate() {
+            const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','textPosition','mapPosition','mapToggle','centerToggle'];
+            const trigger = debounce(() => { generate().catch(() => {}); }, 160);
+
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const ev = (el.tagName === 'SELECT' || el.type === 'range' || el.type === 'checkbox') ? 'input' : 'input';
+                el.addEventListener(ev, trigger);
+                if (el.tagName === 'INPUT' && el.type === 'text') el.addEventListener('change', trigger);
+            });
+
+            const fileEl = document.getElementById('file');
+            if (fileEl) fileEl.addEventListener('change', () => { setTimeout(() => generate().catch(() => {}), 200); });
+
+            window.addEventListener('resize', trigger);
+        })();
+        async function save() {
+            const canvas = document.getElementById("canvas");
+            const quality = parseFloat(document.getElementById('saveQuality')?.value || 0.92);
+
+            // get JPEG blob from canvas
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                // try to inject original APP1 (EXIF) if available
+                try {
+                    if (origImageArrayBuffer) {
+                        const app1 = extractApp1Segment(origImageArrayBuffer);
+                        if (app1) {
+                            const jpegBuf = await blob.arrayBuffer();
+                            const newBlob = await insertApp1ToJpeg(app1, jpegBuf);
+                            blob = newBlob;
+                        }
+                    }
+                } catch (e) {
+                    console.error('EXIF reinject error', e);
+                }
+
                 if (navigator.share) {
-                    navigator.share({
-                        files: [new File([blob], "result.jpg", { type: "image/jpeg" })]
-                    });
+                    if (shareInProgress) return; // 前回の共有が終わっていなければ何もしない
+                    shareInProgress = true;
+                    try {
+                        await navigator.share({ files: [new File([blob], "result.jpg", { type: "image/jpeg" })] });
+                    } catch (e) {
+                        // 共有がキャンセルされたりエラーになることがある
+                        console.error('Share error', e);
+                    } finally {
+                        shareInProgress = false;
+                    }
                 } else {
                     const a = document.createElement("a");
                     a.href = URL.createObjectURL(blob);
                     a.download = "result.jpg";
                     a.click();
                 }
-            }, "image/jpeg", 1.0);
+            }, "image/jpeg", quality);
         }
 
         // ===== 逆ジオコーディング（OpenStreetMap Nominatim） =====
