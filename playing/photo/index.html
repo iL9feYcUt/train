@@ -17,8 +17,30 @@
         }
 
         .controls {
-            padding: 10px;
+            padding: 12px;
         }
+
+        /* UI panel */
+        .panel {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            background: rgba(16,16,16,0.6);
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+            font-size: 14px;
+            max-width: 320px;
+            z-index: 1000;
+        }
+
+        .panel label { display: block; margin: 6px 0 4px; font-weight: 600; }
+        .panel input[type="text"], .panel input[type="file"], .panel select { width: 100%; box-sizing: border-box; padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #fff; }
+        .panel .row { display:flex; gap:8px; align-items:center; }
+        .panel input[type="range"] { width: 100%; }
+        .panel .small { font-size: 12px; color: rgba(255,255,255,0.8); }
 
         canvas {
             width: 100%;
@@ -29,17 +51,33 @@
 
 <body>
 
-    <div class="controls">
-        <input type="file" id="file"><br><br>
+    <div class="panel" role="region" aria-label="生成パネル">
+        <label>写真ファイル</label>
+        <input type="file" id="file" accept="image/*">
 
-        路線 <input id="line"><br>
-        出発 <input id="from"><br>
-        到着 <input id="to"><br><br>
+        <label>路線</label>
+        <input type="text" id="line" placeholder="例: 我孫子支線">
 
-        <label><input type="checkbox" id="mapToggle" checked> 地図表示</label><br><br>
+        <label>出発 / 到着</label>
+        <div class="row">
+            <input type="text" id="from" placeholder="出発">
+            <input type="text" id="to" placeholder="到着">
+        </div>
 
-        <button onclick="generate()">生成</button>
-        <button onclick="save()">保存</button>
+        <label class="row"><input type="checkbox" id="mapToggle" checked> <span class="small">地図表示</span></label>
+
+        <label>ズーム（撮影地中心） <span id="zoomLabel" class="small">1.0</span></label>
+        <input type="range" id="zoomScale" min="0.5" max="6" step="0.1" value="1">
+
+        <label>ウォーターマーク不透明度 <span id="opacityLabel" class="small">0.9</span></label>
+        <input type="range" id="watermarkOpacity" min="0.1" max="1" step="0.05" value="0.9">
+
+        <label class="row"><input type="checkbox" id="centerToggle" checked> <span class="small">撮影地を強制中心にする</span></label>
+
+        <div style="margin-top:8px; display:flex; gap:8px;">
+            <button onclick="generate()">生成</button>
+            <button onclick="save()">保存</button>
+        </div>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -47,6 +85,22 @@
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <script>
+        // UI 更新ラベル
+        (function setupUiLabels(){
+            const zoom = document.getElementById('zoomScale');
+            const zoomLabel = document.getElementById('zoomLabel');
+            const op = document.getElementById('watermarkOpacity');
+            const opLabel = document.getElementById('opacityLabel');
+            if (zoom && zoomLabel) {
+                zoom.addEventListener('input', () => { zoomLabel.textContent = zoom.value; });
+                zoomLabel.textContent = zoom.value;
+            }
+            if (op && opLabel) {
+                op.addEventListener('input', () => { opLabel.textContent = op.value; });
+                opLabel.textContent = op.value;
+            }
+        })();
+
         let img = new Image();
         let lat, lon, date;
         let place = "";
@@ -128,7 +182,7 @@
 
         // ビュー用の境界を計算（撮影地点があればそれを中心に拡大率を調整）
         function computeViewBounds(bounds, opts = {}) {
-            const { centerLon: cLon, centerLat: cLat } = opts;
+            const { centerLon: cLon, centerLat: cLat, zoomScale = 1 } = opts;
 
             const lonSpan = Math.max(0.0001, bounds.maxLon - bounds.minLon);
             const latSpan = Math.max(0.0001, bounds.maxLat - bounds.minLat);
@@ -137,12 +191,12 @@
             const centerLon = (typeof cLon === 'number') ? cLon : (bounds.minLon + bounds.maxLon) / 2;
             const centerLat = (typeof cLat === 'number') ? cLat : (bounds.minLat + bounds.maxLat) / 2;
 
-            // ズーム係数（小さくするほど拡大）
-            const autoFactor = 0.005; // 元の範囲の 15% を表示領域にする
-            const minSpan = 0.005; // おおよそ ~500m 程度の最低表示幅
+            // ズーム係数: zoomScale が大きいほどズーム（表示幅が小さい）
+            const autoFactor = 0.005; // 基準倍率
+            const minSpan = 0.0015; // 最小表示幅 (~150m)
 
-            const targetLonSpan = Math.max(lonSpan * autoFactor, minSpan);
-            const targetLatSpan = Math.max(latSpan * autoFactor, minSpan);
+            const targetLonSpan = Math.max(lonSpan * autoFactor / zoomScale, minSpan);
+            const targetLatSpan = Math.max(latSpan * autoFactor / zoomScale, minSpan);
 
             return {
                 minLon: centerLon - targetLonSpan / 2,
@@ -293,8 +347,13 @@
                 const centerLon = usePhotoCenter ? lon : (bounds.minLon + bounds.maxLon) / 2;
                 const centerLat = usePhotoCenter ? lat : (bounds.minLat + bounds.maxLat) / 2;
 
+                // UIからズームスケールとウォーターマーク不透明度を取得
+                const zoomScale = parseFloat(document.getElementById('zoomScale')?.value || 1);
+                const watermarkOpacity = parseFloat(document.getElementById('watermarkOpacity')?.value || 0.9);
+                const centerToggle = document.getElementById('centerToggle')?.checked;
+
                 // ビュー枠を撮影地点中心で小さめに取る
-                const viewBounds = computeViewBounds(bounds, { centerLon, centerLat });
+                const viewBounds = computeViewBounds(bounds, { centerLon: centerToggle ? centerLon : undefined, centerLat: centerToggle ? centerLat : undefined, zoomScale });
 
                 // ユーザ指定: 横幅を2倍、縦幅を3倍に拡大
                 let mapWidth = Math.round(mapBase * 2);
@@ -322,7 +381,7 @@
                 const destY = canvas.height - padding - mapHeight;
 
                 ctx.save();
-                ctx.globalAlpha = 0.9;
+                ctx.globalAlpha = watermarkOpacity;
                 ctx.drawImage(mapCanvas, destX, destY, mapWidth, mapHeight);
                 ctx.globalAlpha = 1.0;
                 ctx.restore();
