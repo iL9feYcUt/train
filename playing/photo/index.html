@@ -319,6 +319,7 @@
         let lat, lon, date;
         let place = "";
         let geojson;
+        let isComposing = false; // IME composition state (true while typing composition on mobile Safari)
         let origImageArrayBuffer = null; // 元画像の ArrayBuffer（EXIF 抽出用）
         let shareInProgress = false; // navigator.share の多重呼び出し防止フラグ
 
@@ -832,14 +833,19 @@
 
         (function attachAutoUpdate() {
             const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','mapScale','textPosition','mapPosition','mapToggle'];
-            const trigger = debounce(() => { generate().catch(() => {}); }, 160);
+            const trigger = debounce(() => { if (isComposing) return; generate().catch(() => {}); }, 160);
 
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
                 const ev = (el.tagName === 'SELECT' || el.type === 'range' || el.type === 'checkbox') ? 'input' : 'input';
                 el.addEventListener(ev, trigger);
-                if (el.tagName === 'INPUT' && el.type === 'text') el.addEventListener('change', trigger);
+                if (el.tagName === 'INPUT' && el.type === 'text') {
+                    // IME 対応: composition 中は自動再描画を抑制
+                    el.addEventListener('compositionstart', () => { isComposing = true; });
+                    el.addEventListener('compositionend', () => { isComposing = false; trigger(); });
+                    el.addEventListener('change', trigger);
+                }
             });
 
             const fileEl = document.getElementById('file');
