@@ -579,14 +579,41 @@
                 });
             });
 
-            // 現在地ポイント（viewBounds 座標系での投影）
+            // 現在地ポイント（viewBounds 座標系での投影） — スタイリッシュ表示
             if (typeof lat === 'number' && typeof lon === 'number') {
                 const [x, y] = project(lon, lat, bounds, width, height);
 
-                ctx.fillStyle = "#00bfff";
+                // マーカーを大きめに調整
+                const baseR = Math.max(14, Math.round(Math.min(width, height) / 60));
+
+                // ハロー（外側の薄いリング）
+                ctx.save();
                 ctx.beginPath();
-                // マーカを大きくして視認性を上げる
-                ctx.arc(x, y, Math.max(8, Math.round(Math.min(width, height) / 80)), 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,191,255,0.12)';
+                ctx.arc(x, y, Math.round(baseR * 2.2), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 中央の主要円（ラジアルグラデーション）
+                const g = ctx.createRadialGradient(x, y, Math.max(1, Math.round(baseR * 0.2)), x, y, baseR);
+                g.addColorStop(0, '#bff6ff');
+                g.addColorStop(0.5, '#00bfff');
+                g.addColorStop(1, '#0077aa');
+
+                ctx.beginPath();
+                ctx.fillStyle = g;
+                ctx.arc(x, y, baseR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 白い縁取り
+                ctx.lineWidth = Math.max(2, Math.round(baseR / 6));
+                ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+                ctx.stroke();
+
+                // 中心のハイライト点
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.arc(x, y, Math.max(2, Math.round(baseR / 4)), 0, Math.PI * 2);
                 ctx.fill();
             }
 
