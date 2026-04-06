@@ -9,11 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
-        @font-face {
-            font-family: 'Frutiger';
-            src: url('Frutiger.ttf') format('truetype');
-        }
-
         body {
             margin: 0;
             background: #ffffff;
@@ -105,13 +100,15 @@
         <label class="row"><input type="checkbox" id="mapToggle" checked> <span class="small">地図表示</span></label>
 
         <label>ズーム（撮影地中心） <span id="zoomLabel" class="small">1.0</span></label>
-        <input type="range" id="zoomScale" min="0.5" max="6" step="0.1" value="1">
+        <input type="range" id="zoomScale" min="0.4" max="2" step="0.1" value="1">
 
         <label>地図不透明度 <span id="opacityLabel" class="small">0.9</span></label>
         <input type="range" id="watermarkOpacity" min="0.1" max="1" step="0.05" value="0.9">
 
         <label>文字縮小（バランス） <span id="textShrinkLabel" class="small">0.90</span></label>
         <input type="range" id="textShrink" min="0.70" max="1.05" step="0.01" value="0.9">
+        <label>地図表示倍率 <span id="mapScaleLabel" class="small">1.00</span></label>
+        <input type="range" id="mapScale" min="0.5" max="2.0" step="0.01" value="1.0">
         <label>保存品質 <span id="qualityLabel" class="small">0.92</span></label>
         <input type="range" id="saveQuality" min="0.5" max="1.0" step="0.01" value="0.92">
 
@@ -273,6 +270,14 @@
                 if (textShrinkEl && textShrinkLabel) {
                     textShrinkEl.addEventListener('input', () => { textShrinkLabel.textContent = parseFloat(textShrinkEl.value).toFixed(2); });
                     textShrinkLabel.textContent = parseFloat(textShrinkEl.value).toFixed(2);
+                }
+
+                // mapScale スライダー
+                const mapScaleEl = document.getElementById('mapScale');
+                const mapScaleLabel = document.getElementById('mapScaleLabel');
+                if (mapScaleEl && mapScaleLabel) {
+                    mapScaleEl.addEventListener('input', () => { mapScaleLabel.textContent = parseFloat(mapScaleEl.value).toFixed(2); });
+                    mapScaleLabel.textContent = parseFloat(mapScaleEl.value).toFixed(2);
                 }
 
                         // 保存品質スライダー
@@ -507,10 +512,44 @@
             const bounds = viewBounds || getBounds(geo);
 
             ctx.strokeStyle = "rgba(255,255,255,0.95)";
-            ctx.lineWidth = Math.max(1, Math.round(Math.min(width, height) / 220));
+            // 線を少し太めにする
+            ctx.lineWidth = Math.max(1, Math.round(Math.min(width, height) / 160));
             ctx.globalAlpha = 0.95;
 
             const simplifyPx = Math.max(1, Math.round(Math.min(width, height) / 220));
+
+            // 陸地を薄い白で塗りつぶす（Polygon / MultiPolygon）
+            ctx.save();
+            ctx.fillStyle = "rgba(255,255,255,0.10)"; // 薄い白
+            geo.features.forEach(f => {
+                const type = f.geometry.type;
+                const c = f.geometry.coordinates;
+
+                function drawRing(ring) {
+                    if (!Array.isArray(ring) || ring.length === 0) return;
+                    ctx.beginPath();
+                    for (let i = 0; i < ring.length; i++) {
+                        const pt = ring[i];
+                        const lon = pt[0], latPt = pt[1];
+                        const [x, y] = project(lon, latPt, bounds, width, height);
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                if (type === 'Polygon') {
+                    // polygon: array of linear rings
+                    for (let ri = 0; ri < c.length; ri++) drawRing(c[ri]);
+                } else if (type === 'MultiPolygon') {
+                    for (let pi = 0; pi < c.length; pi++) {
+                        const poly = c[pi];
+                        for (let ri = 0; ri < poly.length; ri++) drawRing(poly[ri]);
+                    }
+                }
+            });
+            ctx.restore();
 
             geo.features.forEach(f => {
                 const lines = getLinesFromGeometry(f.geometry);
@@ -593,26 +632,43 @@
                 const centerLat = usePhotoCenter ? lat : (bounds.minLat + bounds.maxLat) / 2;
 
                 // UIからズームスケールとウォーターマーク不透明度を取得
-                const zoomScale = parseFloat(document.getElementById('zoomScale')?.value || 1);
+                    const zoomScale = parseFloat(document.getElementById('zoomScale')?.value || 1);
                 const watermarkOpacity = parseFloat(document.getElementById('watermarkOpacity')?.value || 0.9);
                 const centerToggle = document.getElementById('centerToggle')?.checked;
+                    const mapScaleUi = parseFloat(document.getElementById('mapScale')?.value || 1.0);
 
                 // ビュー枠を撮影地点中心で小さめに取る
                 const viewBounds = computeViewBounds(bounds, { centerLon: centerToggle ? centerLon : undefined, centerLat: centerToggle ? centerLat : undefined, zoomScale });
 
                 // ユーザ指定: 横幅を2倍、縦幅を3倍に拡大
-                let mapWidth = Math.round(mapBase * 2);
+                // base width (kept proportional) then apply UI scale
+                let mapWidth = Math.round(mapBase * 2 * mapScaleUi);
+
+                // 縦だけ表示領域を拡張（地図を縦長に『伸ばす』のではなく、表示する緯度範囲を広げる）
+                const verticalDisplayScale = 1.3; // 表示上の縦伸長率（要求: 縦だけ約1.3倍）
 
                 // 経度は緯度によって地球上の距離が変わるため、中心緯度で補正して縦横比を正しく計算する
-                const vbLatSpan = Math.max(0.0001, viewBounds.maxLat - viewBounds.minLat);
+                const vbLatSpanRaw = Math.max(0.0001, viewBounds.maxLat - viewBounds.minLat);
                 const vbLonSpan = Math.max(0.0001, viewBounds.maxLon - viewBounds.minLon);
                 const centerLatForCorrection = (viewBounds.minLat + viewBounds.maxLat) / 2;
                 const latCorrection = Math.cos(centerLatForCorrection * Math.PI / 180) || 1; // 緯度で経度の実距離を補正
                 const adjustedLonSpan = Math.max(0.0001, vbLonSpan * latCorrection);
 
-                // mapHeight を mapWidth に対する実アスペクト比で算出（以前は余分な 1.5 倍が入っていた）
+                // 表示用の緯度スパンを拡張して、描画時に縦により広い範囲を表示する
+                const vbLatSpan = vbLatSpanRaw * verticalDisplayScale;
+
+                // mapHeight を mapWidth に対する実アスペクト比で算出（幅に合わせ、高さはアスペクト比を保つ）
                 const aspect = vbLatSpan / adjustedLonSpan;
                 let mapHeight = Math.max(1, Math.round(mapWidth * aspect));
+
+                // 調整した viewBounds を作成して、地図描画に渡す（縦表示領域拡張分を含む）
+                const viewCenterLat = (viewBounds.minLat + viewBounds.maxLat) / 2;
+                const adjustedViewBounds = {
+                    minLon: viewBounds.minLon,
+                    maxLon: viewBounds.maxLon,
+                    minLat: viewCenterLat - vbLatSpan / 2,
+                    maxLat: viewCenterLat + vbLatSpan / 2
+                };
 
                 // 極端な比率を抑える
                 const minRatio = 0.5, maxRatio = 2.5;
@@ -629,7 +685,7 @@
                 mctx.clearRect(0, 0, mapWidth, mapHeight);
                 mctx.globalCompositeOperation = 'source-over';
 
-                drawGeoJSON(mctx, geojson, mapWidth, mapHeight, viewBounds);
+                drawGeoJSON(mctx, geojson, mapWidth, mapHeight, adjustedViewBounds);
 
                 // 矩形表示（直接描画） — main canvas 側で半透明で表示してウォーターマーク化
                 const mapPos = document.getElementById('mapPosition')?.value || 'bottom-left';
@@ -733,7 +789,7 @@
         }
 
         (function attachAutoUpdate() {
-            const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','textPosition','mapPosition','mapToggle','centerToggle'];
+            const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','mapScale','textPosition','mapPosition','mapToggle','centerToggle'];
             const trigger = debounce(() => { generate().catch(() => {}); }, 160);
 
             ids.forEach(id => {
