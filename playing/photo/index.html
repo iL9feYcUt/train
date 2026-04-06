@@ -69,11 +69,24 @@
 
         #panelToggleBtn.small { width:36px; height:36px; border-radius:8px; }
 
+        /* iOS の場合はバックドロップフィルタを使わない（レンダリング重複回避） */
+        .no-backdrop-ios .panel {
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+            background: rgba(16,16,16,0.92) !important;
+        }
+
         .panel label { display: block; margin: 6px 0 4px; font-weight: 600; }
         .panel input[type="text"], .panel input[type="file"], .panel select { width: 100%; box-sizing: border-box; padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #fff; }
         .panel .row { display:flex; gap:8px; align-items:center; }
         .panel input[type="range"] { width: 100%; }
         .panel .small { font-size: 12px; color: rgba(255,255,255,0.8); }
+
+        /* パネル内のフォーム要素はシステムフォントを使う（iOSでフォント切替時の重複描画を避ける） */
+        .panel input, .panel select, .panel button, .panel textarea {
+            font-family: 'Noto Sans JP', -apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
 
         canvas {
             width: 100%;
@@ -298,6 +311,12 @@
                                 panelBtn.textContent = closed ? '▶' : '◀';
                             });
                         }
+
+                                // iOS 特有のレンダリング重複対策: backdrop-filter を無効化するクラスを付与
+                                try {
+                                    const isIOS = /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+                                    if (isIOS) document.documentElement.classList.add('no-backdrop-ios');
+                                } catch (e) {}
         })();
 
         let img = new Image();
