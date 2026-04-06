@@ -319,6 +319,9 @@
         let lat, lon, date;
         let place = "";
         let geojson;
+        // map レンダリングのキャッシュ（重い処理を再利用）
+        let cachedMapCanvas = null;
+        let cachedMapKey = null;
         let isComposing = false; // IME composition state (true while typing composition on mobile Safari)
         let origImageArrayBuffer = null; // 元画像の ArrayBuffer（EXIF 抽出用）
         let shareInProgress = false; // navigator.share の多重呼び出し防止フラグ
@@ -532,7 +535,8 @@
             ctx.lineWidth = Math.max(1, Math.round(Math.min(width, height) / 160));
             ctx.globalAlpha = 0.95;
 
-            const simplifyPx = Math.max(1, Math.round(Math.min(width, height) / 220));
+            // 描画負荷を軽くするために頂点簡略化の閾値を緩める（間引き増）
+            const simplifyPx = Math.max(2, Math.round(Math.min(width, height) / 140));
 
             // 陸地を薄い白で塗りつぶす（Polygon / MultiPolygon）
             ctx.save();
@@ -728,16 +732,48 @@
                 mctx.clearRect(0, 0, mapWidth, mapHeight);
                 mctx.globalCompositeOperation = 'source-over';
 
-                drawGeoJSON(mctx, geojson, mapWidth, mapHeight, adjustedViewBounds);
+                // マップ描画は重いので、パラメータが変わらなければキャッシュを流用する
+                const mapKeyObj = { w: mapWidth, h: mapHeight, vb: adjustedViewBounds, zoom: zoomScale, scale: mapScaleUi };
+                const mapKey = JSON.stringify(mapKeyObj);
 
-                // 矩形表示（直接描画） — main canvas 側で半透明で表示してウォーターマーク化
+                if (cachedMapCanvas && cachedMapKey === mapKey) {
+                    // reuse cached canvas
+                } else {
+                    // create a new map canvas at reduced render resolution to speed up drawing on mobile
+                    const dpr = window.devicePixelRatio || 1;
+                    const mapRenderScale = Math.min(1, 1 / dpr); // lowers work on high-dpi devices
+
+                    mapCanvas.width = Math.max(1, Math.round(mapWidth * mapRenderScale));
+                    mapCanvas.height = Math.max(1, Math.round(mapHeight * mapRenderScale));
+                    // use CSS pixel scaling when drawing to main canvas
+                    const mctx = mapCanvas.getContext('2d');
+                    mctx.setTransform(mapRenderScale, 0, 0, mapRenderScale, 0, 0);
+
+                    // draw into mapCanvas
+                    drawGeoJSON(mctx, geojson, mapWidth, mapHeight, adjustedViewBounds);
+
+                    // store cache
+                    cachedMapCanvas = document.createElement('canvas');
+                    cachedMapCanvas.width = mapCanvas.width;
+                    cachedMapCanvas.height = mapCanvas.height;
+                    const cc = cachedMapCanvas.getContext('2d');
+                    cc.drawImage(mapCanvas, 0, 0);
+                    cachedMapKey = mapKey;
+                }
+
+                // mapPosition を取得
                 const mapPos = document.getElementById('mapPosition')?.value || 'bottom-left';
+
+                // use cachedMapCanvas (or freshly drawn mapCanvas) for compositing
+                const sourceForDraw = (cachedMapCanvas) ? cachedMapCanvas : mapCanvas;
+
                 const destX = mapPos.endsWith('right') ? (canvas.width - padding - mapWidth) : padding;
                 const destY = mapPos.startsWith('top') ? padding : (canvas.height - padding - mapHeight);
 
                 ctx.save();
                 ctx.globalAlpha = watermarkOpacity;
-                ctx.drawImage(mapCanvas, destX, destY, mapWidth, mapHeight);
+                // drawImage will scale cached low-res canvas to the destination size, reducing CPU work
+                ctx.drawImage(sourceForDraw, 0, 0, sourceForDraw.width, sourceForDraw.height, destX, destY, mapWidth, mapHeight);
                 ctx.globalAlpha = 1.0;
                 ctx.restore();
 
