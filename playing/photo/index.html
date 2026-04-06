@@ -36,9 +36,8 @@
             z-index: 1000;
         }
 
-        .panel input {
-            font-size: 16px
-        }
+        /* テキスト系フォームにのみフォントサイズを適用 */
+        .panel input[type="text"], .panel input[type="range"], .panel select, .panel textarea { font-size: 16px; }
 
         /* 折りたたみ用クラス */
         .panel.closed {
@@ -71,7 +70,7 @@
 
         .panel label { display: block; margin: 6px 0 4px; font-weight: 600; }
         /* フォーム要素は iOS Safari での重複レンダリングを回避するためシステムフォントを使用 */
-        .panel input[type="text"], .panel input[type="file"], .panel select, .panel input, .panel textarea {
+        .panel input[type="text"], .panel select, .panel textarea {
             width: 100%;
             box-sizing: border-box;
             padding: 6px;
@@ -82,9 +81,14 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
             -webkit-font-smoothing: antialiased;
         }
+        /* チェックボックスは幅を自動にして行内表示にする */
+        .panel input[type="checkbox"] { width: auto; display: inline-block; margin-right:6px; }
         .panel .row { display:flex; gap:8px; align-items:center; }
         .panel input[type="range"] { width: 100%; }
         .panel .small { font-size: 12px; color: rgba(255,255,255,0.8); }
+        .panel select, .panel input[type="file"] {
+            font-size: 12px;
+        }
 
         canvas {
             width: 100%;
@@ -139,7 +143,7 @@
             <option value="top-left">左上</option>
         </select>
 
-        <label class="row"><input type="checkbox" id="centerToggle" checked> <span class="small">撮影地を強制中心にする</span></label>
+        
 
         <div style="margin-top:8px; display:flex; gap:8px;">
             <button onclick="generate()">生成</button>
@@ -671,12 +675,12 @@
 
                 // UIからズームスケールとウォーターマーク不透明度を取得
                     const zoomScale = parseFloat(document.getElementById('zoomScale')?.value || 1);
-                const watermarkOpacity = parseFloat(document.getElementById('watermarkOpacity')?.value || 0.9);
-                const centerToggle = document.getElementById('centerToggle')?.checked;
-                    const mapScaleUi = parseFloat(document.getElementById('mapScale')?.value || 1.0);
+                    const watermarkOpacity = parseFloat(document.getElementById('watermarkOpacity')?.value || 0.9);
+                        const mapScaleUi = parseFloat(document.getElementById('mapScale')?.value || 1.0);
 
                 // ビュー枠を撮影地点中心で小さめに取る
-                const viewBounds = computeViewBounds(bounds, { centerLon: centerToggle ? centerLon : undefined, centerLat: centerToggle ? centerLat : undefined, zoomScale });
+                // 常に撮影地点が存在すれば中心に使い、なければ自動中心を使う
+                const viewBounds = computeViewBounds(bounds, { centerLon: centerLon, centerLat: centerLat, zoomScale });
 
                 // ユーザ指定: 横幅を2倍、縦幅を3倍に拡大
                 // base width (kept proportional) then apply UI scale
@@ -827,7 +831,7 @@
         }
 
         (function attachAutoUpdate() {
-            const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','mapScale','textPosition','mapPosition','mapToggle','centerToggle'];
+            const ids = ['line','from','to','zoomScale','watermarkOpacity','textShrink','mapScale','textPosition','mapPosition','mapToggle'];
             const trigger = debounce(() => { generate().catch(() => {}); }, 160);
 
             ids.forEach(id => {
