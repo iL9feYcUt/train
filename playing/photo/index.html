@@ -213,6 +213,46 @@
             try { return JSON.parse(txt); } catch (e) { throw e; }
         }
 
+        // 軽量化: GeoJSON を簡易サンプリングで間引く（ネストされた配列に再帰）
+        function simplifyCoords(arr, factor) {
+            if (!Array.isArray(arr) || arr.length === 0) return arr;
+            // 座標ペアかどうか
+            if (typeof arr[0] === 'number' && typeof arr[1] === 'number') return arr;
+            const out = [];
+            for (let i = 0; i < arr.length; i++) {
+                const item = arr[i];
+                if (Array.isArray(item) && typeof item[0] === 'number') {
+                    // coordinate
+                    if (i % factor === 0 || i === arr.length - 1) out.push(item);
+                } else {
+                    // nested
+                    const simplified = simplifyCoords(item, factor);
+                    if (simplified && simplified.length) out.push(simplified);
+                }
+            }
+            return out;
+        }
+
+        function simplifyGeojson(geo, factor) {
+            if (!geo || !geo.features) return geo;
+            const copy = { type: 'FeatureCollection', features: [] };
+            geo.features.forEach(f => {
+                const nf = { ...f, geometry: null };
+                const g = f.geometry;
+                if (!g) return;
+                const type = g.type;
+                const c = g.coordinates;
+                function s(x) { return simplifyCoords(x, factor); }
+                if (type === 'Point') nf.geometry = { type: 'Point', coordinates: c };
+                else if (type === 'LineString') nf.geometry = { type: 'LineString', coordinates: s(c) };
+                else if (type === 'Polygon') nf.geometry = { type: 'Polygon', coordinates: s(c) };
+                else if (type === 'MultiLineString' || type === 'MultiPolygon') nf.geometry = { type: type, coordinates: s(c) };
+                else nf.geometry = { type: type, coordinates: s(c) };
+                copy.features.push(nf);
+            });
+            return copy;
+        }
+
         function updateLoader(percent, message) {
             const circle = document.getElementById('loaderProgress');
             const pct = Math.max(0, Math.min(100, Math.round(percent * 100)));
@@ -239,7 +279,20 @@
                 const geoPromise = loadGeojsonWithProgress('map.geojson', p => { geoProgress = p; updateAll(); });
 
                 const [ff, gj] = await Promise.all([fontPromise, geoPromise]);
-                geojson = gj;
+                geojsonOriginal = gj;
+                // 初期は詳細をそのまま使う。モバイル時は簡略化版を作る
+                try {
+                    if (window.navigator && /Mobi|Android/i.test(navigator.userAgent)) {
+                        geojsonSimplified = simplifyGeojson(geojsonOriginal, 3);
+                        geojson = geojsonSimplified;
+                    } else {
+                        geojson = geojsonOriginal;
+                        geojsonSimplified = simplifyGeojson(geojsonOriginal, 2);
+                    }
+                } catch (e) {
+                    geojson = geojsonOriginal;
+                    geojsonSimplified = geojsonOriginal;
+                }
                 updateLoader(1, '読み込み完了');
             } catch (e) {
                 updateLoader(1, '読み込み完了（エラーが発生しました）');
@@ -319,6 +372,8 @@
         let lat, lon, date;
         let place = "";
         let geojson;
+        let geojsonOriginal = null;
+        let geojsonSimplified = null;
         // map レンダリングのキャッシュ（重い処理を再利用）
         let cachedMapCanvas = null;
         let cachedMapKey = null;
