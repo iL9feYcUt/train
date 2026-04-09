@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATOS発車標</title>
+  <style>
+    :root {
+      --bg: #171717;
+      --dot-size: 6px;
+      --panel: #222;
+      --panel2: #111;
+      --text: #e6e6e6;
+      --muted: #a9a9a9;
+      --line: #444;
+      --green: #00ff15;
+      --orange: #ff8400;
+      --board: #0b0b0b;
+      --board2: #030303;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #171717;
+      --panel: #222;
+      --panel2: #111;
+      --text: #e6e6e6;
+      --muted: #a9a9a9;
+      --line: #444;
+      --orange: #ff9e33;
+      --board: #0b0b0b;
+      --board2: #030303;
+      --dot-size: 6px; /* dot cell size: square */
+    }
+
+    .titlebar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .titlebar .left {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: #2a2a2a;
+      border: 1px solid #3f3f3f;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chip input {
+      width: 10em;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+    }
+
+    .grid {
+      display: block;
+      grid-template-columns: 1fr 360px;
+      gap: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .board-shell {
+      background: linear-gradient(180deg, #2c2c2c 0%, #171717 100%);
+      border: 1px solid #4a4a4a;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: var(--board);
+      border-radius: 10px;
+    }
+
+    /* Table-based LED matrix */
+    .led-board {
+      display: inline-block;
+      border: 1px solid #6b6b6b; /* thin gray border around board */
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--board);
+      margin: 0; /* no extra gap around LED area */
+      padding: 0;
+    }
+
+    /* grid-based LED matrix: divs for perfect square cells */
+    #boardTable.board-grid {
+      display: grid;
+      grid-template-columns: repeat(160, var(--dot-size)); /* updated via JS if needed */
+      grid-auto-rows: var(--dot-size);
+      gap: 0;
+    }
+
+    #boardTable .dot {
+      width: var(--dot-size);
+      height: var(--dot-size);
+      padding: 0;
+      margin: 0;
+      background: var(--board2);
+      box-sizing: border-box;
+      outline: 1px solid #3a3a3a; /* uniform gray grid lines without affecting layout */
+    }
+
+    .form {
+      display: flex;
+      gap: 12px;
+    }
+
+    .rowcard {
+      background: #1d1d1d;
+      border: 1px solid #363636;
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .rowcard h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #d0d0d0;
+      font-weight: 600;
+    }
+
+    .field {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .field label {
+      color: var(--muted);
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #404040;
+      background: #0f0f0f;
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+      font: inherit;
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 64px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button {
+      border: 1px solid #4c4c4c;
+      background: #2a2a2a;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    .warn {
+      color: #ffcc66;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- titlebar removed per user request -->
+
+    <div class="grid">
+      <div class="board-shell panel">
+        <div class="led-board" id="ledShell">
+          <div id="boardTable" aria-hidden="true" class="board-grid"></div>
+        </div>
+        <div class="note" id="status" style="margin-top:10px;">読み込み待ち</div>
+      </div>
+
+      <div class="panel">
+        <div class="form">
+          <div class="rowcard">
+            <h3>1行目</h3>
+            <div class="field"><label>種別</label><input id="r1Type" value="普通"></div>
+            <div class="field"><label>時刻</label><input id="r1Time" value="11:21"></div>
+            <div class="field"><label>行先</label><input id="r1Dest" value="逗　子"></div>
+            <div class="field"><label>両数</label><input id="r1Cars" value="11両"></div>
+          </div>
+          <div class="rowcard">
+            <h3>2行目</h3>
+            <div class="field"><label>種別</label><input id="r2Type" value="普通"></div>
+            <div class="field"><label>時刻</label><input id="r2Time" value="11:31"></div>
+            <div class="field"><label>行先</label><input id="r2Dest" value="逗　子"></div>
+            <div class="field"><label>両数</label><input id="r2Cars" value="10両"></div>
+          </div>
+          <div class="rowcard">
+            <h3>表示ルール</h3>
+            <div class="note">
+              ・文字データは font.js に保存します。<br>
+              ・通常は 16×16 を 1 文字分として描画します。<br>
+              ・「特別快速」のように文字数を超える表示は、font.js に 32×16 などの別定義を入れてください。<br>
+              ・レンダラーは、登録されている最長一致の字形を優先します。
+            </div>
+          </div>
+          <div class="toolbar">
+            <button id="redraw">再描画</button>
+            <button id="saveState">この画面の設定を保存</button>
+            <button id="loadState">保存設定を読み込み</button>
+            <button id="openEditor" onclick="location.href='editor.html'">font エディタを開く</button>
+          </div>
+          <div class="warn" id="fontWarn"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="font.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let boardTable = $('boardTable');
+    let ledShell = $('ledShell');
+
+    const STORAGE_KEY = 'atos-board-state-v1';
+
+    const stateFields = [
+      'lineName', 'platform', 'header1', 'header2',
+      'r1Type', 'r1Time', 'r1Dest', 'r1Cars',
+      'r2Type', 'r2Time', 'r2Dest', 'r2Cars'
+    ];
+
+    function getFont() {
+      return window.ATOS_FONT || { glyphs: {}, defaults: { w: 16, h: 16 } };
+    }
+
+    function glyphMap() {
+      const font = getFont();
+      return font.glyphs || font.fonts || {};
+    }
+
+    function sortedKeys() {
+      return Object.keys(glyphMap()).sort((a, b) => b.length - a.length);
+    }
+
+    function normalizeGlyph(g) {
+      if (!g) return null;
+      const w = Number(g.w ?? g.width ?? 16);
+      const h = Number(g.h ?? g.height ?? 16);
+      const data = Array.isArray(g.data) ? g.data : Array.isArray(g.bitmap) ? g.bitmap : null;
+      if (!data || !data.length) return null;
+      return { w, h, data };
+    }
+
+    function matchGlyph(text, start) {
+      const keys = sortedKeys();
+      for (const key of keys) {
+        if (text.startsWith(key, start)) {
+          return { key, glyph: normalizeGlyph(glyphMap()[key]) };
+        }
+      }
+      return null;
+    }
+
+    function measureText(text) {
+      let x = 0;
+      let i = 0;
+      while (i < text.length) {
+        const found = matchGlyph(text, i);
+        if (found && found.glyph) {
+          x += found.glyph.w;
+          i += found.key.length;
+        } else {
+          x += 16;
+          i += 1;
+        }
+      }
+      return x;
+    }
+
+    // TABLE-BASED RENDERER for 160x32 pixels (no gap between dots)
+    const MATRIX_W = 160;
+    const MATRIX_H = 32;
+    // create fast access grid
+    let cellGrid = [];
+
+    function createGrid() {
+      boardTable = boardTable || $('boardTable');
+      if (!boardTable) return;
+      boardTable.innerHTML = '';
+      // ensure CSS grid columns match MATRIX_W
+      boardTable.style.gridTemplateColumns = `repeat(${MATRIX_W}, var(--dot-size))`;
+      cellGrid = new Array(MATRIX_H);
+      for (let r = 0; r < MATRIX_H; r++) {
+        const row = new Array(MATRIX_W);
+        for (let c = 0; c < MATRIX_W; c++) {
+          const div = document.createElement('div');
+          div.className = 'dot';
+          div.dataset.r = r;
+          div.dataset.c = c;
+          boardTable.appendChild(div);
+          row[c] = div;
+        }
+        cellGrid[r] = row;
+      }
+    }
+
+    function clearGrid() {
+      for (let r = 0; r < MATRIX_H; r++) {
+        for (let c = 0; c < MATRIX_W; c++) {
+          const td = cellGrid[r] && cellGrid[r][c];
+          if (td) td.style.background = 'var(--board2)';
+        }
+      }
+    }
+
+    function drawGlyphToGrid(glyph, col, row, color) {
+      if (!glyph) return;
+      const { w, h, data } = glyph;
+      for (let ry = 0; ry < h; ry++) {
+        const line = String(data[ry] ?? '').padEnd(w, '0');
+        for (let cx = 0; cx < w; cx++) {
+          const px = col + cx;
+          const py = row + ry;
+          if (px < 0 || py < 0 || px >= MATRIX_W || py >= MATRIX_H) continue;
+          if (line[cx] === '1') {
+            cellGrid[py][px].style.background = color;
+          }
+        }
+      }
+    }
+
+    function drawTextToGrid(text, startCol, startRow, color) {
+      let col = startCol;
+      let i = 0;
+      while (i < text.length) {
+        const found = matchGlyph(text, i);
+        if (found && found.glyph) {
+          drawGlyphToGrid(found.glyph, col, startRow, color);
+          col += found.glyph.w;
+          i += found.key.length;
+        } else {
+          col += 16; // unknown char advance
+          i += 1;
+        }
+      }
+      return col - startCol;
+    }
+
+    // Parse time string into special glyph keys per user's scheme.
+    // Returns array of keys like ['a1','b2','c0','d5'] or null if cannot parse.
+    function timeToGlyphKeys(timeStr) {
+      if (typeof timeStr !== 'string') return null;
+      const m = timeStr.trim().match(/^(\d{1,2})[:：]?(\d{2})$/);
+      if (!m) return null;
+      const hour = Number(m[1]);
+      const minute = Number(m[2]);
+      if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+      // hour tens: a1 / a2 / an (for 0-9)
+      const tens = Math.floor(hour / 10);
+      let aKey = 'an';
+      if (tens === 1) aKey = 'a1';
+      else if (tens === 2) aKey = 'a2';
+      // hour ones: b0..b9
+      const ones = hour % 10;
+      const bKey = 'b' + String(ones);
+      // minute tens c0..c5 (but allow 0..9)
+      const mTens = Math.floor(minute / 10);
+      const cKey = 'c' + String(mTens);
+      const mOnes = minute % 10;
+      const dKey = 'd' + String(mOnes);
+      return [aKey, bKey, cKey, dKey];
+    }
+
+    // Draw an array of glyph keys to the grid sequentially.
+    function drawGlyphKeysToGrid(keys, startCol, startRow, color) {
+      let col = startCol;
+      for (const key of keys) {
+        const g = normalizeGlyph(glyphMap()[key]);
+        if (g) {
+          drawGlyphToGrid(g, col, startRow, color);
+          col += g.w;
+        } else {
+          col += 16; // fallback advance
+        }
+      }
+      return col - startCol;
+    }
+
+    function roundedRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawFrame() {
+      try {
+      // Ensure grid exists
+      if (!cellGrid.length) createGrid();
+      clearGrid();
+
+      function cssVar(name, fallback) {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+        return (v || '').trim() || fallback;
+      }
+      const textColorOrange = cssVar('--orange', '#ff9f3d');
+      const textColorGreen = cssVar('--green', '#1fbf3a');
+
+      const rowSpecs = [
+        {
+          row: 0, // top line starts at row 0
+          type: $('r1Type').value,
+          time: $('r1Time').value,
+          dest: $('r1Dest').value,
+          cars: $('r1Cars').value,
+        },
+        {
+          row: 16, // bottom line starts at row 16 (no overlap)
+          type: $('r2Type').value,
+          time: $('r2Time').value,
+          dest: $('r2Dest').value,
+          cars: $('r2Cars').value,
+        }
+      ];
+
+      // column positions (in matrix columns)
+      // Allocate exact slots: type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
+      // layout across 160 columns: [type:0-31][time:32-79][dest:80-127][cars:128-159]
+      const xType = 0;
+      const xTime = 32;
+      const xDest = 80;
+      const xCars = 128;
+
+      rowSpecs.forEach(row => {
+        drawTextToGrid(row.type, xType, row.row, textColorOrange);
+        // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
+        const timeKeys = timeToGlyphKeys(String(row.time || ''));
+        if (timeKeys) {
+          drawGlyphKeysToGrid(timeKeys, xTime, row.row, textColorGreen);
+        } else {
+          drawTextToGrid(row.time, xTime, row.row, textColorGreen);
+        }
+        drawTextToGrid(row.dest, xDest, row.row, textColorOrange);
+        drawTextToGrid(row.cars, xCars, row.row, textColorOrange);
+      });
+
+      const count = Object.keys(glyphMap()).length;
+      $('status').textContent = `font.js 読み込み: ${count} 字形`;
+      $('fontWarn').textContent = count ? '' : 'font.js に字形がありません。editor.html で作成してから再読み込みしてください。';
+      } catch (err) {
+        console.error(err);
+        $('status').textContent = '描画エラー: ' + (err && err.message);
+      }
+    }
+
+    function saveState() {
+      const data = {};
+      stateFields.forEach(id => {
+        const el = $(id);
+        data[id] = el ? el.value : '';
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        stateFields.forEach(id => {
+          if (typeof data[id] === 'string') {
+            const el = $(id);
+            if (el) el.value = data[id];
+          }
+        });
+      } catch (_) { }
+    }
+
+    function bind() {
+      [...stateFields].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('input', drawFrame);
+      });
+      const btnRedraw = $('redraw'); if (btnRedraw) btnRedraw.addEventListener('click', drawFrame);
+      const btnSave = $('saveState'); if (btnSave) btnSave.addEventListener('click', () => { saveState(); drawFrame(); });
+      const btnLoad = $('loadState'); if (btnLoad) btnLoad.addEventListener('click', () => { loadState(); drawFrame(); });
+      window.addEventListener('resize', drawFrame);
+    }
+
+    bind();
+    loadState();
+    drawFrame();
+  </script>
+</body>
+
+</html>

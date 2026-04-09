@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATOS font editor</title>
+  <style>
+    :root {
+      --bg: #171717;
+      --panel: #202020;
+      --panel2: #101010;
+      --text: #ececec;
+      --muted: #a8a8a8;
+      --line: #3f3f3f;
+      --accent: #7f7f7f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #1a1a1a, #111);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 260px 1fr 360px;
+      gap: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0 0 10px 0;
+    }
+
+    h1 {
+      font-size: 18px;
+    }
+
+    h2 {
+      font-size: 15px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      background: #171717;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .item.active {
+      outline: 2px solid #6b6b6b;
+    }
+
+    .chip {
+      font-size: 12px;
+      color: #d6d6d6;
+      background: #2a2a2a;
+      border: 1px solid #404040;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+
+    .row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #404040;
+      background: #0f0f0f;
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      border: 1px solid #4c4c4c;
+      background: #2a2a2a;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button:hover {
+      background: #343434;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 100%;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #080808;
+      border-radius: 12px;
+      border: 1px solid #373737;
+    }
+
+    .gridwrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status {
+      font-size: 12px;
+      color: #d7d7d7;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>字形一覧</h1>
+      <div class="note">
+        文字列をキーにして保存します。1文字でも複数文字でも構いません。<br>
+        例: 普通 / 特別快速 / 準特急
+      </div>
+      <div style="height:10px"></div>
+      <div class="toolbar">
+        <button id="newGlyph">新規</button>
+        <button id="deleteGlyph">削除</button>
+      </div>
+      <div style="height:10px"></div>
+      <div id="glyphList" class="list"></div>
+    </div>
+
+    <div class="panel gridwrap">
+      <div>
+        <h1>編集</h1>
+        <div class="note">16×16 を基本に、32×16 などの横長字形も作れます。</div>
+      </div>
+      <div class="field"><label>キー</label><input id="glyphKey" placeholder="例: 特別快速"></div>
+      <div class="field"><label>幅(px)</label><input id="glyphWidth" type="number" min="12" step="1" value="16"></div>
+      <div class="field"><label>高さ(px)</label><input id="glyphHeight" type="number" min="16" step="16" value="16"
+          readonly></div>
+      <div class="field"><label>倍率</label><input id="cellSize" type="number" min="12" step="2" value="22"></div>
+      <canvas id="grid"></canvas>
+      <div class="toolbar">
+        <button id="clearGlyph">消去</button>
+        <button id="applyGlyph">保存</button>
+        <button id="exportJs">font.js を出力</button>
+        <button id="downloadJs">ダウンロード</button>
+        <button id="copySel">コピー (Alt+ドラッグ)</button>
+        <button id="pasteMode">貼り付け</button>
+      </div>
+      <div class="status" id="editStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>入出力</h2>
+      <div class="note">
+        出力形式は <code>window.ATOS_FONT = {...}</code> です。<br>
+        既存の font.js を貼り付けて読み込むこともできます。
+      </div>
+      <div style="height:10px"></div>
+      <div class="toolbar">
+        <button id="saveLocal">ローカル保存</button>
+        <button id="loadLocal">ローカル読込</button>
+        <label class="chip" style="cursor:pointer;display:inline-flex;gap:8px;align-items:center;">ファイル読込<input
+            id="fileInput" type="file" accept=".js,.txt" style="display:none"></label>
+      </div>
+      <div style="height:10px"></div>
+      <textarea id="jsBox" spellcheck="false" placeholder="ここに font.js の内容が出ます。"></textarea>
+      <div style="height:10px"></div>
+      <button id="importJs">textarea から読み込み</button>
+      <div style="height:10px"></div>
+      <div class="status" id="importStatus"></div>
+    </div>
+  </div>
+
+  <script src="font.js"></script>
+  <script>
+    const STORAGE_KEY = 'atos-font-data-v1';
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('grid');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      glyphs: {},
+      selectedKey: '',
+      cellSize: 22,
+      lastPos: null,
+      selecting: false,
+      selStart: null,
+      selRect: null,
+      clipboard: null,
+      pasteMode: false,
+    };
+
+    function clone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    function normalizeFont(obj) {
+      const out = { glyphs: {}, defaults: { w: 16, h: 16 } };
+      if (!obj || typeof obj !== 'object') return out;
+      const src = obj.glyphs || obj.fonts || {};
+      for (const [key, value] of Object.entries(src)) {
+        if (!key) continue;
+        const w = Number(value.w ?? value.width ?? 16);
+        const h = Number(value.h ?? value.height ?? 16);
+        const data = Array.isArray(value.data) ? value.data : Array.isArray(value.bitmap) ? value.bitmap : [];
+        out.glyphs[key] = { w, h, data: data.map(row => String(row)) };
+      }
+      return out;
+    }
+
+    function getCurrentFont() {
+      return { glyphs: clone(state.glyphs), defaults: { w: 16, h: 16 } };
+    }
+
+    function activeGlyph() {
+      const key = state.selectedKey;
+      if (!key) return null;
+      return state.glyphs[key] || null;
+    }
+
+    function saveLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getCurrentFont()));
+      $('importStatus').textContent = 'ローカル保存しました。';
+    }
+
+    function loadLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      try {
+        const obj = normalizeFont(JSON.parse(raw));
+        state.glyphs = obj.glyphs;
+        const keys = Object.keys(state.glyphs);
+        state.selectedKey = keys[0] || '';
+        syncSelectedToInputs();
+        renderList();
+        drawGrid();
+        $('importStatus').textContent = 'ローカル保存から読み込みました。';
+        return true;
+      } catch (e) {
+        $('importStatus').textContent = 'ローカル保存の読み込みに失敗しました。';
+        return false;
+      }
+    }
+
+    function serializeFont() {
+      return 'window.ATOS_FONT = ' + JSON.stringify(getCurrentFont(), null, 2) + ';\n';
+    }
+
+    function setTextBoxesFromFont() {
+      $('jsBox').value = serializeFont();
+    }
+
+    function loadFromText(text) {
+      let obj = null;
+      try {
+        const fn = new Function('window', 'return (function(){' + text + '; return window.ATOS_FONT || (typeof ATOS_FONT !== "undefined" ? ATOS_FONT : null); })();');
+        obj = fn({});
+      } catch (e) {
+        // fallback: try to evaluate plain JSON-like content
+        try {
+          obj = JSON.parse(text);
+        } catch (_) {
+          throw e;
+        }
+      }
+      const normalized = normalizeFont(obj);
+      state.glyphs = normalized.glyphs;
+      const keys = Object.keys(state.glyphs);
+      state.selectedKey = keys[0] || '';
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      setTextBoxesFromFont();
+      $('importStatus').textContent = '読み込みました。';
+      return true;
+    }
+
+    function syncSelectedToInputs() {
+      const glyph = activeGlyph();
+      $('glyphKey').value = state.selectedKey || '';
+      $('glyphWidth').value = glyph ? glyph.w : 16;
+      $('glyphHeight').value = glyph ? glyph.h : 16;
+    }
+
+    function ensureGridSize() {
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const h = 16;
+      const size = Math.max(12, Number($('cellSize').value || 22));
+      state.cellSize = size;
+      canvas.width = w * size;
+      canvas.height = h * size;
+      canvas.style.maxWidth = '100%';
+      $('glyphHeight').value = h;
+      return { w, h, size };
+    }
+
+    function createBlankGlyph(w = 16, h = 16) {
+      return { w, h, data: Array.from({ length: h }, () => '0'.repeat(w)) };
+    }
+
+    function renderList() {
+      const list = $('glyphList');
+      list.innerHTML = '';
+      const entries = Object.entries(state.glyphs).sort((a, b) => a[0].localeCompare(b[0], 'ja'));
+      if (!entries.length) {
+        const div = document.createElement('div');
+        div.className = 'note';
+        div.textContent = 'まだ字形がありません。';
+        list.appendChild(div);
+        return;
+      }
+      for (const [key, g] of entries) {
+        const item = document.createElement('div');
+        item.className = 'item' + (key === state.selectedKey ? ' active' : '');
+        item.innerHTML = `<span>${escapeHtml(key)}</span><span class="chip">${g.w}×${g.h}</span>`;
+        item.addEventListener('click', () => {
+          state.selectedKey = key;
+          syncSelectedToInputs();
+          renderList();
+          drawGrid();
+        });
+        list.appendChild(item);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function drawGrid() {
+      const { w, h, size } = ensureGridSize();
+      const glyph = activeGlyph() || createBlankGlyph(w, h);
+      if (!glyph.data || glyph.data.length !== h || glyph.w !== w) {
+        // selected glyph dimensions may not match current controls; use blank grid of current size
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(size, size);
+      ctx.fillStyle = '#080808';
+      ctx.fillRect(0, 0, w, h);
+
+      // grid lines
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 0.05;
+      for (let x = 0; x <= w; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= h; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // pixels
+      const data = glyph.data || [];
+      for (let y = 0; y < h; y++) {
+        const row = String(data[y] ?? '').padEnd(w, '0');
+        for (let x = 0; x < w; x++) {
+          if (row[x] === '1') {
+            ctx.fillStyle = '#ffd34d';
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+      }
+
+      // redraw grid lines on top of pixels for visibility
+      ctx.strokeStyle = 'rgba(58,58,58,0.95)';
+      ctx.lineWidth = 0.08;
+      for (let x = 0; x <= w; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x + 0.001, 0);
+        ctx.lineTo(x + 0.001, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= h; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.001);
+        ctx.lineTo(w, y + 0.001);
+        ctx.stroke();
+      }
+
+      // info border
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 0.08;
+      ctx.strokeRect(0, 0, w, h);
+      ctx.restore();
+
+      // draw selection overlay if any (use pixel coordinates)
+      if (state.selRect) {
+        const rect = state.selRect;
+        const px = rect.x * size;
+        const py = rect.y * size;
+        const pw = rect.w * size;
+        const ph = rect.h * size;
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(120,160,255,0.18)';
+        ctx.strokeStyle = 'rgba(120,160,255,0.9)';
+        ctx.lineWidth = Math.max(1, size * 0.08);
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+        ctx.restore();
+      }
+
+      $('editStatus').textContent = `現在のキー: ${state.selectedKey || '(未選択)'}\n` +
+        `幅: ${w}px / 高さ: ${h}px / キャンバス: ${canvas.width}×${canvas.height}`;
+    }
+
+    function getGridDataFromCanvas() {
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const h = 16;
+      const size = Math.max(12, Number($('cellSize').value || 22));
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return { w, h, size, scaleX, scaleY };
+    }
+
+    function togglePixel(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+      const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+      const size = Number($('cellSize').value || 22);
+      const x = Math.floor(px / size);
+      const y = Math.floor(py / size);
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const h = 16;
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const key = $('glyphKey').value.trim();
+      if (!key) return;
+      if (!state.glyphs[key] || state.glyphs[key].w !== w || state.glyphs[key].h !== h) {
+        state.glyphs[key] = createBlankGlyph(w, h);
+      }
+
+      // Bresenham の直線アルゴリズムで点列を取得
+      function bresenham(x0, y0, x1, y1) {
+        const pts = [];
+        let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        while (true) {
+          pts.push([x0, y0]);
+          if (x0 === x1 && y0 === y1) break;
+          let e2 = 2 * err;
+          if (e2 >= dy) { err += dy; x0 += sx; }
+          if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+        return pts;
+      }
+
+      const glyph = state.glyphs[key];
+
+      if (ev.shiftKey && state.lastPos && (state.lastPos.key === key)) {
+        // 直線で塗る（塗りつぶし = 1 を設定）
+        const pts = bresenham(state.lastPos.x, state.lastPos.y, x, y);
+        const rows = glyph.data.slice();
+        for (const [pxi, pyi] of pts) {
+          if (pyi < 0 || pyi >= h) continue;
+          const chars = String(rows[pyi] ?? '0'.repeat(w)).padEnd(w, '0').split('');
+          chars[pxi] = '1';
+          rows[pyi] = chars.join('');
+        }
+        glyph.data = rows;
+      } else {
+        // 通常のトグル動作
+        const rows = glyph.data.slice();
+        const chars = String(rows[y] ?? '0'.repeat(w)).padEnd(w, '0').split('');
+        chars[x] = chars[x] === '1' ? '0' : '1';
+        rows[y] = chars.join('');
+        glyph.data = rows;
+      }
+
+      // 状態更新
+      state.selectedKey = key;
+      state.lastPos = { x, y, key };
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+    }
+
+    function finalizeSelection() {
+      if (!state.selRect) return;
+      const rect = state.selRect;
+      const key = $('glyphKey').value.trim();
+      // copy from active glyph (or blank)
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const glyph = state.glyphs[key] || createBlankGlyph(w, 16);
+      const data = [];
+      for (let ry = 0; ry < rect.h; ry++) {
+        const srcY = rect.y + ry;
+        const row = String(glyph.data[srcY] ?? '0'.repeat(glyph.w)).padEnd(glyph.w, '0');
+        const chunk = row.slice(rect.x, rect.x + rect.w).padEnd(rect.w, '0');
+        data.push(chunk);
+      }
+      state.clipboard = { w: rect.w, h: rect.h, data };
+      $('importStatus').textContent = `矩形をコピーしました: ${rect.w}×${rect.h}`;
+    }
+
+    function pasteClipboardAt(destX, destY) {
+      if (!state.clipboard) {
+        $('importStatus').textContent = 'クリップボードにデータがありません。';
+        return;
+      }
+      const key = $('glyphKey').value.trim();
+      if (!key) {
+        $('importStatus').textContent = '貼り付け先のキーを入力してください。';
+        return;
+      }
+      const curW = Math.max(12, Number($('glyphWidth').value || 16));
+      const glyph = state.glyphs[key] || createBlankGlyph(curW, 16);
+      // expand width if needed
+      const neededW = Math.max(curW, destX + state.clipboard.w);
+      if (neededW > glyph.w) {
+        const rows = glyph.data.map(r => String(r).padEnd(glyph.w, '0'));
+        for (let i = 0; i < rows.length; i++) rows[i] = rows[i].padEnd(neededW, '0');
+        glyph.w = neededW;
+        glyph.data = rows;
+        // update UI
+        $('glyphWidth').value = neededW;
+      }
+      // apply clipboard
+      for (let ry = 0; ry < state.clipboard.h; ry++) {
+        const dstY = destY + ry;
+        if (dstY < 0 || dstY >= 16) continue;
+        const dstRow = String(glyph.data[dstY] ?? '0'.repeat(glyph.w)).padEnd(glyph.w, '0').split('');
+        const srcRow = state.clipboard.data[ry] || '0'.repeat(state.clipboard.w);
+        for (let cx = 0; cx < state.clipboard.w; cx++) {
+          const dstX = destX + cx;
+          if (dstX < 0 || dstX >= glyph.w) continue;
+          dstRow[dstX] = srcRow[cx] === '1' ? '1' : dstRow[dstX];
+        }
+        glyph.data[dstY] = dstRow.join('');
+      }
+      state.glyphs[key] = glyph;
+      state.selectedKey = key;
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      $('importStatus').textContent = `貼り付けました: ${state.clipboard.w}×${state.clipboard.h}`;
+    }
+
+    function saveSelectedGlyph() {
+      const key = $('glyphKey').value.trim();
+      if (!key) {
+        $('importStatus').textContent = 'キーが空です。';
+        return;
+      }
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const h = 16;
+      const existing = state.glyphs[key] || createBlankGlyph(w, h);
+      let data = existing.data && existing.data.length === h ? existing.data.slice() : Array.from({ length: h }, () => '0'.repeat(w));
+      data = data.map(row => String(row).padEnd(w, '0').slice(0, w));
+      state.glyphs[key] = { w, h, data };
+      state.selectedKey = key;
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      setTextBoxesFromFont();
+      $('importStatus').textContent = `保存しました: ${key}`;
+    }
+
+    function clearGlyph() {
+      const key = $('glyphKey').value.trim();
+      if (!key) return;
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      const h = 16;
+      state.glyphs[key] = createBlankGlyph(w, h);
+      state.selectedKey = key;
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      setTextBoxesFromFont();
+      $('importStatus').textContent = `消去しました: ${key}`;
+    }
+
+    function newGlyph() {
+      let key = $('glyphKey').value.trim();
+      if (!key) key = '新規';
+      let base = key;
+      let n = 2;
+      while (state.glyphs[key]) {
+        key = base + n;
+        n += 1;
+      }
+      $('glyphKey').value = key;
+      const w = Math.max(12, Number($('glyphWidth').value || 16));
+      state.glyphs[key] = createBlankGlyph(w, 16);
+      state.selectedKey = key;
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      setTextBoxesFromFont();
+      $('importStatus').textContent = `新規作成: ${key}`;
+    }
+
+    function deleteGlyph() {
+      const key = $('glyphKey').value.trim();
+      if (!key) return;
+      delete state.glyphs[key];
+      const keys = Object.keys(state.glyphs);
+      state.selectedKey = keys[0] || '';
+      syncSelectedToInputs();
+      renderList();
+      drawGrid();
+      setTextBoxesFromFont();
+      $('importStatus').textContent = `削除しました: ${key}`;
+    }
+
+    function exportJs() {
+      const key = state.selectedKey;
+      if (!key) {
+        $('importStatus').textContent = 'キーが未選択です。';
+        return;
+      }
+      const glyph = state.glyphs[key];
+      if (!glyph) {
+        $('importStatus').textContent = '選択中の字形がありません。';
+        return;
+      }
+      const out = { [key]: { w: glyph.w, h: glyph.h, data: glyph.data } };
+      $('jsBox').value = JSON.stringify(out, null, 2);
+      $('importStatus').textContent = '選択字形を textarea に出力しました。';
+    }
+
+    function downloadJs() {
+      const blob = new Blob([serializeFont()], { type: 'text/javascript;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'font.js';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      $('importStatus').textContent = 'font.js をダウンロードしました。';
+    }
+
+    function bind() {
+      $('cellSize').addEventListener('input', drawGrid);
+      $('glyphWidth').addEventListener('input', () => {
+        const w = Math.max(12, Number($('glyphWidth').value || 16));
+        $('glyphWidth').value = w;
+        drawGrid();
+      });
+      $('glyphKey').addEventListener('input', () => {
+        state.selectedKey = $('glyphKey').value.trim();
+        renderList();
+        drawGrid();
+      });
+      $('newGlyph').addEventListener('click', newGlyph);
+      $('deleteGlyph').addEventListener('click', deleteGlyph);
+      $('clearGlyph').addEventListener('click', clearGlyph);
+      $('applyGlyph').addEventListener('click', saveSelectedGlyph);
+      $('exportJs').addEventListener('click', exportJs);
+      $('downloadJs').addEventListener('click', downloadJs);
+      $('saveLocal').addEventListener('click', saveLocal);
+      $('loadLocal').addEventListener('click', loadLocal);
+      $('importJs').addEventListener('click', () => {
+        try {
+          loadFromText($('jsBox').value);
+        } catch (e) {
+          $('importStatus').textContent = '読み込み失敗: ' + e.message;
+        }
+      });
+      $('fileInput').addEventListener('change', async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        try {
+          loadFromText(text);
+        } catch (e) {
+          $('importStatus').textContent = 'ファイル読み込み失敗: ' + e.message;
+        }
+      });
+      // copy/paste toolbar handlers
+      const btnCopy = $('copySel');
+      if (btnCopy) btnCopy.addEventListener('click', () => {
+        if (state.selRect) finalizeSelection();
+        else $('importStatus').textContent = 'Alt+ドラッグで矩形選択してください。';
+      });
+      const btnPaste = $('pasteMode');
+      if (btnPaste) btnPaste.addEventListener('click', () => {
+        if (!state.clipboard) {
+          $('importStatus').textContent = 'クリップボードが空です。先にコピーしてください。';
+          return;
+        }
+        state.pasteMode = true;
+        $('importStatus').textContent = '貼り付けモード: キャンバスをクリックして貼り付けします。';
+      });
+      // mousedown/move/up handlers support draw, select (Alt+drag) and paste modes
+      canvas.addEventListener('mousedown', (ev) => {
+        const rect = canvas.getBoundingClientRect();
+        const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+        const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+        const size = Number($('cellSize').value || 22);
+        const x = Math.floor(px / size);
+        const y = Math.floor(py / size);
+
+        if (state.pasteMode && state.clipboard) {
+          // paste clipboard at clicked position
+          pasteClipboardAt(x, y);
+          state.pasteMode = false;
+          drawGrid();
+          return;
+        }
+
+        if (ev.altKey) {
+          // start selection
+          state.selecting = true;
+          state.selStart = { x, y };
+          state.selRect = { x, y, w: 1, h: 1 };
+          drawGrid();
+          return;
+        }
+
+        // default: drawing behavior
+        togglePixel(ev);
+      });
+
+      canvas.addEventListener('mousemove', (ev) => {
+        if (state.selecting) {
+          const rect = canvas.getBoundingClientRect();
+          const px = (ev.clientX - rect.left) * (canvas.width / rect.width);
+          const py = (ev.clientY - rect.top) * (canvas.height / rect.height);
+          const size = Number($('cellSize').value || 22);
+          const x = Math.floor(px / size);
+          const y = Math.floor(py / size);
+          const sx = state.selStart.x;
+          const sy = state.selStart.y;
+          const x0 = Math.min(sx, x);
+          const y0 = Math.min(sy, y);
+          const x1 = Math.max(sx, x);
+          const y1 = Math.max(sy, y);
+          state.selRect = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+          drawGrid();
+          return;
+        }
+
+        if (ev.buttons === 1) togglePixel(ev);
+      });
+
+      window.addEventListener('mouseup', (ev) => {
+        if (state.selecting) {
+          // finalize selection -> copy into clipboard
+          finalizeSelection();
+          state.selecting = false;
+          drawGrid();
+        }
+      });
+      window.addEventListener('beforeunload', saveLocal);
+    }
+
+    function init() {
+      const loaded = loadLocal();
+      if (!loaded) {
+        const base = normalizeFont(window.ATOS_FONT || {});
+        state.glyphs = base.glyphs;
+        const keys = Object.keys(state.glyphs);
+        state.selectedKey = keys[0] || '';
+        syncSelectedToInputs();
+      }
+      renderList();
+      setTextBoxesFromFont();
+      bind();
+      drawGrid();
+    }
+
+    init();
+  </script>
+</body>
+
+</html>
