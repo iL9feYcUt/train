@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web OuDia Lite</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d7dbe2;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --danger: #dc2626;
+      --good: #047857;
+      --warn: #b45309;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg)
+    }
+
+    #app {
+      display: flex;
+      min-height: 100vh
+    }
+
+    #sidebar {
+      width: 600px;
+      flex: 0 0 600px;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      overflow: auto;
+      padding: 12px 12px 80px
+      ;
+      transition: width 220ms ease, padding 220ms ease;
+    }
+
+    .sidebar-collapsed {
+      width: 0 !important;
+      flex: 0 0 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border-right: none !important;
+    }
+
+    #main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column
+    }
+
+    #topbar {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    #status {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    #canvasWrap {
+      flex: 1;
+      overflow: auto;
+      background:
+        linear-gradient(to right, rgba(0, 0, 0, .03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, .03) 1px, transparent 1px);
+      background-size: 24px 24px, 24px 24px;
+    }
+
+    #canvas {
+      display: block
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 2px 0 12px
+    }
+
+    h2 {
+      font-size: 14px;
+      margin: 16px 0 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line)
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .row>* {
+      flex: 0 0 auto
+    }
+
+    input,
+    select,
+    button,
+    textarea {
+      font: inherit;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text)
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 7px 9px
+    }
+
+    input[type="color"] {
+      padding: 0;
+      width: 40px;
+      height: 34px
+    }
+
+    button {
+      padding: 7px 10px;
+      cursor: pointer;
+      background: #fff
+    }
+
+    button:hover {
+      border-color: #aab3c2
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff
+    }
+
+    button.ghost {
+      background: #f9fafb
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px 0;
+      background: #fff
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fff
+    }
+
+    .item.active {
+      outline: 2px solid rgba(37, 99, 235, .24);
+      border-color: rgba(37, 99, 235, .5)
+    }
+
+    .item .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      flex: 0 0 auto;
+      border: 1px solid rgba(0, 0, 0, .2)
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px
+    }
+
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--line);
+      padding: 5px 4px;
+      vertical-align: middle
+    }
+
+    .table th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600
+    }
+
+    .table input,
+    .table select {
+      width: 100%;
+      padding: 5px 6px;
+      border-radius: 7px
+    }
+
+    .table button {
+      padding: 4px 6px;
+      border-radius: 7px
+    }
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px
+    }
+
+    .toolbar-grid .full {
+      grid-column: 1 / -1
+    }
+
+    .muted {
+      color: var(--muted)
+    }
+
+    .warn {
+      color: var(--warn)
+    }
+
+    .ok {
+      color: var(--good)
+    }
+
+    .jsonbox {
+      width: 100%;
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 52px;
+      gap: 8px;
+      align-items: center
+    }
+
+    .mini {
+      font-size: 11px;
+      color: var(--muted)
+    }
+    .card h2 { cursor: pointer; display:flex; justify-content:space-between; align-items:center; gap:8px }
+    .card .card-toggle { font-size:12px; color:var(--muted) }
+    .card .card-body { margin-top:8px }
+    .card.collapsed .card-body { display: none }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="sidebarBody"></div>
+    </aside>
+    <main id="main">
+      <div id="topbar">
+        <div class="row">
+            <button id="sidebarToggle" onclick="toggleSidebar()">サイドバー</button>
+            <button class="primary" onclick="saveLocal()">保存</button>
+          <button onclick="loadLocal()">読込</button>
+          <button onclick="exportJson()">JSON書き出し</button>
+          <label class="button ghost"
+            style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer">
+            JSON読込
+            <input type="file" id="importFile" accept="application/json" style="display:none"
+              onchange="importJsonFile(this.files[0])">
+          </label>
+        </div>
+        <div class="row" style="gap:16px;align-items:end">
+          <label class="small" style="display:flex;flex-direction:column;gap:4px">
+            時間縮尺
+            <input type="range" min="0.5" max="12" step="0.1" value="${Number(state.settings.pxPerMin || 2.5)}"
+              oninput="setSetting('pxPerMin', Number(this.value))">
+          </label>
+          <label class="small" style="display:flex;flex-direction:column;gap:4px">
+            距離縮尺
+            <input type="range" min="20" max="200" step="1" value="${Number(state.settings.kmScale || 70)}"
+              oninput="setSetting('kmScale', Number(this.value))">
+          </label>
+          <div id="status"></div>
+        </div>
+      </div>
+      <div id="canvasWrap">
+        <svg id="canvas"></svg>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const STORAGE_KEY = "oudia_lite_v4";
+
+    const sample = {
+      settings: {
+        rootStationId: "s1",
+        kmScale: 70,
+        pxPerMin: 2.5,
+        snapMin: 5,
+        defaultDwell: 30,
+        defaultSpeedKmh: 60,
+        laneOffsetPx: 4
+        },
+        ui: { collapsed: { display: true, stations: true, edges: true, types: true, trains: true }, sidebarCollapsed: false },
+      stations: [
+        { id: "s1", name: "中央", km: 0 },
+        { id: "s2", name: "北口", km: 3.5 },
+        { id: "s3", name: "東口", km: 7.2 },
+        { id: "s4", name: "西口", km: 8.4 },
+        { id: "s5", name: "支線A", km: 12.0 }
+      ],
+      edges: [
+        { id: "e1", from: "s1", to: "s2", distance: 3.5 },
+        { id: "e2", from: "s2", to: "s3", distance: 3.7 },
+        { id: "e3", from: "s2", to: "s4", distance: 4.9 },
+        { id: "e4", from: "s4", to: "s5", distance: 3.6 }
+      ],
+      types: [
+        { id: "t1", name: "普通", color: "#111827" },
+        { id: "t2", name: "快速", color: "#dc2626" },
+        { id: "t3", name: "特急", color: "#2563eb" }
+      ],
+      trains: [
+        {
+          id: "r1",
+          name: "快速 101",
+          typeId: "t2",
+          track: "up",
+          stops: [
+            { stationId: "s1", arr: "07:55:00", dwell: 6020 },
+            { stationId: "s2", arr: "08:04:00", dwell: 60 },
+            { stationId: "s3", arr: "08:13:00", dwell: 0 },
+            { stationId: "s5", arr: "08:21:00", dwell: 6020 }
+          ]
+        },
+        {
+          id: "r2",
+          name: "普通 204",
+          typeId: "t1",
+          track: "down",
+          stops: [
+            { stationId: "s5", arr: "08:30:00", dwell: 60 },
+            { stationId: "s4", arr: "08:37:00", dwell: 6020 },
+            { stationId: "s2", arr: "08:48:00", dwell: 60 },
+            { stationId: "s1", arr: "08:58:00", dwell: 6020 }
+          ]
+        }
+      ],
+      operations: [
+        { id: "op1", fromTrainId: "r1", toTrainId: "r2", note: "折返運用" }
+      ]
+    };
+
+    var state = deepClone(sample);
+    var selectedTrainId = state.trains[0]?.id || null;
+    var selectedStopIndex = 0;
+    var dragging = null;
+    var lastRender = null;
+
+    function deepClone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+    function uid(prefix = "id") {
+      return prefix + Math.random().toString(36).slice(2, 10);
+    }
+    function esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+    function byId(list, id) {
+      return list.find(x => x.id === id) || null;
+    }
+    function timeToMin(v) {
+      if (typeof v !== "string") return null;
+      const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return null;
+      const h = Number(m[1]);
+      const mi = Number(m[2]);
+      const s = Number(m[3] || 0);
+      if (!Number.isFinite(h) || !Number.isFinite(mi) || !Number.isFinite(s) || mi < 0 || mi > 59 || s < 0 || s > 59) return null;
+      return h * 3600 + mi * 60 + s;
+    }
+    function minToTime(total) {
+      if (!Number.isFinite(total)) return "--:--:--";
+      total = Math.round(total);
+      total = ((total % 86400) + 86400) % 86400;
+      const h = String(Math.floor(total / 3600)).padStart(2, "0");
+      const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+      const s = String(total % 60).padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    }
+    function snapMin(v) {
+      const n = Number(state.settings.snapMin) || 5;
+      return Math.round(v / n) * n;
+    }
+    function addMinutes(timeStr, delta) {
+      const t = timeToMin(timeStr);
+      if (t === null) return timeStr;
+      return minToTime(t + delta);
+    }
+    function formatNum(v, digits = 1) {
+      if (!Number.isFinite(v)) return "";
+      const s = Number(v).toFixed(digits);
+      return s.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+    }
+    function getStationsMap() {
+      const map = new Map();
+      state.stations.forEach(s => map.set(s.id, s));
+      return map;
+    }
+    function getTypesMap() {
+      const map = new Map();
+      state.types.forEach(t => map.set(t.id, t));
+      return map;
+    }
+    function getStation(stationId) {
+      return byId(state.stations, stationId);
+    }
+    function getTrain(trainId) {
+      return byId(state.trains, trainId);
+    }
+    function getType(typeId) {
+      return byId(state.types, typeId);
+    }
+    function stationLabel(stationId) {
+      const s = getStation(stationId);
+      return s ? s.name : "(駅未設定)";
+    }
+    function trainTypeColor(train) {
+      const type = getType(train.typeId);
+      return type?.color || "#111827";
+    }
+    function trainTypeName(train) {
+      const type = getType(train.typeId);
+      return type?.name || "未設定";
+    }
+    function totalDeparture(stop) {
+      const arr = timeToMin(stop.arr);
+      if (arr === null) return null;
+      const dwell = Number(stop.dwell) || 0;
+      return arr + dwell;
+    }
+    function trackOffsetPx(track) {
+      const lane = Number(state.settings.laneOffsetPx) || 0;
+      if (track === "up") return -lane;
+      if (track === "down") return lane;
+      return 0;
+    }
+    function shortestKmMap() {
+      const ids = state.stations.map(s => s.id);
+      const dist = Object.fromEntries(ids.map(id => [id, Infinity]));
+      const root = state.settings.rootStationId && dist[state.settings.rootStationId] !== undefined
+        ? state.settings.rootStationId
+        : ids[0];
+
+      if (!root) return {};
+      dist[root] = 0;
+
+      const adj = Object.fromEntries(ids.map(id => [id, []]));
+      for (const e of state.edges) {
+        if (!adj[e.from] || !adj[e.to]) continue;
+        const w = Number(e.distance);
+        if (!Number.isFinite(w) || w <= 0) continue;
+        adj[e.from].push([e.to, w]);
+        adj[e.to].push([e.from, w]);
+      }
+
+      const pq = [[0, root]];
+      while (pq.length) {
+        pq.sort((a, b) => a[0] - b[0]);
+        const [d, u] = pq.shift();
+        if (d !== dist[u]) continue;
+        for (const [v, w] of adj[u]) {
+          const nd = d + w;
+          if (nd < dist[v]) {
+            dist[v] = nd;
+            pq.push([nd, v]);
+          }
+        }
+      }
+
+      const finite = Object.values(dist).filter(Number.isFinite);
+      const base = finite.length ? Math.max(...finite) : 0;
+      const unreachable = ids.filter(id => !Number.isFinite(dist[id]));
+      unreachable.sort((a, b) => stationLabel(a).localeCompare(stationLabel(b), "ja"));
+      unreachable.forEach((id, i) => {
+        dist[id] = base + 2 + i * 2;
+      });
+      return dist;
+    }
+    function shortestPath(fromId, toId) {
+      if (!fromId || !toId) return [];
+      const ids = state.stations.map(s => s.id);
+      const adj = Object.fromEntries(ids.map(id => [id, []]));
+      for (const e of state.edges) {
+        if (!adj[e.from] || !adj[e.to]) continue;
+        const w = Number(e.distance) || 1;
+        adj[e.from].push([e.to, w]);
+        adj[e.to].push([e.from, w]);
+      }
+      const dist = Object.fromEntries(ids.map(id => [id, Infinity]));
+      const prev = Object.fromEntries(ids.map(id => [id, null]));
+      dist[fromId] = 0;
+      const pq = [[0, fromId]];
+      while (pq.length) {
+        pq.sort((a,b)=>a[0]-b[0]);
+        const [d,u] = pq.shift();
+        if (u===toId) break;
+        if (d !== dist[u]) continue;
+        for (const [v,w] of (adj[u]||[])) {
+          const nd = d + w;
+          if (nd < dist[v]) { dist[v]=nd; prev[v]=u; pq.push([nd,v]); }
+        }
+      }
+      if (!Number.isFinite(dist[toId])) return [];
+      const path = [];
+      let cur = toId;
+      while (cur) { path.push(cur); if (cur===fromId) break; cur = prev[cur]; }
+      return path.reverse();
+    }
+    function stationY(stationId, kmMap) {
+      const km = kmMap[stationId];
+      return 90 + km * Number(state.settings.kmScale || 70);
+    }
+    function collectTimeRange() {
+      const secs = [];
+      for (const t of state.trains) {
+        for (const s of t.stops) {
+          const a = timeToMin(s.arr);
+          if (a !== null) secs.push(a);
+          const d = totalDeparture(s);
+          if (d !== null) secs.push(d);
+        }
+      }
+      if (!secs.length) return { min: 6 * 3600, max: 10 * 3600 };
+      const min = Math.min(...secs);
+      const max = Math.max(...secs);
+      return { min: Math.max(0, min - 30 * 60), max: Math.min(24 * 3600 - 1, max + 45 * 60) };
+    }
+    function timeX(timeSec, timeBase, leftPad, pxPerMin) {
+      return leftPad + ((timeSec - timeBase) / 60) * pxPerMin;
+    }
+    function makeSvg(tag, attrs = {}, text = "") {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v !== undefined && v !== null) el.setAttribute(k, String(v));
+      }
+      if (text) el.textContent = text;
+      return el;
+    }
+    function svgPoint(evt) {
+      const pt = svg.createSVGPoint();
+      pt.x = evt.clientX;
+      pt.y = evt.clientY;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+    function currentTrain() {
+      return getTrain(selectedTrainId);
+    }
+    function selectedStop() {
+      const t = currentTrain();
+      if (!t) return null;
+      return t.stops[selectedStopIndex] || null;
+    }
+    function ensureSelectionValid() {
+      if (!state.trains.length) {
+        selectedTrainId = null;
+        selectedStopIndex = 0;
+        return;
+      }
+      if (!getTrain(selectedTrainId)) selectedTrainId = state.trains[0].id;
+      const t = currentTrain();
+      if (!t) return;
+      if (selectedStopIndex >= t.stops.length) selectedStopIndex = Math.max(0, t.stops.length - 1);
+    }
+    function moveStopList(train, from, to) {
+      if (!train || from < 0 || from >= train.stops.length || to < 0 || to >= train.stops.length) return;
+      const [item] = train.stops.splice(from, 1);
+      train.stops.splice(to, 0, item);
+      selectedStopIndex = to;
+    }
+    function shiftDownstream(train, startIndex, deltaMin) {
+      if (!train || !Number.isFinite(deltaMin) || deltaMin === 0) return;
+      for (let i = startIndex + 1; i < train.stops.length; i++) {
+        const m = timeToMin(train.stops[i].arr);
+        if (m !== null) train.stops[i].arr = minToTime(m + deltaMin);
+      }
+    }
+    function updateStopTime(trainId, stopIndex, field, value) {
+      const train = getTrain(trainId);
+      if (!train || !train.stops[stopIndex]) return;
+      const stop = train.stops[stopIndex];
+      if (field === "stationId") stop.stationId = value;
+      if (field === "arr") {
+        const newArr = timeToMin(value);
+        const oldArr = timeToMin(stop.arr);
+        if (newArr === null || oldArr === null) return;
+        const delta = newArr - oldArr;
+        stop.arr = minToTime(newArr);
+        shiftDownstream(train, stopIndex, delta);
+      }
+      if (field === "dwell") {
+        const arr = timeToMin(stop.arr);
+        if (arr === null) return;
+        const oldDep = totalDeparture(stop);
+        const newDwell = Math.max(0, Number(value) || 0);
+        stop.dwell = newDwell;
+        const newDep = arr + newDwell;
+        const delta = newDep - oldDep;
+        shiftDownstream(train, stopIndex, delta);
+      }
+      if (field === "track") stop.track = value;
+      scheduleRender();
+    }
+    function autoFillTrainTimes(trainId) {
+      const train = getTrain(trainId);
+      if (!train || train.stops.length === 0) return;
+      const kmMap = shortestKmMap();
+      const first = train.stops[0];
+      let t = timeToMin(first.arr);
+      if (t === null) t = 8 * 3600;
+      first.arr = minToTime(t);
+      first.dwell = Number(first.dwell) || Number(state.settings.defaultDwell) || 0;
+      let dep = t + first.dwell;
+      const speed = Math.max(1, Number(state.settings.defaultSpeedKmh) || 60);
+      for (let i = 1; i < train.stops.length; i++) {
+        const prev = train.stops[i - 1];
+        const cur = train.stops[i];
+        const a = kmMap[prev.stationId];
+        const b = kmMap[cur.stationId];
+        const runSec = Math.max(5, Math.round(Math.abs(b - a) / speed * 3600));
+        const arr = dep + runSec;
+        cur.arr = minToTime(arr);
+        cur.dwell = Number(cur.dwell) || Number(state.settings.defaultDwell) || 0;
+        dep = arr + cur.dwell;
+      }
+      renderAll();
+    }
+    function addStation(name = "") {
+      const n = name.trim();
+      if (!n) return;
+      const id = uid("s");
+      state.stations.push({ id, name: n });
+      if (!state.settings.rootStationId) state.settings.rootStationId = id;
+      renderAll();
+    }
+    function addEdge(from, to, distance) {
+      const d = Number(distance);
+      if (!from || !to || from === to || !Number.isFinite(d) || d <= 0) return;
+      state.edges.push({ id: uid("e"), from, to, distance: d });
+      renderAll();
+    }
+    function addType(name, color) {
+      const n = name.trim();
+      if (!n) return;
+      state.types.push({ id: uid("t"), name: n, color: color || "#111827" });
+      renderAll();
+    }
+    function addTrain() {
+      const typeId = state.types[0]?.id || null;
+      const train = {
+        id: uid("r"),
+        name: `列車 ${state.trains.length + 1}`,
+        typeId,
+        track: "center",
+        stops: []
+      };
+      state.trains.push(train);
+      selectedTrainId = train.id;
+      selectedStopIndex = 0;
+      renderAll();
+    }
+    function addStopToTrain(trainId, stationId, arr, dwell, track = "center") {
+      const train = getTrain(trainId);
+      if (!train || !stationId) return;
+      const last = train.stops.at(-1);
+      let arrival = arr;
+      if (!arrival) {
+        if (last) {
+          const kmMap = shortestKmMap();
+          const speed = Math.max(1, Number(state.settings.defaultSpeedKmh) || 60);
+          const runSec = Math.max(5, Math.round(Math.abs((kmMap[stationId] ?? 0) - (kmMap[last.stationId] ?? 0)) / speed * 3600));
+          const dep = totalDeparture(last);
+          arrival = dep !== null ? minToTime(dep + runSec) : "08:00:00";
+        } else {
+          arrival = "08:00:00";
+        }
+      }
+      train.stops.push({
+        stationId,
+        arr: arrival,
+        dwell: Number.isFinite(Number(dwell)) ? Math.max(0, Number(dwell)) : Number(state.settings.defaultDwell) || 0,
+        track
+      });
+      selectedTrainId = train.id;
+      selectedStopIndex = train.stops.length - 1;
+      renderAll();
+    }
+    function insertStopAt(trainId, index, stationId) {
+      const train = getTrain(trainId);
+      if (!train || !stationId) return;
+      const ref = train.stops[index] || train.stops[index - 1] || null;
+      const arr = ref ? ref.arr : "08:00:00";
+      const dwell = Number(state.settings.defaultDwell) || 0;
+      train.stops.splice(index, 0, { stationId, arr, dwell, track: "center" });
+      selectedTrainId = train.id;
+      selectedStopIndex = index;
+      renderAll();
+    }
+    function setSegmentStops(trainId) {
+      const start = document.getElementById('segmentStart')?.value;
+      const end = document.getElementById('segmentEnd')?.value;
+      if (!start || !end) { setStatus('始発/終着を選んでください'); return; }
+      const path = shortestPath(start, end);
+      if (!path.length) { setStatus('指定区間の経路が見つかりません'); return; }
+      const train = getTrain(trainId);
+      if (!train) return;
+      train.stops = path.map(stId => ({ stationId: stId, arr: '08:00:00', dwell: Number(state.settings.defaultDwell) || 0, track: 'center' }));
+      selectedTrainId = trainId;
+      selectedStopIndex = 0;
+      renderAll();
+      setStatus('区間を停車リストとして設定しました');
+    }
+    function duplicateTrain(trainId) {
+      const src = getTrain(trainId);
+      if (!src) return;
+      const dup = deepClone(src);
+      dup.id = uid("r");
+      dup.name = `${src.name} 複製`;
+      state.trains.push(dup);
+      selectedTrainId = dup.id;
+      selectedStopIndex = 0;
+      renderAll();
+    }
+    function deleteTrain(trainId) {
+      const idx = state.trains.findIndex(t => t.id === trainId);
+      if (idx < 0) return;
+      state.trains.splice(idx, 1);
+      state.operations = state.operations.filter(op => op.fromTrainId !== trainId && op.toTrainId !== trainId);
+      if (selectedTrainId === trainId) {
+        selectedTrainId = state.trains[0]?.id || null;
+        selectedStopIndex = 0;
+      }
+      renderAll();
+    }
+    function deleteStop(trainId, stopIndex) {
+      const train = getTrain(trainId);
+      if (!train || !train.stops[stopIndex]) return;
+      train.stops.splice(stopIndex, 1);
+      if (selectedTrainId === trainId) {
+        selectedStopIndex = Math.max(0, Math.min(selectedStopIndex, train.stops.length - 1));
+      }
+      renderAll();
+    }
+    function addOperation(fromTrainId, toTrainId, note = "") {
+      if (!fromTrainId || !toTrainId || fromTrainId === toTrainId) return;
+      state.operations.push({ id: uid("op"), fromTrainId, toTrainId, note });
+      renderAll();
+    }
+    function deleteOperation(opId) {
+      state.operations = state.operations.filter(op => op.id !== opId);
+      renderAll();
+    }
+    function warnTextForTrain(train) {
+      if (!train || !train.stops.length) return "未入力";
+      for (let i = 0; i < train.stops.length; i++) {
+        const arr = timeToMin(train.stops[i].arr);
+        if (arr === null) return "時刻未入力";
+        const dep = totalDeparture(train.stops[i]);
+        if (dep === null || dep < arr) return "停車設定に不整合";
+        if (i > 0) {
+          const prevDep = totalDeparture(train.stops[i - 1]);
+          if (prevDep !== null && arr < prevDep) return "時刻が逆転";
+        }
+      }
+      return "";
+    }
+    function saveLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setStatus("保存しました");
+    }
+    function loadLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        setStatus("保存データがありません");
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        state = normalizeState(parsed);
+        selectedTrainId = state.trains[0]?.id || null;
+        selectedStopIndex = 0;
+        renderAll();
+        setStatus("読込みました");
+      } catch {
+        setStatus("読込みに失敗しました");
+      }
+    }
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "oudia-lite.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importJsonFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || ""));
+          state = normalizeState(parsed);
+          selectedTrainId = state.trains[0]?.id || null;
+          selectedStopIndex = 0;
+          renderAll();
+          setStatus("JSONを読み込みました");
+        } catch {
+          setStatus("JSONの解析に失敗しました");
+        }
+      };
+      reader.readAsText(file);
+    }
+    function normalizeState(raw) {
+      const s = deepClone(sample);
+      if (!raw || typeof raw !== "object") return s;
+      if (raw.settings) s.settings = { ...s.settings, ...raw.settings };
+      if (Array.isArray(raw.stations)) s.stations = raw.stations.filter(x => x && x.id).map(x => ({
+        id: String(x.id),
+        name: String(x.name || ""),
+        km: x.km
+      }));
+      if (Array.isArray(raw.edges)) s.edges = raw.edges.filter(x => x && x.id).map(x => ({
+        id: String(x.id),
+        from: String(x.from || ""),
+        to: String(x.to || ""),
+        distance: Number(x.distance || 0)
+      }));
+      if (Array.isArray(raw.types)) s.types = raw.types.filter(x => x && x.id).map(x => ({
+        id: String(x.id),
+        name: String(x.name || ""),
+        color: String(x.color || "#111827")
+      }));
+      if (Array.isArray(raw.trains)) s.trains = raw.trains.filter(x => x && x.id).map(x => ({
+        id: String(x.id),
+        name: String(x.name || ""),
+        typeId: x.typeId ? String(x.typeId) : (s.types[0]?.id || null),
+        track: String(x.track || "center"),
+        stops: Array.isArray(x.stops) ? x.stops.map(st => ({
+          stationId: String(st.stationId || ""),
+          arr: String(st.arr || "08:00:00"),
+          dwell: Number(st.dwell || 0),
+          track: String(st.track || "center")
+        })) : []
+      }));
+      if (Array.isArray(raw.operations)) s.operations = raw.operations.filter(x => x && x.id).map(x => ({
+        id: String(x.id),
+        fromTrainId: String(x.fromTrainId || ""),
+        toTrainId: String(x.toTrainId || ""),
+        note: String(x.note || "")
+      }));
+        // carry UI collapsed state if provided
+        s.ui = s.ui || { collapsed: {} };
+        if (raw.ui && typeof raw.ui === 'object') {
+          if (raw.ui.collapsed && typeof raw.ui.collapsed === 'object') {
+            s.ui.collapsed = { ...s.ui.collapsed, ...raw.ui.collapsed };
+          }
+          if (typeof raw.ui.sidebarCollapsed === 'boolean') {
+            s.ui.sidebarCollapsed = !!raw.ui.sidebarCollapsed;
+          }
+        }
+        // carry train operation mapping if provided
+        s.trainOpMap = s.trainOpMap || {};
+        if (raw.trainOpMap && typeof raw.trainOpMap === 'object') {
+          s.trainOpMap = { ...s.trainOpMap, ...raw.trainOpMap };
+        }
+        return s;
+    }
+        function toggleCard(id) {
+        state.ui = state.ui || { collapsed: {} };
+        state.ui.collapsed[id] = !state.ui.collapsed[id];
+        renderAll();
+      }
+      function isCollapsed(id) {
+        return !!(state.ui && state.ui.collapsed && state.ui.collapsed[id]);
+      }
+      // debounce render to avoid losing input focus while typing
+      let __renderTimer = null;
+      const RENDER_DEBOUNCE_MS = 600;
+      function scheduleRender(full = true, delay = RENDER_DEBOUNCE_MS) {
+        if (__renderTimer) clearTimeout(__renderTimer);
+        __renderTimer = setTimeout(() => { renderAll(full); __renderTimer = null; }, delay);
+      }
+        function toggleSidebar() {
+          state.ui = state.ui || { collapsed: {}, sidebarCollapsed: false };
+          state.ui.sidebarCollapsed = !state.ui.sidebarCollapsed;
+          applySidebarState();
+          renderAll(false);
+        }
+        function isSidebarCollapsed() {
+          return !!(state.ui && state.ui.sidebarCollapsed);
+        }
+        function applySidebarState() {
+          const sb = document.getElementById('sidebar');
+          if (!sb) return;
+          sb.classList.toggle('sidebar-collapsed', isSidebarCollapsed());
+          const btn = document.getElementById('sidebarToggle');
+          if (btn) btn.textContent = isSidebarCollapsed() ? '▶ サイドバー' : '◀ サイドバー';
+        }
+
+        // --- 運用番号ロジック ---
+        function computeOpCodeFromTrain(train) {
+          // find last occurrence of digits with optional trailing letter
+          const name = String(train.name || "").trim();
+          const m = name.match(/(\d+)([A-Za-z])?\b(?!.*\d)/); // last number + optional letter
+          if (!m) return null;
+          const digits = m[1];
+          const letter = (m[2] || 'A').toUpperCase();
+          const num = Number(digits);
+          if (!Number.isFinite(num)) return null;
+          // exclude 8000/9000番台 (8000-9999)
+          if (num >= 8000 && num < 10000) return null;
+          const lastTwo = num % 100;
+          const base = Math.floor(lastTwo / 2) * 2; // pair odd/even into same base
+          const code = String(base).padStart(2, '0') + letter;
+          return code;
+        }
+        function isExcludedTrain(train) {
+          const name = String(train.name || "").trim();
+          const m = name.match(/(\d+)([A-Za-z])?\b(?!.*\d)/);
+          if (!m) return false;
+          const num = Number(m[1]);
+          if (!Number.isFinite(num)) return false;
+          return num >= 8000 && num < 10000;
+        }
+        function getTrainOp(train) {
+          // prefer manual override
+          if (state.trainOpMap && state.trainOpMap[train.id]) return state.trainOpMap[train.id];
+          return computeOpCodeFromTrain(train);
+        }
+        function assignTrainToOp(trainId, opCode) {
+          state.trainOpMap = state.trainOpMap || {};
+          const train = getTrain(trainId);
+          if (train && isExcludedTrain(train)) {
+            // do not allow assigning op codes for excluded trains; clear any mapping
+            delete state.trainOpMap[trainId];
+            setStatus('この列車は8000/9000番台のため運用番号に含めません');
+            scheduleRender();
+            return;
+          }
+          if (!opCode) delete state.trainOpMap[trainId];
+          else state.trainOpMap[trainId] = String(opCode).toUpperCase();
+          scheduleRender();
+        }
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
+    function setSetting(key, value) {
+      state.settings[key] = value;
+      scheduleRender();
+    }
+    function updateStation(id, field, value) {
+      const s = getStation(id);
+      if (!s) return;
+      if (field === "name") s.name = value;
+      if (field === "km") s.km = value === "" ? undefined : Number(value);
+      if (field === "delete") {
+        state.stations = state.stations.filter(x => x.id !== id);
+        state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+        state.trains.forEach(t => t.stops = t.stops.filter(st => st.stationId !== id));
+      }
+      scheduleRender();
+    }
+    function updateEdge(id, field, value) {
+      const e = byId(state.edges, id);
+      if (!e) return;
+      if (field === "from") e.from = value;
+      if (field === "to") e.to = value;
+      if (field === "distance") e.distance = Number(value);
+      if (field === "delete") state.edges = state.edges.filter(x => x.id !== id);
+      scheduleRender();
+    }
+    function updateType(id, field, value) {
+      const t = getType(id);
+      if (!t) return;
+      if (field === "name") t.name = value;
+      if (field === "color") t.color = value;
+      if (field === "delete") {
+        state.types = state.types.filter(x => x.id !== id);
+        state.trains.forEach(tr => {
+          if (tr.typeId === id) tr.typeId = state.types[0]?.id || null;
+        });
+      }
+      scheduleRender();
+    }
+    function updateTrain(id, field, value) {
+      const t = getTrain(id);
+      if (!t) return;
+      if (field === "name") t.name = value;
+      if (field === "typeId") t.typeId = value;
+      if (field === "track") t.track = value;
+      if (field === "delete") deleteTrain(id);
+      scheduleRender();
+    }
+    function updateOperation(id, field, value) {
+      const op = byId(state.operations, id);
+      if (!op) return;
+      if (field === "fromTrainId") op.fromTrainId = value;
+      if (field === "toTrainId") op.toTrainId = value;
+      if (field === "note") op.note = value;
+      scheduleRender();
+    }
+    function renderSidebar() {
+      ensureSelectionValid();
+      const rootOptions = state.stations.map(s => `<option value="${esc(s.id)}"${s.id === state.settings.rootStationId ? " selected" : ""}>${esc(s.name || s.id)}</option>`).join("");
+      const stationOptions = state.stations.map(s => `<option value="${esc(s.id)}">${esc(s.name || s.id)}</option>`).join("");
+      const typeOptions = state.types.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+      const trainOptions = state.trains.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+      const kmMap = shortestKmMap();
+      const sidebar = [];
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('display') ? 'collapsed' : ''}" data-card="display">
+      <h2 onclick="toggleCard('display')">表示設定 <span class="card-toggle">${isCollapsed('display') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="toolbar-grid">
+        <label class="full small">基準駅
+          <select onchange="setSetting('rootStationId', this.value)">${rootOptions}</select>
+        </label>
+        <label class="small">縦スケール
+          <input type="number" min="10" max="200" step="1" value="${Number(state.settings.kmScale || 70)}" oninput="setSetting('kmScale', Number(this.value))">
+        </label>
+        <label class="small">横スケール(分=px)
+          <input type="number" min="0.5" max="10" step="0.1" value="${Number(state.settings.pxPerMin || 2.5)}" oninput="setSetting('pxPerMin', Number(this.value))">
+        </label>
+        <label class="small">スナップ(秒)
+          <input type="number" min="1" max="30" step="1" value="${Number(state.settings.snapMin || 5)}" oninput="setSetting('snapMin', Number(this.value))">
+        </label>
+        <label class="small">標準停車(秒)
+          <input type="number" min="0" max="300" step="1" value="${Number(state.settings.defaultDwell || 30)}" oninput="setSetting('defaultDwell', Number(this.value))">
+        </label>
+        <label class="small">標準速度(km/h)
+          <input type="number" min="1" max="300" step="1" value="${Number(state.settings.defaultSpeedKmh || 60)}" oninput="setSetting('defaultSpeedKmh', Number(this.value))">
+        </label>
+        <label class="small full">複線ずらし(px)
+          <input type="number" min="0" max="20" step="1" value="${Number(state.settings.laneOffsetPx || 4)}" oninput="setSetting('laneOffsetPx', Number(this.value))">
+        </label>
+      </div>
+      <div class="mini">縦軸は駅間距離、横軸は時刻です。停車時間は到着と出発の差として表示します。時刻は5秒単位で扱います。</div>
+      </div>
+    </div>
+  `);
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('stations') ? 'collapsed' : ''}" data-card="stations">
+      <h2 onclick="toggleCard('stations')">駅 <span class="card-toggle">${isCollapsed('stations') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="row" style="margin-bottom:8px">
+        <input id="newStationName" placeholder="駅名">
+        <button class="primary" onclick="addStation(document.getElementById('newStationName').value);document.getElementById('newStationName').value=''">追加</button>
+      </div>
+      <div class="list">
+        ${state.stations.map(s => `
+          <div class="item">
+            <div class="head">
+              <strong>${esc(s.name || "(無題)")}</strong>
+              <span class="badge">距離 ${Number.isFinite(kmMap[s.id]) ? formatNum(kmMap[s.id], 1) + " km" : "-"}</span>
+            </div>
+            <div class="row" style="margin-top:6px">
+              <input id="station-name-${s.id}" value="${esc(s.name)}" oninput="updateStation('${s.id}','name',this.value)">
+              <input id="station-km-${s.id}" type="number" step="0.1" placeholder="距離" value="${s.km ?? ""}" oninput="updateStation('${s.id}','km',this.value)" title="必要なら手動で上書きできます">
+              <button class="danger" onclick="updateStation('${s.id}','delete')">削除</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      </div>
+    </div>
+  `);
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('edges') ? 'collapsed' : ''}" data-card="edges">
+      <h2 onclick="toggleCard('edges')">駅間距離 <span class="card-toggle">${isCollapsed('edges') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="row" style="margin-bottom:8px">
+        <select id="edgeFrom">${stationOptions}</select>
+        <select id="edgeTo">${stationOptions}</select>
+        <input type="number" id="edgeDistance" step="0.1" placeholder="km" style="width:90px">
+        <button class="primary" onclick="addEdge(document.getElementById('edgeFrom').value,document.getElementById('edgeTo').value,document.getElementById('edgeDistance').value)">追加</button>
+      </div>
+      <div class="list">
+        ${state.edges.map(e => `
+          <div class="item">
+            <div class="row">
+              <select onchange="updateEdge('${e.id}','from',this.value)">${state.stations.map(s => `<option value="${esc(s.id)}"${s.id === e.from ? " selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
+              <span>→</span>
+              <select onchange="updateEdge('${e.id}','to',this.value)">${state.stations.map(s => `<option value="${esc(s.id)}"${s.id === e.to ? " selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
+              <input id="edge-distance-${e.id}" type="number" step="0.1" value="${Number(e.distance)}" oninput="updateEdge('${e.id}','distance',this.value)" style="width:90px">
+              <button class="danger" onclick="updateEdge('${e.id}','delete')">削除</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      </div>
+    </div>
+  `);
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('types') ? 'collapsed' : ''}" data-card="types">
+      <h2 onclick="toggleCard('types')">種別と色 <span class="card-toggle">${isCollapsed('types') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="row" style="margin-bottom:8px">
+        <input id="newTypeName" placeholder="種別名">
+        <input id="newTypeColor" type="color" value="#111827">
+        <button class="primary" onclick="addType(document.getElementById('newTypeName').value, document.getElementById('newTypeColor').value);document.getElementById('newTypeName').value=''">追加</button>
+      </div>
+      <div class="list">
+        ${state.types.map(t => `
+          <div class="item">
+            <div class="row">
+              <span class="swatch" style="background:${esc(t.color)}"></span>
+              <input id="type-name-${t.id}" value="${esc(t.name)}" oninput="updateType('${t.id}','name',this.value)">
+              <input id="type-color-${t.id}" type="color" value="${esc(t.color)}" oninput="updateType('${t.id}','color',this.value)">
+              <button class="danger" onclick="updateType('${t.id}','delete')">削除</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      </div>
+    </div>
+  `);
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('trains') ? 'collapsed' : ''}" data-card="trains">
+      <h2 onclick="toggleCard('trains')">列車 <span class="card-toggle">${isCollapsed('trains') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="row" style="margin-bottom:8px">
+        <button class="primary" onclick="addTrain()">列車追加</button>
+        <button onclick="selectedTrainId = state.trains[0]?.id || null; selectedStopIndex = 0; renderAll()">先頭を選択</button>
+      </div>
+      <div class="list">
+        ${state.trains.map(t => {
+        const warn = warnTextForTrain(t);
+        return `
+            <div class="item ${t.id === selectedTrainId ? "active" : ""}">
+              <div class="head">
+                <span class="badge"><span class="swatch" style="background:${esc(trainTypeColor(t))}"></span>${esc(t.name)}</span>
+                <span class="badge">${esc(trainTypeName(t))}${warn ? ` / <span class="warn">${esc(warn)}</span>` : ""}</span>
+              </div>
+              <div class="row" style="margin-top:6px">
+                <button onclick="selectedTrainId='${t.id}'; selectedStopIndex=0; renderAll()">編集</button>
+                <button onclick="duplicateTrain('${t.id}')">複製</button>
+                <button class="danger" onclick="deleteTrain('${t.id}')">削除</button>
+              </div>
+            </div>
+          `;
+      }).join("")}
+      </div>
+      </div>
+    </div>
+  `);
+
+      const t = currentTrain();
+      if (t) {
+        const stopStationOptions = state.stations.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+        const stopRows = t.stops.map((s, i) => {
+          const dep = totalDeparture(s);
+          const isSel = i === selectedStopIndex;
+          return `
+        <tr class="${isSel ? "active-row" : ""}">
+          <td>${i + 1}</td>
+          <td>
+            <select onchange="updateStopTime('${t.id}', ${i}, 'stationId', this.value)">${state.stations.map(st => `<option value="${esc(st.id)}"${st.id === s.stationId ? " selected" : ""}>${esc(st.name)}</option>`).join("")}</select>
+          </td>
+          <td><input id="stop-arr-${t.id}-${i}" type="time" step="5" value="${esc(s.arr)}" oninput="updateStopTime('${t.id}', ${i}, 'arr', this.value)"></td>
+          <td><input id="stop-dwell-${t.id}-${i}" type="number" min="0" step="5" value="${Number(s.dwell) || 0}" oninput="updateStopTime('${t.id}', ${i}, 'dwell', this.value)"></td>
+          <td><input type="text" value="${esc(dep === null ? "" : minToTime(dep))}" readonly></td>
+          <td>
+            <select onchange="updateStopTime('${t.id}', ${i}, 'track', this.value)">
+              <option value="up"${s.track === "up" ? " selected" : ""}>上り</option>
+              <option value="down"${s.track === "down" ? " selected" : ""}>下り</option>
+            </select>
+          </td>
+          <td class="row">
+            <button onclick="selectedTrainId='${t.id}'; selectedStopIndex=${Math.max(0, i - 1)}; renderAll()">↑</button>
+            <button onclick="selectedTrainId='${t.id}'; selectedStopIndex=${Math.min(t.stops.length - 1, i + 1)}; renderAll()">↓</button>
+            <button onclick="selectedTrainId='${t.id}'; selectedStopIndex=${i}; renderAll()">選択</button>
+            <button class="danger" onclick="deleteStop('${t.id}', ${i})">削除</button>
+          </td>
+        </tr>
+      `;
+        }).join("");
+
+        sidebar.push(`
+      <div class="card ${isCollapsed('selectedTrain') ? 'collapsed' : ''}" data-card="selectedTrain">
+        <h2 onclick="toggleCard('selectedTrain')">選択中の列車 <span class="card-toggle">${isCollapsed('selectedTrain') ? '+' : '−'}</span></h2>
+        <div class="card-body">
+        <div class="row" style="margin-bottom:8px">
+          <input id="train-name-${t.id}" value="${esc(t.name)}" oninput="updateTrain('${t.id}','name',this.value)">
+          <select id="train-type-${t.id}" onchange="updateTrain('${t.id}','typeId',this.value)">${state.types.map(tp => `<option value="${esc(tp.id)}"${tp.id === t.typeId ? " selected" : ""}>${esc(tp.name)}</option>`).join("")}</select>
+          <select id="train-track-${t.id}" onchange="updateTrain('${t.id}','track',this.value)">
+            <option value="up"${t.track === "up" ? " selected" : ""}>上り</option>
+            <option value="down"${t.track === "down" ? " selected" : ""}>下り</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-bottom:8px">
+          <select id="appendStation">${stopStationOptions}</select>
+          <button class="primary" onclick="addStopToTrain('${t.id}', document.getElementById('appendStation').value, '', Number(state.settings.defaultDwell || 0), 'center')">末尾に停車追加</button>
+          <label class="small">区間自動設定
+            <div class="row" style="gap:6px">
+              <select id="segmentStart">${stopStationOptions}</select>
+              <select id="segmentEnd">${stopStationOptions}</select>
+              <button onclick="setSegmentStops('${t.id}')">区間を停車リストに設定</button>
+            </div>
+          </label>
+          <button onclick="autoFillTrainTimes('${t.id}')">自動時刻補完</button>
+          <button onclick="duplicateTrain('${t.id}')">複製</button>
+          <button class="danger" onclick="deleteTrain('${t.id}')">列車削除</button>
+        </div>
+
+        <div class="row" style="margin-bottom:8px">
+          <select id="insertStation">${stopStationOptions}</select>
+          <button onclick="insertStopAt('${t.id}', ${selectedStopIndex}, document.getElementById('insertStation').value)">選択停車の前に挿入</button>
+        </div>
+
+        <div class="mini">到着時刻を動かすと後続停車がまとめて平行移動し、出発時刻を動かすと停車時間を変えて後続が追従します。</div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>駅</th><th>到着</th><th>停車(s)</th><th>出発</th><th>線</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stopRows || `<tr><td colspan="7" class="muted">停車がありません</td></tr>`}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    `);
+      } else {
+        sidebar.push(`
+      <div class="card ${isCollapsed('selectedTrain') ? 'collapsed' : ''}" data-card="selectedTrain">
+        <h2 onclick="toggleCard('selectedTrain')">選択中の列車 <span class="card-toggle">${isCollapsed('selectedTrain') ? '+' : '−'}</span></h2>
+        <div class="card-body">
+          <div class="muted">列車を選択すると、停車編集パネルがここに出ます。</div>
+        </div>
+      </div>
+    `);
+      }
+
+      sidebar.push(`
+      <div class="card ${isCollapsed('operations') ? 'collapsed' : ''}" data-card="operations">
+      <h2 onclick="toggleCard('operations')">運用番号 <span class="card-toggle">${isCollapsed('operations') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <div class="list">
+        ${(() => {
+          const groups = {};
+          for (const t of state.trains) {
+            const auto = computeOpCodeFromTrain(t) || '??';
+            const assigned = (state.trainOpMap && state.trainOpMap[t.id]) || '';
+            const key = (assigned || auto || '??').toUpperCase();
+            groups[key] = groups[key] || [];
+            groups[key].push({ id: t.id, name: t.name, auto, assigned });
+          }
+          const keys = Object.keys(groups).sort();
+          let html = '';
+          for (const k of keys) {
+            html += `<div class="item"><div class="head"><strong>運用 ${esc(k)}</strong><span class="badge">${groups[k].length} 列車</span></div>`;
+            html += '<div class="list" style="padding:6px">';
+            for (const tr of groups[k]) {
+              const aid = esc(tr.id);
+              html += `<div class="item" style="margin-bottom:6px"><div class="head"><span>${esc(tr.name)}</span><span class="badge">自:${esc(tr.auto)} 割:${esc(tr.assigned||tr.auto)}</span></div>`;
+              html += `<div class="row" style="margin-top:6px"><input id="op-assign-${aid}" value="${esc(tr.assigned||'')}" placeholder="上書き (例: 00A)" oninput="assignTrainToOp('${aid}', this.value)"></div></div>`;
+            }
+            html += '</div></div>';
+          }
+          return html;
+        })()}
+      </div>
+      </div>
+    </div>
+  `);
+
+      sidebar.push(`
+    <div class="card ${isCollapsed('save') ? 'collapsed' : ''}" data-card="save">
+      <h2 onclick="toggleCard('save')">保存・読み込み <span class="card-toggle">${isCollapsed('save') ? '+' : '−'}</span></h2>
+      <div class="card-body">
+      <textarea class="jsonbox" id="jsonBox" placeholder="JSONを貼り付けて読み込めます。"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button onclick="document.getElementById('jsonBox').value = JSON.stringify(state, null, 2)">現在を表示</button>
+        <button onclick="try{state=normalizeState(JSON.parse(document.getElementById('jsonBox').value));selectedTrainId=state.trains[0]?.id||null;selectedStopIndex=0;renderAll();setStatus('JSONを読み込みました')}catch(e){setStatus('JSONが不正です')}">貼り付け読込</button>
+        <button class="danger" onclick="state = normalizeState(${JSON.stringify(sample).replace(/</g, '\\u003c')}); selectedTrainId=state.trains[0]?.id||null; selectedStopIndex=0; renderAll()">初期化</button>
+      </div>
+      </div>
+    </div>
+  `);
+
+      // preserve focus and selection for inputs inside sidebar
+      try {
+        const active = document.activeElement;
+        let focusId = null, selStart = null, selEnd = null;
+        if (active && active.closest && active.closest('#sidebar')) {
+          focusId = active.id || null;
+          if (focusId && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            try { selStart = active.selectionStart; selEnd = active.selectionEnd; } catch (e) { selStart = selEnd = null; }
+          }
+        }
+        document.getElementById("sidebarBody").innerHTML = sidebar.join("");
+        if (focusId) {
+          const el = document.getElementById(focusId);
+          if (el) {
+            el.focus();
+            if (selStart !== null && typeof el.setSelectionRange === 'function') {
+              try { el.setSelectionRange(selStart, selEnd); } catch (e) { }
+            }
+          }
+        }
+      } catch (e) {
+        document.getElementById("sidebarBody").innerHTML = sidebar.join("");
+      }
+    }
+    function renderCanvas() {
+      ensureSelectionValid();
+      const canvas = document.getElementById("canvas");
+      canvas.innerHTML = "";
+
+      const kmMap = shortestKmMap();
+      const { min: minTime, max: maxTime } = collectTimeRange();
+      const pxPerMin = Number(state.settings.pxPerMin || 2.5);
+      const leftPad = 120;
+      const topPad = 30;
+      const bottomPad = 50;
+      const timeBase = Math.floor(minTime / 60) * 60;
+      const timeEnd = Math.ceil(maxTime / 60) * 60;
+      const width = leftPad + (timeEnd - timeBase) * pxPerMin + 100;
+      const maxKm = Math.max(...Object.values(kmMap));
+      const height = 90 + maxKm * Number(state.settings.kmScale || 70) + bottomPad;
+      canvas.setAttribute("width", String(Math.max(1200, width)));
+      canvas.setAttribute("height", String(Math.max(700, height)));
+      canvas.setAttribute("viewBox", `0 0 ${Math.max(1200, width)} ${Math.max(700, height)}`);
+
+      // background
+      canvas.appendChild(makeSvg("rect", { x: 0, y: 0, width: Math.max(1200, width), height: Math.max(700, height), fill: "#fff" }));
+
+      // horizontal grid (distance)
+      const kmStep = 1;
+      const kmStart = 0;
+      const kmEnd = Math.ceil(maxKm + 1);
+      for (let km = kmStart; km <= kmEnd; km += kmStep) {
+        const y = 90 + km * Number(state.settings.kmScale || 70);
+        const major = km % 5 === 0;
+        canvas.appendChild(makeSvg("line", {
+          x1: 0, y1: y, x2: width, y2: y,
+          stroke: major ? "#cbd5e1" : "#edf2f7",
+          "stroke-width": major ? 1.2 : 1
+        }));
+        canvas.appendChild(makeSvg("text", {
+          x: 12, y: y - 4,
+          fill: "#64748b",
+          "font-size": 11
+        }, `${km} km`));
+      }
+
+      // vertical grid (time)
+      for (let m = Math.floor(timeBase / 600) * 600; m <= timeEnd; m += 600) {
+        const x = timeX(m, timeBase, leftPad, pxPerMin);
+        const major = m % 3600 === 0;
+        canvas.appendChild(makeSvg("line", {
+          x1: x, y1: 0, x2: x, y2: height,
+          stroke: major ? "#cbd5e1" : "#edf2f7",
+          "stroke-width": major ? 1.2 : 1
+        }));
+        if (m >= timeBase && m <= timeEnd) {
+          canvas.appendChild(makeSvg("text", {
+            x: x + 2, y: 18,
+            fill: "#64748b",
+            "font-size": 11
+          }, minToTime(m)));
+        }
+      }
+
+      // station labels and lines
+      for (const s of state.stations) {
+        const y = stationY(s.id, kmMap);
+        canvas.appendChild(makeSvg("line", {
+          x1: 0, y1: y, x2: width, y2: y,
+          stroke: "#94a3b8",
+          "stroke-width": 1
+        }));
+        canvas.appendChild(makeSvg("rect", { x: 6, y: y - 14, width: 96, height: 20, rx: 6, fill: "#fff", stroke: "#e2e8f0" }));
+        canvas.appendChild(makeSvg("text", { x: 12, y: y - 0.5, fill: "#111827", "font-size": 12 }, s.name));
+      }
+
+      // operations (dashed)
+      for (const op of state.operations) {
+        const from = getTrain(op.fromTrainId);
+        const to = getTrain(op.toTrainId);
+        if (!from || !to || !from.stops.length || !to.stops.length) continue;
+        const a = from.stops.at(-1);
+        const b = to.stops[0];
+        const y1 = stationY(a.stationId, kmMap) + trackOffsetPx(a.track);
+        const y2 = stationY(b.stationId, kmMap) + trackOffsetPx(b.track);
+        const x1 = timeX(totalDeparture(a) ?? timeToMin(a.arr) ?? timeBase, timeBase, leftPad, pxPerMin);
+        const x2 = timeX(timeToMin(b.arr) ?? timeBase, timeBase, leftPad, pxPerMin);
+        canvas.appendChild(makeSvg("line", {
+          x1, y1, x2, y2,
+          stroke: "#64748b",
+          "stroke-width": 1.4,
+          "stroke-dasharray": "6 5"
+        }));
+        canvas.appendChild(makeSvg("text", {
+          x: (x1 + x2) / 2 + 4,
+          y: (y1 + y2) / 2 - 4,
+          fill: "#475569",
+          "font-size": 11
+        }, op.note || "運用"));
+      }
+
+      // trains
+      for (const train of state.trains) {
+        const color = trainTypeColor(train);
+        for (let i = 0; i < train.stops.length; i++) {
+          const stop = train.stops[i];
+          const st = getStation(stop.stationId);
+          if (!st) continue;
+          const y = stationY(stop.stationId, kmMap) + trackOffsetPx(stop.track || train.track);
+          const arr = timeToMin(stop.arr);
+          const dep = totalDeparture(stop);
+          if (arr === null || dep === null) continue;
+
+          // running segment from previous departure to arrival
+          if (i > 0) {
+            const prev = train.stops[i - 1];
+            const prevDep = totalDeparture(prev);
+            const prevY = stationY(prev.stationId, kmMap) + trackOffsetPx(prev.track || train.track);
+            if (prevDep !== null) {
+              const x1 = timeX(prevDep, timeBase, leftPad, pxPerMin);
+              const x2 = timeX(arr, timeBase, leftPad, pxPerMin);
+              canvas.appendChild(makeSvg("line", {
+                x1, y1: prevY, x2, y2: y,
+                stroke: color,
+                "stroke-width": 2.2,
+                "stroke-linecap": "round"
+              }));
+            }
+          }
+
+          // dwell line: simple horizontal line (thin, no rounded caps)
+          const xArr = timeX(arr, timeBase, leftPad, pxPerMin);
+          const xDep = timeX(dep, timeBase, leftPad, pxPerMin);
+          canvas.appendChild(makeSvg("line", {
+            x1: xArr, y1: y, x2: xDep, y2: y,
+            stroke: color,
+            "stroke-width": 2,
+            "stroke-linecap": "butt",
+            opacity: 1
+          }));
+
+          // labels
+          canvas.appendChild(makeSvg("text", {
+            x: xArr + 2,
+            y: y - 10,
+            fill: color,
+            "font-size": 11
+          }, `${stationLabel(stop.stationId)} ${stop.arr}/${minToTime(dep)}`));
+
+          // handles
+          const isSelected = train.id === selectedTrainId && i === selectedStopIndex;
+          const arrHandle = makeSvg("circle", {
+            cx: xArr, cy: y, r: isSelected ? 10 : 8,
+            fill: "transparent",
+            stroke: "none",
+            cursor: "grab",
+            "pointer-events": "all"
+          });
+          arrHandle.dataset.trainId = train.id;
+          arrHandle.dataset.stopIndex = i;
+          arrHandle.dataset.handle = "arr";
+          arrHandle.addEventListener("mousedown", startDrag);
+
+          const depHandle = makeSvg("circle", {
+            cx: xDep, cy: y, r: isSelected ? 10 : 8,
+            fill: "transparent",
+            stroke: "none",
+            cursor: "grab",
+            "pointer-events": "all"
+          });
+          depHandle.dataset.trainId = train.id;
+          depHandle.dataset.stopIndex = i;
+          depHandle.dataset.handle = "dep";
+          depHandle.addEventListener("mousedown", startDrag);
+
+          canvas.appendChild(arrHandle);
+          canvas.appendChild(depHandle);
+
+          if (isSelected) {
+            canvas.appendChild(makeSvg("rect", {
+              x: Math.min(xArr, xDep) - 10,
+              y: y - 16,
+              width: Math.abs(xDep - xArr) + 20,
+              height: 32,
+              rx: 10,
+              fill: "none",
+              stroke: color,
+              "stroke-width": 1.2,
+              "stroke-dasharray": "5 4",
+              "pointer-events": "none"
+            }));
+          }
+        }
+
+        // train label
+        if (train.stops.length) {
+          const first = train.stops[0];
+          const y = stationY(first.stationId, kmMap) + trackOffsetPx(first.track || train.track);
+          const x = timeX(timeToMin(first.arr) ?? timeBase, timeBase, leftPad, pxPerMin);
+          canvas.appendChild(makeSvg("text", {
+            x: x - 8,
+            y: y - 22,
+            fill: color,
+            "font-size": 12,
+            "font-weight": "600"
+          }, train.name));
+        }
+      }
+
+      // frame line
+      canvas.appendChild(makeSvg("line", {
+        x1: leftPad, y1: 0, x2: leftPad, y2: height,
+        stroke: "#94a3b8",
+        "stroke-width": 1
+      }));
+
+      lastRender = { timeBase, leftPad, pxPerMin, kmMap };
+    }
+    function startDrag(evt) {
+      evt.preventDefault();
+      const target = evt.currentTarget;
+      const trainId = target.dataset.trainId;
+      const stopIndex = Number(target.dataset.stopIndex);
+      const handle = target.dataset.handle;
+      const train = getTrain(trainId);
+      if (!train || !train.stops[stopIndex]) return;
+      selectedTrainId = trainId;
+      selectedStopIndex = stopIndex;
+      const stop = train.stops[stopIndex];
+      dragging = {
+        trainId,
+        stopIndex,
+        handle,
+        startArr: stop.arr,
+        startDwell: Number(stop.dwell) || 0,
+        startDep: minToTime(totalDeparture(stop) ?? timeToMin(stop.arr) ?? 0)
+      };
+      document.addEventListener("mousemove", onDragMove);
+      document.addEventListener("mouseup", endDrag);
+    }
+    function onDragMove(evt) {
+      if (!dragging || !lastRender) return;
+      const pt = svgPoint(evt);
+      const snapSize = Number(state.settings.snapMin || 5);
+      const rawSec = lastRender.timeBase + ((pt.x - lastRender.leftPad) / lastRender.pxPerMin) * 60;
+      const snap = Math.round(rawSec / snapSize) * snapSize;
+      const train = getTrain(dragging.trainId);
+      if (!train || !train.stops[dragging.stopIndex]) return;
+      const stop = train.stops[dragging.stopIndex];
+      if (dragging.handle === "arr") {
+        const oldArr = timeToMin(stop.arr);
+        if (oldArr === null) return;
+        const delta = snap - oldArr;
+        stop.arr = minToTime(snap);
+        shiftDownstream(train, dragging.stopIndex, delta);
+      } else {
+        const oldDep = totalDeparture(stop);
+        const arr = timeToMin(stop.arr);
+        if (oldDep === null || arr === null) return;
+        const newDwell = Math.max(0, snap - arr);
+        const delta = snap - oldDep;
+        stop.dwell = newDwell;
+        shiftDownstream(train, dragging.stopIndex, delta);
+      }
+      renderAll(false);
+    }
+    function endDrag() {
+      if (!dragging) return;
+      dragging = null;
+      document.removeEventListener("mousemove", onDragMove);
+      document.removeEventListener("mouseup", endDrag);
+      renderAll();
+    }
+    function renderStatus() {
+      const trainCount = state.trains.length;
+      const stationCount = state.stations.length;
+      const opCount = state.operations.length;
+      const t = currentTrain();
+      const warn = t ? warnTextForTrain(t) : "";
+      const message = [
+        `${stationCount}駅`,
+        `${trainCount}列車`,
+        `${opCount}運用`
+      ].join(" / ");
+      document.getElementById("status").innerHTML =
+        `${message}${t ? ` / 選択: ${esc(t.name)}` : ""}${warn ? ` / <span class="warn">${esc(warn)}</span>` : ""}`;
+    }
+    function renderAll(full = true) {
+      ensureSelectionValid();
+      applySidebarState();
+      if (full) renderSidebar();
+      renderCanvas();
+      renderStatus();
+    }
+    document.addEventListener("keydown", (e) => {
+      const t = currentTrain();
+      if (!t || !t.stops.length) return;
+      const stop = t.stops[selectedStopIndex];
+      if (!stop) return;
+      const step = e.shiftKey ? 60 : 5;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        updateStopTime(t.id, selectedStopIndex, "arr", minToTime((timeToMin(stop.arr) || 0) - step));
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        updateStopTime(t.id, selectedStopIndex, "arr", minToTime((timeToMin(stop.arr) || 0) + step));
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        deleteStop(t.id, selectedStopIndex);
+      }
+    });
+    document.getElementById("canvasWrap").addEventListener("dblclick", (e) => {
+      const pt = svgPoint(e);
+      if (!lastRender) return;
+      const xMin = lastRender.timeBase + ((pt.x - lastRender.leftPad) / lastRender.pxPerMin) * 60;
+      const y = pt.y;
+      const kmMap = lastRender.kmMap;
+      let closestStation = null;
+      let best = Infinity;
+      for (const s of state.stations) {
+        const sy = stationY(s.id, kmMap) + trackOffsetPx("center");
+        const d = Math.abs(sy - y);
+        if (d < best) { best = d; closestStation = s; }
+      }
+      if (!closestStation || !currentTrain()) return;
+      addStopToTrain(currentTrain().id, closestStation.id, minToTime(xMin), Number(state.settings.defaultDwell || 0), "center");
+    });
+    window.addStation = addStation;
+    window.addEdge = addEdge;
+    window.addType = addType;
+    window.addTrain = addTrain;
+    window.addStopToTrain = addStopToTrain;
+    window.insertStopAt = insertStopAt;
+    window.duplicateTrain = duplicateTrain;
+    window.deleteTrain = deleteTrain;
+    window.deleteStop = deleteStop;
+    window.autoFillTrainTimes = autoFillTrainTimes;
+    window.updateStation = updateStation;
+    window.updateEdge = updateEdge;
+    window.updateType = updateType;
+    window.updateTrain = updateTrain;
+    window.updateOperation = updateOperation;
+    window.setSetting = setSetting;
+    window.saveLocal = saveLocal;
+    window.loadLocal = loadLocal;
+    window.exportJson = exportJson;
+    window.importJsonFile = importJsonFile;
+    window.renderAll = renderAll;
+    window.selectedTrainId = selectedTrainId;
+    window.selectedStopIndex = selectedStopIndex;
+    window.state = state;
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        state = normalizeState(JSON.parse(saved));
+      } catch {
+        state = deepClone(sample);
+      }
+    }
+    selectedTrainId = state.trains[0]?.id || null;
+    selectedStopIndex = 0;
+    renderAll();
+  </script>
+</body>
+
+</html>
