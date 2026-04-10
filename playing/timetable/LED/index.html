@@ -3,12 +3,11 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=1000" />
   <title>ATOS発車標</title>
   <style>
     :root {
       --bg: #171717;
-      --dot-size: 6px;
       --panel: #222;
       --panel2: #111;
       --text: #e6e6e6;
@@ -34,7 +33,8 @@
       --orange: #ff9e33;
       --board: #0b0b0b;
       --board2: #030303;
-      --dot-size: 6px; /* dot cell size: square */
+      --dot-size: 5px;
+      /* dot cell size: square */
     }
 
     .titlebar {
@@ -113,18 +113,21 @@
     /* Table-based LED matrix */
     .led-board {
       display: inline-block;
-      border: 1px solid #6b6b6b; /* thin gray border around board */
+      border: 1px solid #6b6b6b;
+      /* thin gray border around board */
       border-radius: 8px;
       overflow: hidden;
       background: var(--board);
-      margin: 0; /* no extra gap around LED area */
+      margin: 0;
+      /* no extra gap around LED area */
       padding: 0;
     }
 
     /* grid-based LED matrix: divs for perfect square cells */
     #boardTable.board-grid {
       display: grid;
-      grid-template-columns: repeat(160, var(--dot-size)); /* updated via JS if needed */
+      grid-template-columns: repeat(160, var(--dot-size));
+      /* updated via JS if needed */
       grid-auto-rows: var(--dot-size);
       gap: 0;
     }
@@ -136,7 +139,8 @@
       margin: 0;
       background: var(--board2);
       box-sizing: border-box;
-      outline: 1px solid #3a3a3a; /* uniform gray grid lines without affecting layout */
+      outline: 1px solid #3a3a3a;
+      /* uniform gray grid lines without affecting layout */
     }
 
     .form {
@@ -162,7 +166,7 @@
 
     .field {
       display: grid;
-      grid-template-columns: 72px 1fr;
+      grid-template-columns: 10vw 1fr;
       gap: 8px;
       align-items: center;
       font-size: 13px;
@@ -238,31 +242,24 @@
       </div>
 
       <div class="panel">
-        <div class="form">
-          <div class="rowcard">
-            <h3>1行目</h3>
-            <div class="field"><label>種別</label><input id="r1Type" value="普通"></div>
-            <div class="field"><label>時刻</label><input id="r1Time" value="11:21"></div>
-            <div class="field"><label>行先</label><input id="r1Dest" value="逗　子"></div>
-            <div class="field"><label>両数</label><input id="r1Cars" value="11両"></div>
-          </div>
-          <div class="rowcard">
-            <h3>2行目</h3>
-            <div class="field"><label>種別</label><input id="r2Type" value="普通"></div>
-            <div class="field"><label>時刻</label><input id="r2Time" value="11:31"></div>
-            <div class="field"><label>行先</label><input id="r2Dest" value="逗　子"></div>
-            <div class="field"><label>両数</label><input id="r2Cars" value="10両"></div>
-          </div>
-          <div class="rowcard">
-            <h3>表示ルール</h3>
-            <div class="note">
-              ・文字データは font.js に保存します。<br>
-              ・通常は 16×16 を 1 文字分として描画します。<br>
-              ・「特別快速」のように文字数を超える表示は、font.js に 32×16 などの別定義を入れてください。<br>
-              ・レンダラーは、登録されている最長一致の字形を優先します。
+        <div>
+          <div class="form">
+            <div class="rowcard">
+              <h3>1行目</h3>
+              <div class="field"><label>種別</label><input id="r1Type" value="普通"></div>
+              <div class="field"><label>時刻</label><input id="r1Time" value="11:21"></div>
+              <div class="field"><label>行先</label><input id="r1Dest" value="逗　子"></div>
+              <div class="field"><label>両数</label><input id="r1Cars" value="11両"></div>
+            </div>
+            <div class="rowcard">
+              <h3>2行目</h3>
+              <div class="field"><label>種別</label><input id="r2Type" value="普通"></div>
+              <div class="field"><label>時刻</label><input id="r2Time" value="11:31"></div>
+              <div class="field"><label>行先</label><input id="r2Dest" value="逗　子"></div>
+              <div class="field"><label>両数</label><input id="r2Cars" value="10両"></div>
             </div>
           </div>
-          <div class="toolbar">
+          <div class="toolbar form">
             <button id="redraw">再描画</button>
             <button id="saveState">この画面の設定を保存</button>
             <button id="loadState">保存設定を読み込み</button>
@@ -457,58 +454,74 @@
 
     function drawFrame() {
       try {
-      // Ensure grid exists
-      if (!cellGrid.length) createGrid();
-      clearGrid();
+        // Ensure grid exists
+        if (!cellGrid.length) createGrid();
+        clearGrid();
 
-      function cssVar(name, fallback) {
-        const v = getComputedStyle(document.documentElement).getPropertyValue(name);
-        return (v || '').trim() || fallback;
-      }
-      const textColorOrange = cssVar('--orange', '#ff9f3d');
-      const textColorGreen = cssVar('--green', '#1fbf3a');
-
-      const rowSpecs = [
-        {
-          row: 0, // top line starts at row 0
-          type: $('r1Type').value,
-          time: $('r1Time').value,
-          dest: $('r1Dest').value,
-          cars: $('r1Cars').value,
-        },
-        {
-          row: 16, // bottom line starts at row 16 (no overlap)
-          type: $('r2Type').value,
-          time: $('r2Time').value,
-          dest: $('r2Dest').value,
-          cars: $('r2Cars').value,
+        function cssVar(name, fallback) {
+          const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+          return (v || '').trim() || fallback;
         }
-      ];
+        const textColorOrange = cssVar('--orange', '#ff9f3d');
+        const textColorGreen = cssVar('--green', '#1fbf3a');
 
-      // column positions (in matrix columns)
-      // Allocate exact slots: type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
-      // layout across 160 columns: [type:0-31][time:32-79][dest:80-127][cars:128-159]
-      const xType = 0;
-      const xTime = 32;
-      const xDest = 80;
-      const xCars = 128;
+        const rowSpecs = [
+          {
+            row: 0, // top line starts at row 0
+            type: $('r1Type').value,
+            time: $('r1Time').value,
+            dest: $('r1Dest').value,
+            cars: $('r1Cars').value,
+          },
+          {
+            row: 16, // bottom line starts at row 16 (no overlap)
+            type: $('r2Type').value,
+            time: $('r2Time').value,
+            dest: $('r2Dest').value,
+            cars: $('r2Cars').value,
+          }
+        ];
 
-      rowSpecs.forEach(row => {
-        drawTextToGrid(row.type, xType, row.row, textColorOrange);
-        // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
-        const timeKeys = timeToGlyphKeys(String(row.time || ''));
-        if (timeKeys) {
-          drawGlyphKeysToGrid(timeKeys, xTime, row.row, textColorGreen);
-        } else {
-          drawTextToGrid(row.time, xTime, row.row, textColorGreen);
+        // column positions (in matrix columns)
+        // Allocate exact slots: type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
+        // layout across 160 columns: [type:0-31][time:32-79][dest:80-127][cars:128-159]
+        const xType = 0;
+        const xTime = 32;
+        const xDest = 80;
+        const xCars = 128;
+
+        // helper to choose color based on `種別`
+        function typeToColor(typeStr) {
+          const t = String(typeStr || '');
+          // prefer CSS vars with sensible fallbacks
+          const cRed = cssVar('--red', '#ff3b3b');
+          const cOrange = cssVar('--orange', '#ff9e33');
+          const cGreen = cssVar('--green', '#1fbf3a');
+          if (t.indexOf('特急') !== -1 || t.indexOf('快特') !== -1) return cRed;
+          if (t.indexOf('快速') !== -1 || t.indexOf('急行') !== -1) return cOrange;
+          if (t.indexOf('普通') !== -1 || t.indexOf('各駅停車') !== -1 || t.indexOf('回送') !== -1) return cGreen;
+          // fallback
+          return cOrange;
         }
-        drawTextToGrid(row.dest, xDest, row.row, textColorOrange);
-        drawTextToGrid(row.cars, xCars, row.row, textColorOrange);
-      });
 
-      const count = Object.keys(glyphMap()).length;
-      $('status').textContent = `font.js 読み込み: ${count} 字形`;
-      $('fontWarn').textContent = count ? '' : 'font.js に字形がありません。editor.html で作成してから再読み込みしてください。';
+        rowSpecs.forEach(row => {
+          const typeColor = typeToColor(row.type);
+          drawTextToGrid(row.type, xType, row.row, typeColor);
+          // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
+          const timeKeys = timeToGlyphKeys(String(row.time || ''));
+          if (timeKeys) {
+            drawGlyphKeysToGrid(timeKeys, xTime, row.row, textColorGreen);
+          } else {
+            drawTextToGrid(row.time, xTime, row.row, textColorGreen);
+          }
+          drawTextToGrid(row.dest, xDest, row.row, textColorOrange);
+          // 両数は緑で表示
+          drawTextToGrid(row.cars, xCars, row.row, textColorGreen);
+        });
+
+        const count = Object.keys(glyphMap()).length;
+        $('status').textContent = `font.js 読み込み: ${count} 字形`;
+        $('fontWarn').textContent = count ? '' : 'font.js に字形がありません。editor.html で作成してから再読み込みしてください。';
       } catch (err) {
         console.error(err);
         $('status').textContent = '描画エラー: ' + (err && err.message);
