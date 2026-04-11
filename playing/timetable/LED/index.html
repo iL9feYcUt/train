@@ -123,7 +123,7 @@
     /* grid-based LED matrix: divs for perfect square cells */
     #boardTable.board-grid {
       display: grid;
-      grid-template-columns: repeat(160, var(--dot-size));
+      grid-template-columns: repeat(208, var(--dot-size));
       /* updated via JS if needed */
       grid-auto-rows: var(--dot-size);
       gap: 0;
@@ -243,6 +243,7 @@
           <div class="form">
             <div class="rowcard">
               <h3>1行目</h3>
+                  <div class="field"><label>路線</label><input id="r1Line" value=""></div>
               <div class="field"><label>種別</label><input id="r1Type" value="普通"></div>
               <div class="field"><label>時刻</label><input id="r1Time" value="11:21"></div>
               <div class="field"><label>行先</label><input id="r1Dest" value="逗　子"></div>
@@ -250,6 +251,7 @@
             </div>
             <div class="rowcard">
               <h3>2行目</h3>
+                  <div class="field"><label>路線</label><input id="r2Line" value=""></div>
               <div class="field"><label>種別</label><input id="r2Type" value="普通"></div>
               <div class="field"><label>時刻</label><input id="r2Time" value="11:31"></div>
               <div class="field"><label>行先</label><input id="r2Dest" value="逗　子"></div>
@@ -277,9 +279,8 @@
     const STORAGE_KEY = 'atos-board-state-v1';
 
     const stateFields = [
-      'lineName', 'platform', 'header1', 'header2',
-      'r1Type', 'r1Time', 'r1Dest', 'r1Cars',
-      'r2Type', 'r2Time', 'r2Dest', 'r2Cars'
+      'r1Line','r1Type', 'r1Time', 'r1Dest', 'r1Cars',
+      'r2Line','r2Type', 'r2Time', 'r2Dest', 'r2Cars'
     ];
 
     function getFont() {
@@ -330,8 +331,8 @@
       return x;
     }
 
-    // TABLE-BASED RENDERER for 160x32 pixels (no gap between dots)
-    const MATRIX_W = 160;
+    // TABLE-BASED RENDERER for 208x32 pixels (no gap between dots)
+    const MATRIX_W = 224;
     const MATRIX_H = 32;
     // create fast access grid
     let cellGrid = [];
@@ -465,6 +466,7 @@
         const rowSpecs = [
           {
             row: 0, // top line starts at row 0
+            line: $('r1Line').value,
             type: $('r1Type').value,
             time: $('r1Time').value,
             dest: $('r1Dest').value,
@@ -472,6 +474,7 @@
           },
           {
             row: 16, // bottom line starts at row 16 (no overlap)
+            line: $('r2Line').value,
             type: $('r2Type').value,
             time: $('r2Time').value,
             dest: $('r2Dest').value,
@@ -480,12 +483,13 @@
         ];
 
         // column positions (in matrix columns)
-        // Allocate exact slots: type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
-        // layout across 160 columns: [type:0-31][time:32-79][dest:80-127][cars:128-159]
-        const xType = 0;
-        const xTime = 32;
-        const xDest = 80;
-        const xCars = 128;
+        // Allocate exact slots: line=3chars(48), type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
+        // layout across 208 columns: [line:0-47][type:48-79][time:80-127][dest:128-175][cars:176-207]
+        const xLine = 0;
+        const xType = 48;
+        const xTime = 80;
+        const xDest = 128;
+        const xCars = 192;
 
         // helper to choose color based on `種別`
         function typeToColor(typeStr) {
@@ -503,6 +507,8 @@
 
         rowSpecs.forEach(row => {
           const typeColor = typeToColor(row.type);
+          // draw route (路線) then type
+          drawTextToGrid(row.line || '', xLine, row.row, textColorOrange);
           drawTextToGrid(row.type, xType, row.row, typeColor);
           // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
           const timeKeys = timeToGlyphKeys(String(row.time || ''));
@@ -511,7 +517,11 @@
           } else {
             drawTextToGrid(row.time, xTime, row.row, textColorGreen);
           }
-          drawTextToGrid(row.dest, xDest, row.row, textColorOrange);
+          // 行先が全角3文字の場合は136列目から開始する
+          const destStr = String(row.dest || '');
+          const isZenkaku3 = (/^[^\x00-\x7F]{3}$/).test(destStr);
+          const destStart = isZenkaku3 ? 136 : xDest;
+          drawTextToGrid(destStr, destStart, row.row, textColorOrange);
           // 両数は緑で表示
           drawTextToGrid(row.cars, xCars, row.row, textColorGreen);
         });
