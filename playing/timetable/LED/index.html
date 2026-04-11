@@ -75,7 +75,7 @@
 
     .grid {
       display: block;
-      grid-template-columns: 1fr 360px;
+      grid-template-columns: 900px 360px;
       gap: 16px;
     }
 
@@ -98,6 +98,7 @@
       border-radius: 16px;
       padding: 14px;
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      width: 1150px;
     }
 
     canvas {
@@ -243,18 +244,18 @@
           <div class="form">
             <div class="rowcard">
               <h3>1行目</h3>
-                  <div class="field"><label>路線</label><input id="r1Line" value=""></div>
-              <div class="field"><label>種別</label><input id="r1Type" value="普通"></div>
-              <div class="field"><label>時刻</label><input id="r1Time" value="11:21"></div>
-              <div class="field"><label>行先</label><input id="r1Dest" value="逗　子"></div>
-              <div class="field"><label>両数</label><input id="r1Cars" value="11両"></div>
+                  <div class="field"><label>路線</label><input id="r1Line" value="横浜線"></div>
+              <div class="field"><label>種別</label><input id="r1Type" value="各駅停車"></div>
+              <div class="field"><label>時刻</label><input id="r1Time" value="1121"></div>
+              <div class="field"><label>行先</label><input id="r1Dest" value="八王子"></div>
+              <div class="field"><label>両数</label><input id="r1Cars" value="8両"></div>
             </div>
             <div class="rowcard">
               <h3>2行目</h3>
-                  <div class="field"><label>路線</label><input id="r2Line" value=""></div>
-              <div class="field"><label>種別</label><input id="r2Type" value="普通"></div>
-              <div class="field"><label>時刻</label><input id="r2Time" value="11:31"></div>
-              <div class="field"><label>行先</label><input id="r2Dest" value="逗　子"></div>
+                  <div class="field"><label>路線</label><input id="r2Line" value="京浜東北線"></div>
+              <div class="field"><label>種別</label><input id="r2Type" value="快速"></div>
+              <div class="field"><label>時刻</label><input id="r2Time" value="937"></div>
+              <div class="field"><label>行先</label><input id="r2Dest" value="東十条"></div>
               <div class="field"><label>両数</label><input id="r2Cars" value="10両"></div>
             </div>
           </div>
@@ -331,9 +332,82 @@
       return x;
     }
 
-    // TABLE-BASED RENDERER for 208x32 pixels (no gap between dots)
+    // TABLE-BASED RENDERER for 224x32 pixels (no gap between dots)
     const MATRIX_W = 224;
     const MATRIX_H = 32;
+
+    // --- Translation pairs (日本語 ↔ English)
+    // Edit these arrays to add mappings. Each entry is [jp, en].
+    const typePairs = [
+      ['普通', 'LOCAL'],
+      ['各駅停車', 'LOCAL'],
+      ['回送', 'OUT OF SERVICE'],
+      ['快速', 'RAPID'],
+      ['特急', 'LIMITED EXPRESS']
+    ];
+    const destPairs = [
+      ['大　宮', 'ŌMIYA'],
+      ['南浦和', 'MINAMI-URAWA'],
+      ['赤　羽', 'AKABANE'],
+      ['東十条', 'HIGASHI-JŪJŌ'],
+      ['上　野', 'UENO'],
+      ['東　京', 'TOKYO'],
+      ['田　町', 'TAMACHI'],
+      ['品　川', 'SHINAGAWA'],
+      ['蒲　田', 'KAMATA'],
+      ['鶴　見', 'TSURUMI'],
+      ['横　浜', 'YOKOHAMA'],
+      ['東神奈川', 'HIGASHI-KANAGAWA'],
+      ['桜木町', 'SAKURAGICHŌ'],
+      ['磯　子', 'ISOGO'],
+      ['大　船', 'ŌFUNA'],
+      ['橋　本', 'HASHIMOTO'],
+      ['八王子', 'HACHIŌJI']       
+    ];
+    const linePairs = [ 
+      ['京浜東北線', 'KEIHIN-TŌHOKU LINE'],
+      ['横浜線', 'YOKOHAMA LINE']
+    ];
+
+    const carsPairs = [
+      ['10両', '10Cars'],
+      ['8両', '8Cars']
+    ];
+
+    function translatePair(text, pairs) {
+      if (!text) return text;
+      for (const p of pairs) {
+        if (!p) continue;
+        if (!Array.isArray(p) || p.length < 1) continue;
+        if (p[0] === text) return p[1];
+      }
+      return text;
+    }
+
+    function translateCars(carsStr) {
+      if (!carsStr) return carsStr;
+      // exact mapping first
+      for (const p of carsPairs) {
+        if (!p || !Array.isArray(p)) continue;
+        if (p[0] === carsStr) return p[1];
+      }
+      // fallback: convert numeric 両 -> "N cars"
+      const m = String(carsStr).trim().match(/^(\d+)\s*両$/);
+      if (m) return `${m[1]}Cars`;
+      return carsStr;
+    }
+
+    // language cycle: 12s 日本語 -> 6s English -> repeat
+    let displayLang = 'ja';
+    function startLangCycle() {
+      displayLang = 'ja';
+      drawFrame();
+      setTimeout(() => {
+        displayLang = 'en';
+        drawFrame();
+        setTimeout(startLangCycle, 6000);
+      }, 12000);
+    }
     // create fast access grid
     let cellGrid = [];
 
@@ -466,19 +540,19 @@
         const rowSpecs = [
           {
             row: 0, // top line starts at row 0
-            line: $('r1Line').value,
-            type: $('r1Type').value,
+            line_jp: $('r1Line').value,
+            type_jp: $('r1Type').value,
             time: $('r1Time').value,
-            dest: $('r1Dest').value,
-            cars: $('r1Cars').value,
+            dest_jp: $('r1Dest').value,
+            cars_jp: $('r1Cars').value,
           },
           {
             row: 16, // bottom line starts at row 16 (no overlap)
-            line: $('r2Line').value,
-            type: $('r2Type').value,
+            line_jp: $('r2Line').value,
+            type_jp: $('r2Type').value,
             time: $('r2Time').value,
-            dest: $('r2Dest').value,
-            cars: $('r2Cars').value,
+            dest_jp: $('r2Dest').value,
+            cars_jp: $('r2Cars').value,
           }
         ];
 
@@ -506,10 +580,14 @@
         }
 
         rowSpecs.forEach(row => {
-          const typeColor = typeToColor(row.type);
+          // always use Japanese name for color/ classification
+          const typeColor = typeToColor(row.type_jp);
+          // translate display strings according to displayLang
+          const dispLine = (displayLang === 'ja') ? row.line_jp : translatePair(row.line_jp, linePairs);
+          const dispType = (displayLang === 'ja') ? row.type_jp : translatePair(row.type_jp, typePairs);
           // draw route (路線) then type
-          drawTextToGrid(row.line || '', xLine, row.row, textColorOrange);
-          drawTextToGrid(row.type, xType, row.row, typeColor);
+          drawTextToGrid(dispLine || '', xLine, row.row, textColorOrange);
+          drawTextToGrid(dispType, xType, row.row, typeColor);
           // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
           const timeKeys = timeToGlyphKeys(String(row.time || ''));
           if (timeKeys) {
@@ -518,12 +596,14 @@
             drawTextToGrid(row.time, xTime, row.row, textColorGreen);
           }
           // 行先が全角3文字の場合は136列目から開始する
-          const destStr = String(row.dest || '');
-          const isZenkaku3 = (/^[^\x00-\x7F]{3}$/).test(destStr);
-          const destStart = isZenkaku3 ? 136 : xDest;
-          drawTextToGrid(destStr, destStart, row.row, textColorOrange);
-          // 両数は緑で表示
-          drawTextToGrid(row.cars, xCars, row.row, textColorGreen);
+          const destJp = String(row.dest_jp || '');
+          const isZenkaku3 = (/^[^\x00-\x7F]{3}$/).test(destJp);
+          const dispDest = (displayLang === 'ja') ? destJp : translatePair(destJp, destPairs);
+          const destStart = (displayLang === 'ja' && isZenkaku3) ? 136 : xDest;
+          drawTextToGrid(dispDest, destStart, row.row, textColorOrange);
+          // 両数は緑で表示（英語ターンは変換）
+          const dispCars = (displayLang === 'ja') ? String(row.cars_jp || '') : translateCars(String(row.cars_jp || ''));
+          drawTextToGrid(dispCars, xCars, row.row, textColorGreen);
         });
 
         const count = Object.keys(glyphMap()).length;
@@ -572,6 +652,7 @@
     bind();
     loadState();
     drawFrame();
+    startLangCycle();
   </script>
 </body>
 
