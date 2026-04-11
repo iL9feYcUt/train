@@ -21,6 +21,7 @@
 
     * {
       box-sizing: border-box;
+      margin: 0;
     }
 
     :root {
@@ -33,7 +34,7 @@
       --orange: #ff9e33;
       --board: #0b0b0b;
       --board2: #030303;
-      --dot-size: 5px;
+      --dot-size: 4px;
       /* dot cell size: square */
     }
 
@@ -75,30 +76,21 @@
 
     .grid {
       display: block;
-      grid-template-columns: 900px 360px;
+      width: 950px;
       gap: 16px;
-    }
-
-    @media (max-width: 980px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     .panel {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
       padding: 14px;
     }
 
     .board-shell {
       background: linear-gradient(180deg, #2c2c2c 0%, #171717 100%);
       border: 1px solid #4a4a4a;
-      border-radius: 16px;
-      padding: 14px;
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-      width: 1150px;
+      width: 950px;
     }
 
     canvas {
@@ -116,7 +108,7 @@
       display: inline-block;
       overflow: hidden;
       background: var(--board);
-      margin: 0;
+      margin: 5px;
       /* no extra gap around LED area */
       padding: 0;
     }
@@ -232,11 +224,18 @@
     <!-- titlebar removed per user request -->
 
     <div class="grid">
+      <div
+        style="background-color: #4a4a4a; display: flex; color: white; line-height: 100%; height: 100px; align-items: center;">
+        <p style="font-size: 90px; font-weight: bold; margin: 5px 30px 10px 30px;">2</p>
+        <div>
+          <p style="font-size: 40px; font-weight: bold;"></p>
+          <p></p>
+        </div>
+      </div>
       <div class="board-shell panel">
         <div class="led-board" id="ledShell">
           <div id="boardTable" aria-hidden="true" class="board-grid"></div>
         </div>
-        <div class="note" id="status" style="margin-top:10px;">読み込み待ち</div>
       </div>
 
       <div class="panel">
@@ -244,7 +243,7 @@
           <div class="form">
             <div class="rowcard">
               <h3>1行目</h3>
-                  <div class="field"><label>路線</label><input id="r1Line" value="横浜線"></div>
+              <div class="field"><label>路線</label><input id="r1Line" value="横浜線"></div>
               <div class="field"><label>種別</label><input id="r1Type" value="各駅停車"></div>
               <div class="field"><label>時刻</label><input id="r1Time" value="1121"></div>
               <div class="field"><label>行先</label><input id="r1Dest" value="八王子"></div>
@@ -252,7 +251,7 @@
             </div>
             <div class="rowcard">
               <h3>2行目</h3>
-                  <div class="field"><label>路線</label><input id="r2Line" value="京浜東北線"></div>
+              <div class="field"><label>路線</label><input id="r2Line" value="京浜東北線"></div>
               <div class="field"><label>種別</label><input id="r2Type" value="快速"></div>
               <div class="field"><label>時刻</label><input id="r2Time" value="937"></div>
               <div class="field"><label>行先</label><input id="r2Dest" value="東十条"></div>
@@ -264,6 +263,7 @@
             <button id="saveState">この画面の設定を保存</button>
             <button id="loadState">保存設定を読み込み</button>
             <button id="openEditor" onclick="location.href='editor.html'">font エディタを開く</button>
+            <div class="note" id="status" style="margin-top:10px;">読み込み待ち</div>
           </div>
           <div class="warn" id="fontWarn"></div>
         </div>
@@ -280,8 +280,8 @@
     const STORAGE_KEY = 'atos-board-state-v1';
 
     const stateFields = [
-      'r1Line','r1Type', 'r1Time', 'r1Dest', 'r1Cars',
-      'r2Line','r2Type', 'r2Time', 'r2Dest', 'r2Cars'
+      'r1Line', 'r1Type', 'r1Time', 'r1Dest', 'r1Cars',
+      'r2Line', 'r2Type', 'r2Time', 'r2Dest', 'r2Cars'
     ];
 
     function getFont() {
@@ -362,9 +362,9 @@
       ['磯　子', 'ISOGO'],
       ['大　船', 'ŌFUNA'],
       ['橋　本', 'HASHIMOTO'],
-      ['八王子', 'HACHIŌJI']       
+      ['八王子', 'HACHIŌJI']
     ];
-    const linePairs = [ 
+    const linePairs = [
       ['京浜東北線', 'KEIHIN-TŌHOKU LINE'],
       ['横浜線', 'YOKOHAMA LINE']
     ];
@@ -408,7 +408,7 @@
         setTimeout(startLangCycle, 6000);
       }, 12000);
     }
-    
+
     // Load timetable HTML (yamate/2h.html) and populate r1/r2 inputs
     async function loadTimetableFromFile() {
       try {
@@ -488,7 +488,7 @@
           let dest = (e.dest || '').replace(/\s/g, '');
           // if destination is exactly 2 full-width chars, insert full-width space
           if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
-          $('r1Time').value = `${String(e.hour)}:${String(e.minute).padStart(2,'0')}`;
+          $('r1Time').value = `${String(e.hour)}:${String(e.minute).padStart(2, '0')}`;
           $('r1Dest').value = dest;
           // set type from legend if available
           const trainCode = (e.type || '').trim();
@@ -506,7 +506,7 @@
           const e = pick[1];
           let dest = (e.dest || '').replace(/\s/g, '');
           if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
-          $('r2Time').value = `${String(e.hour)}:${String(e.minute).padStart(2,'0')}`;
+          $('r2Time').value = `${String(e.hour)}:${String(e.minute).padStart(2, '0')}`;
           $('r2Dest').value = dest;
           const trainCode2 = (e.type || '').trim();
           const typeJp2 = trainMap[trainCode2] || (trainCode2 ? trainCode2 : '各駅停車');
@@ -520,7 +520,7 @@
           }
         }
 
-        $('status').textContent = `時刻表読み込み: ${entries.length} 件`; 
+        $('status').textContent = `時刻表読み込み: ${entries.length} 件`;
         drawFrame();
       } catch (err) {
         console.warn('timetable load failed', err);
