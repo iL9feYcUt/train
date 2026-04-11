@@ -408,6 +408,125 @@
         setTimeout(startLangCycle, 6000);
       }, 12000);
     }
+    
+    // Load timetable HTML (yamate/2h.html) and populate r1/r2 inputs
+    async function loadTimetableFromFile() {
+      try {
+        // choose file: weekdays -> 2.html, weekends (Sat/Sun) -> 2h.html
+        const nowLocal = new Date();
+        const dow = nowLocal.getDay(); // 0=Sun,6=Sat
+        const useWeekend = (dow === 0 || dow === 6);
+        const filePath = useWeekend ? '../yamate/2h.html' : '../yamate/2.html';
+        const res = await fetch(filePath);
+        if (!res.ok) throw new Error('fetch failed');
+        const text = await res.text();
+        $('status').textContent = `時刻表読み込み元: ${filePath}`;
+        const doc = new DOMParser().parseFromString(text, 'text/html');
+
+        // parse legend_dest and legend_train mappings from source JS
+        const destScript = text.match(/var\s+legend_dest\s*=\s*\{[\s\S]*?\};/);
+        const trainScript = text.match(/var\s+legend_train\s*=\s*\{[\s\S]*?\};/);
+        const destMap = {};
+        const trainMap = {};
+        if (destScript && destScript[0]) {
+          const body = destScript[0];
+          const re = /'([^']+)'\s*:\s*\{[^}]*?text\s*:\s*'([^']+)'/g;
+          let m;
+          while ((m = re.exec(body))) {
+            destMap[m[1]] = m[2];
+          }
+        }
+        if (trainScript && trainScript[0]) {
+          const body = trainScript[0];
+          const re = /'([^']+)'\s*:\s*\{[^}]*?text\s*:\s*'([^']+)'/g;
+          let m;
+          while ((m = re.exec(body))) {
+            trainMap[m[1]] = m[2];
+          }
+          // normalize: prefer '各駅停車' over '普通'
+          for (const k in trainMap) {
+            if (trainMap[k] === '普通') trainMap[k] = '各駅停車';
+          }
+        }
+
+        // collect timetable entries with Date objects
+        const rows = Array.from(doc.querySelectorAll('.result_03 tr'));
+        const entries = [];
+        const now = new Date();
+        const cutoff = new Date(now.getTime() - 60 * 1000); // now -1 minute
+        rows.forEach(tr => {
+          const hourText = (tr.querySelector('td') && tr.querySelector('td').textContent) || '';
+          const mh = hourText.match(/(\d{1,2})/);
+          const hour = mh ? Number(mh[1]) : null;
+          const times = tr.querySelectorAll('.timetable_time');
+          times.forEach(t => {
+            const minuteEl = t.querySelector('.minute');
+            if (!minuteEl) return;
+            const minute = minuteEl.textContent.trim();
+            const destCode = t.getAttribute('data-dest') || '';
+            const destText = destMap[destCode] || destCode || (t.getAttribute('title') || '').trim();
+            const trainType = (t.getAttribute('data-train') || '').trim();
+            if (hour !== null) {
+              const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, Number(minute));
+              // if dt is more than 12 hours before now, assume next day
+              if (dt.getTime() + 12 * 3600 * 1000 < now.getTime()) dt.setDate(dt.getDate() + 1);
+              entries.push({ hour, minute, dest: destText, type: trainType, dt });
+            }
+          });
+        });
+
+        // sort by datetime
+        entries.sort((a, b) => a.dt - b.dt);
+
+        // filter out trains before (now -1min)
+        const future = entries.filter(e => e.dt.getTime() >= cutoff.getTime());
+
+        // take first two upcoming entries
+        const pick = future.slice(0, 2);
+        if (pick.length >= 1) {
+          const e = pick[0];
+          let dest = (e.dest || '').replace(/\s/g, '');
+          // if destination is exactly 2 full-width chars, insert full-width space
+          if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
+          $('r1Time').value = `${String(e.hour)}:${String(e.minute).padStart(2,'0')}`;
+          $('r1Dest').value = dest;
+          // set type from legend if available
+          const trainCode = (e.type || '').trim();
+          const typeJp = trainMap[trainCode] || (trainCode ? trainCode : '各駅停車');
+          $('r1Type').value = typeJp;
+          if (dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) {
+            $('r1Line').value = '横浜線';
+            $('r1Cars').value = '8両';
+          } else {
+            $('r1Line').value = '京浜東北線';
+            $('r1Cars').value = '10両';
+          }
+        }
+        if (pick.length >= 2) {
+          const e = pick[1];
+          let dest = (e.dest || '').replace(/\s/g, '');
+          if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
+          $('r2Time').value = `${String(e.hour)}:${String(e.minute).padStart(2,'0')}`;
+          $('r2Dest').value = dest;
+          const trainCode2 = (e.type || '').trim();
+          const typeJp2 = trainMap[trainCode2] || (trainCode2 ? trainCode2 : '各駅停車');
+          $('r2Type').value = typeJp2;
+          if (dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) {
+            $('r2Line').value = '横浜線';
+            $('r2Cars').value = '8両';
+          } else {
+            $('r2Line').value = '京浜東北線';
+            $('r2Cars').value = '10両';
+          }
+        }
+
+        $('status').textContent = `時刻表読み込み: ${entries.length} 件`; 
+        drawFrame();
+      } catch (err) {
+        console.warn('timetable load failed', err);
+        $('status').textContent = '時刻表読み込み失敗';
+      }
+    }
     // create fast access grid
     let cellGrid = [];
 
@@ -651,7 +770,8 @@
 
     bind();
     loadState();
-    drawFrame();
+    // load timetable from local copy and then draw
+    loadTimetableFromFile().then(() => { drawFrame(); });
     startLangCycle();
   </script>
 </body>
