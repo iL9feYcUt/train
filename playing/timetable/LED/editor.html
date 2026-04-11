@@ -319,7 +319,19 @@
     }
 
     function serializeFont() {
-      return 'window.ATOS_FONT = ' + JSON.stringify(getCurrentFont(), null, 2) + ';\n';
+      const json = JSON.stringify(getCurrentFont(), null, 2);
+      return 'window.ATOS_FONT = ' + collapseDataArrays(json) + ';\n';
+    }
+
+    // Collapse any multiline "data" arrays into single-line arrays to match font.js style
+    function collapseDataArrays(jsonStr) {
+      return jsonStr.replace(/("data"\s*:\s*\[\s*)([\s\S]*?)(\s*\])/g, (m, p1, inner, p3) => {
+        const arr = [];
+        const re = /\"([^\"\\]*(?:\\.[^\"\\]*)*)\"/g;
+        let mm;
+        while ((mm = re.exec(inner)) !== null) arr.push('"' + mm[1] + '"');
+        return p1 + arr.join(',') + p3;
+      });
     }
 
     function setTextBoxesFromFont() {
@@ -702,7 +714,7 @@
         return;
       }
       const out = { [key]: { w: glyph.w, h: glyph.h, data: glyph.data } };
-      $('jsBox').value = JSON.stringify(out, null, 2);
+      $('jsBox').value = collapseDataArrays(JSON.stringify(out, null, 2));
       $('importStatus').textContent = '選択字形を textarea に出力しました。';
     }
 

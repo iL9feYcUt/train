@@ -113,9 +113,6 @@
     /* Table-based LED matrix */
     .led-board {
       display: inline-block;
-      border: 1px solid #6b6b6b;
-      /* thin gray border around board */
-      border-radius: 8px;
       overflow: hidden;
       background: var(--board);
       margin: 0;
@@ -494,14 +491,14 @@
         function typeToColor(typeStr) {
           const t = String(typeStr || '');
           // prefer CSS vars with sensible fallbacks
-          const cRed = cssVar('--red', '#ff3b3b');
+          const cRed = cssVar('--red', '#fc0000');
           const cOrange = cssVar('--orange', '#ff9e33');
           const cGreen = cssVar('--green', '#1fbf3a');
-          if (t.indexOf('特急') !== -1 || t.indexOf('快特') !== -1) return cRed;
-          if (t.indexOf('快速') !== -1 || t.indexOf('急行') !== -1) return cOrange;
+          if (t.indexOf('特急') !== -1 || t.indexOf('電車がまいります') !== -1 || t.indexOf('電車が通過します') !== -1 || t.indexOf('列車がまいります') !== -1 || t.indexOf('列車が通過します') !== -1) return cRed;
+          if (t.indexOf('快速') !== -1 || t.indexOf('通勤快速') !== -1) return cOrange;
           if (t.indexOf('普通') !== -1 || t.indexOf('各駅停車') !== -1 || t.indexOf('回送') !== -1) return cGreen;
           // fallback
-          return cOrange;
+          return cGreen;
         }
 
         rowSpecs.forEach(row => {
