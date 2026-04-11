@@ -242,23 +242,25 @@
           <div class="form">
             <div class="rowcard">
               <h3>1行目</h3>
-              <div class="field"><label>路線</label><input id="r1Line"></div>
-              <div class="field"><label>種別</label><input id="r1Type" value="JR"></div>
-              <div class="field"><label>時刻</label><input id="r1Time"></div>
-              <div class="field"><label>行先</label><input id="r1Dest"></div>
-              <div class="field"><label>両数</label><input id="r1Cars"></div>
+              <div class="field"><label>路線</label><input id="r1Line" value="横浜線"></div>
+              <div class="field"><label>種別</label><input id="r1Type" value="各駅停車"></div>
+              <div class="field"><label>時刻</label><input id="r1Time" value="1121"></div>
+              <div class="field"><label>行先</label><input id="r1Dest" value="八王子"></div>
+              <div class="field"><label>両数</label><input id="r1Cars" value="8両"></div>
             </div>
             <div class="rowcard">
               <h3>2行目</h3>
-              <div class="field"><label>路線</label><input id="r2Line"></div>
-              <div class="field"><label>種別</label><input id="r2Type"></div>
-              <div class="field"><label>時刻</label><input id="r2Time"></div>
-              <div class="field"><label>行先</label><input id="r2Dest"></div>
-              <div class="field"><label>両数</label><input id="r2Cars"></div>
+              <div class="field"><label>路線</label><input id="r2Line" value="京浜東北線"></div>
+              <div class="field"><label>種別</label><input id="r2Type" value="快速"></div>
+              <div class="field"><label>時刻</label><input id="r2Time" value="937"></div>
+              <div class="field"><label>行先</label><input id="r2Dest" value="東十条"></div>
+              <div class="field"><label>両数</label><input id="r2Cars" value="10両"></div>
             </div>
           </div>
           <div class="toolbar form">
             <button id="redraw">再描画</button>
+            <button id="saveState">この画面の設定を保存</button>
+            <button id="loadState">保存設定を読み込み</button>
             <button id="openEditor" onclick="location.href='editor.html'">font エディタを開く</button>
             <div class="note" id="status" style="margin-top:10px;">読み込み待ち</div>
           </div>
@@ -273,6 +275,8 @@
     const $ = (id) => document.getElementById(id);
     let boardTable = $('boardTable');
     let ledShell = $('ledShell');
+
+    const STORAGE_KEY = 'atos-board-state-v1';
 
     const stateFields = [
       'r1Line', 'r1Type', 'r1Time', 'r1Dest', 'r1Cars',
@@ -758,7 +762,28 @@
       }
     }
 
-    // save/load removed per request
+    function saveState() {
+      const data = {};
+      stateFields.forEach(id => {
+        const el = $(id);
+        data[id] = el ? el.value : '';
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        stateFields.forEach(id => {
+          if (typeof data[id] === 'string') {
+            const el = $(id);
+            if (el) el.value = data[id];
+          }
+        });
+      } catch (_) { }
+    }
 
     function bind() {
       [...stateFields].forEach(id => {
@@ -766,10 +791,13 @@
         if (el) el.addEventListener('input', drawFrame);
       });
       const btnRedraw = $('redraw'); if (btnRedraw) btnRedraw.addEventListener('click', drawFrame);
+      const btnSave = $('saveState'); if (btnSave) btnSave.addEventListener('click', () => { saveState(); drawFrame(); });
+      const btnLoad = $('loadState'); if (btnLoad) btnLoad.addEventListener('click', () => { loadState(); drawFrame(); });
       window.addEventListener('resize', drawFrame);
     }
 
     bind();
+    loadState();
     // load timetable from local copy and then draw
     loadTimetableFromFile().then(() => { drawFrame(); });
     startLangCycle();
