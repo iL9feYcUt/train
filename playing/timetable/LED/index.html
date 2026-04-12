@@ -863,6 +863,109 @@
     setInterval(() => {
       loadTimetableFromFile().then(() => { drawFrame(); }).catch(() => { /* ignore load errors */ });
     }, TIMETABLE_REFRESH_MS);
+
+    // --- audio alert for departure (start at T-20s)
+    const soundMain = new Audio('../atos/sounds/JRE-IKST-007-01.mp3');
+    soundMain.preload = 'auto';
+    const soundAfter = new Audio('../atos/sounds/m/2.mp3');
+    soundAfter.preload = 'auto';
+
+    let playingAlertForDt = null; // Date value for which alert is currently/was played
+    const playedAlertTimes = new Set(); // ms timestamps of departures already played
+
+    function chooseMultiplier() {
+      const r = Math.random();
+      if (r < 0.6) return 0.9;
+      if (r < 0.8) return 1.0;
+      if (r < 0.9) return (Math.random() * (0.6 - 0.1) + 0.1); // 0.1..0.6
+      return (Math.random() * (2.1 - 1.1) + 1.1); // 1.1..2.1
+    }
+
+    function ensureMainDuration() {
+      return new Promise((resolve) => {
+        if (soundMain.duration && !isNaN(soundMain.duration) && soundMain.duration > 0) {
+          resolve(soundMain.duration);
+        } else {
+          const onLoaded = () => {
+            soundMain.removeEventListener('loadedmetadata', onLoaded);
+            resolve(soundMain.duration || 0);
+          };
+          soundMain.addEventListener('loadedmetadata', onLoaded);
+          // trigger load
+          try { soundMain.load(); } catch (_) { }
+        }
+      });
+    }
+
+    async function triggerPlaySequence(targetDt) {
+      try {
+        // mark as playing for this targetDt to avoid duplication
+        const tMs = targetDt.getTime();
+        if (playedAlertTimes.has(tMs)) return; // already played
+        playingAlertForDt = tMs;
+        playedAlertTimes.add(tMs);
+        const baseDur = await ensureMainDuration();
+        if (!baseDur || baseDur <= 0) {
+          console.warn('main sound has no duration, aborting alert');
+          playingAlertForDt = null;
+          return;
+        }
+        const mult = chooseMultiplier();
+        const targetMs = mult * baseDur * 1000;
+        console.log('alert: multiplier=', mult.toFixed(3), 'targetMs=', targetMs);
+
+        // play main sound. If mult > 1 -> loop until targetMs elapsed
+        soundMain.loop = mult > 1.0;
+        soundMain.currentTime = 0;
+        await soundMain.play().catch(e => { console.warn('play failed', e); });
+
+        // stop after targetMs
+          setTimeout(async () => {
+          try {
+            soundMain.loop = false;
+            soundMain.pause();
+            soundMain.currentTime = 0;
+          } catch (e) { }
+          // wait 2 seconds then play after-sound fully
+          setTimeout(async () => {
+            try {
+              soundAfter.currentTime = 0;
+              await soundAfter.play().catch(e => { console.warn('after play failed', e); });
+            } catch (e) { }
+            // clear playing flag after after-sound ends
+            const clearPlaying = () => { playingAlertForDt = null; soundAfter.removeEventListener('ended', clearPlaying); };
+            soundAfter.addEventListener('ended', clearPlaying);
+          }, 1500);
+        }, Math.max(0, Math.floor(targetMs)));
+      } catch (err) {
+        console.error('triggerPlaySequence error', err);
+        playingAlertForDt = null;
+      }
+    }
+
+    function scheduleDepartureAlert() {
+      if (!(nextDepartureDt instanceof Date)) return;
+      const now = Date.now();
+      const diff = (nextDepartureDt.getTime() - now) / 1000; // seconds
+      // trigger when entering <=20s window and not already triggered for this departure
+      const tMs = nextDepartureDt.getTime();
+      if (diff <= 20 && diff > 0) {
+        if (playingAlertForDt !== tMs && !playedAlertTimes.has(tMs)) {
+          triggerPlaySequence(nextDepartureDt);
+        }
+      }
+    }
+
+    // cleanup old played entries periodically (remove entries older than 5 minutes)
+    setInterval(() => {
+      const cutoff = Date.now() - 5 * 60 * 1000;
+      for (const t of Array.from(playedAlertTimes)) {
+        if (t < cutoff) playedAlertTimes.delete(t);
+      }
+    }, 60 * 1000);
+
+    // check frequently for scheduling alert
+    setInterval(scheduleDepartureAlert, 200);
   </script>
 </body>
 
