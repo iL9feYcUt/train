@@ -330,8 +330,8 @@
       return x;
     }
 
-    // TABLE-BASED RENDERER for 224x32 pixels (no gap between dots)
-    const MATRIX_W = 224;
+    // TABLE-BASED RENDERER for 208x32 pixels (no gap between dots)
+    const MATRIX_W = 208;
     const MATRIX_H = 32;
 
     // --- Translation pairs (日本語 ↔ English)
@@ -342,6 +342,9 @@
       ['回送', 'OUT OF SERVICE'],
       ['快速', 'RAPID'],
       ['通勤快速', 'COMMUTER RAPID'],
+      ['中央特快', 'CHŪŌ SPECIAL RAPID'],
+      ['青梅特快', 'ŌME SPECIAL RAPID'],
+      ['特別快速', 'SPECIAL RAPID'],
       ['特急', 'LIMITED EXPRESS']
     ];
     const destPairs = [
@@ -361,11 +364,17 @@
       ['磯　子', 'ISOGO'],
       ['大　船', 'ŌFUNA'],
       ['橋　本', 'HASHIMOTO'],
-      ['八王子', 'HACHIŌJI']
+      ['八王子', 'HACHIŌJI'],
+      ['立　川', 'TACHIKAWA'],
+      ['拝　島', 'HAIJIMA'],
+      ['青　梅', 'ŌME'],
+      ['高　尾', 'TAKAO']
     ];
     const linePairs = [
       ['京浜東北線', 'KEIHIN-TŌHOKU LINE'],
-      ['横浜線', 'YOKOHAMA LINE']
+      ['横浜線', 'YOKOHAMA LINE'],
+      ['中央線', 'CHŪŌ LINE'],
+      ['青梅線', 'ŌME LINE']
     ];
 
     const carsPairs = [
@@ -398,6 +407,10 @@
 
     // language cycle: 12s 日本語 -> 6s English -> repeat
     let displayLang = 'ja';
+    // regexes derived from legend_train (populated when timetable is loaded)
+    let typeRegexSpecial = null;
+    let typeRegexRapid = null;
+    let typeRegexNormal = null;
     // next departure datetime (set when timetable is loaded)
     let nextDepartureDt = null;
     // custom (manual) entries added via the form
@@ -491,6 +504,15 @@
           for (const k in trainMap) {
             if (trainMap[k] === '普通') trainMap[k] = '各駅停車';
           }
+          // build category regexes from parsed legend_train values
+          function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+          const typeValues = Array.from(new Set(Object.values(trainMap).map(v => String(v))));
+          const specialList = typeValues.filter(v => v.indexOf('特急') !== -1 || v.indexOf('寝台特急') !== -1 || v.indexOf('踊り子') !== -1);
+          const rapidList = typeValues.filter(v => v.indexOf('快速') !== -1 || v.indexOf('特別快速') !== -1 || v.indexOf('通勤快速') !== -1);
+          const normalList = typeValues.filter(v => v.indexOf('普通') !== -1 || v.indexOf('各駅停車') !== -1 || v.indexOf('回送') !== -1);
+          typeRegexSpecial = specialList.length ? new RegExp(specialList.map(escapeRegExp).join('|')) : null;
+          typeRegexRapid = rapidList.length ? new RegExp(rapidList.map(escapeRegExp).join('|')) : null;
+          typeRegexNormal = normalList.length ? new RegExp(normalList.map(escapeRegExp).join('|')) : null;
         }
 
         // collect timetable entries with Date objects
@@ -546,7 +568,7 @@
           // set internal display row 0 (and update DOM if inputs exist)
           const trainCode = (e.type || '').trim();
           const typeJp = trainMap[trainCode] || (trainCode ? trainCode : '各駅停車');
-          const lineVal = e.line || ((dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) ? '横浜線' : '京浜東北線');
+          const lineVal = e.line || ((dest.indexOf('青　梅') !== -1 || dest.indexOf('拝島') !== -1) ? '青梅線' : '中央線');
           const carsVal = e.cars || ((lineVal === '横浜線') ? '8両' : '10両');
           setDisplayRow(0, { line_jp: lineVal, type_jp: typeJp, time: timeStr, dest_jp: dest, cars_jp: carsVal });
         }
@@ -558,7 +580,7 @@
           const timeStr = hasShowTime2 ? (e.time ? e.time : (typeof e.hour !== 'undefined' ? `${String(e.hour)}:${String(e.minute).padStart(2, '0')}` : '')) : '';
           const trainCode2 = (e.type || '').trim();
           const typeJp2 = trainMap[trainCode2] || (trainCode2 ? trainCode2 : '各駅停車');
-          const lineVal2 = e.line || ((dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) ? '横浜線' : '京浜東北線');
+          const lineVal2 = e.line || ((dest.indexOf('青　梅') !== -1 || dest.indexOf('拝島') !== -1) ? '青梅線' : '中央線');
           const carsVal2 = e.cars || ((lineVal2 === '横浜線') ? '8両' : '10両');
           setDisplayRow(1, { line_jp: lineVal2, type_jp: typeJp2, time: timeStr, dest_jp: dest, cars_jp: carsVal2 });
         }
@@ -719,13 +741,13 @@
         ];
 
         // column positions (in matrix columns)
-        // Allocate exact slots: line=3chars(48), type=2chars(32), time=3chars(48), dest=3chars(48), cars=2chars(32)
-        // layout across 208 columns: [line:0-47][type:48-79][time:80-127][dest:128-175][cars:176-207]
+        // Allocate exact slots to total 208 columns:
+        // line: 3 chars = 48, type: 3 chars = 48, time: 3 chars = 48, dest: 4 chars = 64
+        // layout: [line:0-47][type:48-95][time:96-143][dest:144-207]
         const xLine = 0;
         const xType = 48;
-        const xTime = 80;
-        const xDest = 128;
-        const xCars = 192;
+        const xTime = 96;
+        const xDest = 144;
 
         // helper to choose color based on `種別`
         function typeToColor(typeStr) {
@@ -734,9 +756,11 @@
           const cRed = cssVar('--red', '#fc0000');
           const cOrange = cssVar('--orange', '#ff9e33');
           const cGreen = cssVar('--green', '#1fbf3a');
-          if (t.indexOf('特急') !== -1 || t.indexOf('電車がまいります') !== -1 || t.indexOf('電車が通過します') !== -1 || t.indexOf('列車がまいります') !== -1 || t.indexOf('列車が通過します') !== -1) return cRed;
-          if (t.indexOf('快速') !== -1 || t.indexOf('通勤快速') !== -1) return cOrange;
-          if (t.indexOf('普通') !== -1 || t.indexOf('各駅停車') !== -1 || t.indexOf('回送') !== -1) return cGreen;
+          // use regexes derived from legend_train when available
+          const transitPhrases = /電車がまいります|電車が通過します|列車がまいります|列車が通過します/;
+          if ((typeRegexSpecial && typeRegexSpecial.test(t)) || transitPhrases.test(t)) return cRed;
+          if (typeRegexRapid && typeRegexRapid.test(t)) return cOrange;
+          if (typeRegexNormal && typeRegexNormal.test(t)) return cGreen;
           // fallback
           return cGreen;
         }
@@ -753,9 +777,26 @@
           const blinkVisible = (Date.now() % 1500) < 1000;
           // always use Japanese name for color/ classification
           const typeColor = typeToColor(row.type_jp);
-          // translate display strings according to displayLang
+          // translate display strings according to displayLang (except type uses its own cycle)
           const dispLine = (displayLang === 'ja') ? row.line_jp : translatePair(row.line_jp, linePairs);
-          const dispType = (displayLang === 'ja') ? row.type_jp : translatePair(row.type_jp, typePairs);
+          // type column cycles specially when it contains two parts (e.g. "特急　かいじ"): 
+          // sequence: 特急 (6s) -> かいじ (6s) -> LIMITED EXPRESS (3s) -> KAIJI (3s)
+          function getTypeCycleText(typeJp) {
+            const raw = String(typeJp || '').trim();
+            if (!raw) return '';
+            const parts = raw.split(/[\s　,、\/・]+/).filter(Boolean);
+            if (parts.length >= 2) {
+              const enParts = parts.map(p => translatePair(p, typePairs));
+              const phase = Date.now() % 18000; // 18s cycle
+              if (phase < 6000) return parts[0];
+              if (phase < 12000) return parts[1];
+              if (phase < 15000) return enParts[0] || parts[0];
+              return enParts[1] || parts[1] || parts[0];
+            }
+            // fallback: respect global displayLang for single-part types
+            return (displayLang === 'ja') ? raw : translatePair(raw, typePairs);
+          }
+          const dispType = getTypeCycleText(row.type_jp);
           // If this is second row and special alert active, override display
           if (row.row === 16 && specialAlert) {
             if (blinkVisible) {
@@ -766,7 +807,17 @@
           }
           // draw route (路線) then type
           drawTextToGrid(dispLine || '', xLine, row.row, textColorOrange);
-          drawTextToGrid(dispType, xType, row.row, typeColor);
+          // determine rendered width for `dispType` using font glyphs
+          const typeWidth = measureText(dispType || '');
+          // if wide enough (>=48) place at xType; if small (<=32) and Japanese, offset by 8 cols
+          if (typeWidth >= 48) {
+            drawTextToGrid(dispType, xType, row.row, typeColor);
+          } else if (typeWidth > 0 && typeWidth <= 32) {
+            drawTextToGrid(dispType, xType + 8, row.row, typeColor);
+          } else {
+            // fallback: draw at standard xType
+            drawTextToGrid(dispType, xType, row.row, typeColor);
+          }
           // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
           const timeKeys = timeToGlyphKeys(String(row.time || ''));
           if (timeKeys) {
@@ -774,15 +825,13 @@
           } else {
             drawTextToGrid(row.time, xTime, row.row, textColorGreen);
           }
-          // 行先が全角3文字の場合は136列目から開始する
+          // 行先表示（4文字分の領域: 64 cols）
           const destJp = String(row.dest_jp || '');
-          const isZenkaku3 = (/^[^\x00-\x7F]{3}$/).test(destJp);
+          // full-width 1〜3文字の場合は左8列空けて表示（日本語のみ）
+          const isZenkakuShort = (/^[^\x00-\x7F]{1,3}$/).test(destJp);
           const dispDest = (displayLang === 'ja') ? destJp : translatePair(destJp, destPairs);
-          const destStart = (displayLang === 'ja' && isZenkaku3) ? 136 : xDest;
+          const destStart = (displayLang === 'ja' && isZenkakuShort) ? (xDest + 8) : xDest;
           drawTextToGrid(dispDest, destStart, row.row, textColorOrange);
-          // 両数は緑で表示（英語ターンは変換）
-          const dispCars = (displayLang === 'ja') ? String(row.cars_jp || '') : translateCars(String(row.cars_jp || ''));
-          drawTextToGrid(dispCars, xCars, row.row, textColorGreen);
         });
 
         const count = Object.keys(glyphMap()).length;
