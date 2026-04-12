@@ -460,7 +460,7 @@
         }
         const dow = effectiveDate.getDay(); // 0=Sun,6=Sat based on service day
         const useWeekend = (dow === 0 || dow === 6);
-        const filePath = useWeekend ? '../yamate/2h.html' : '../yamate/2.html';
+        const filePath = useWeekend ? 'tokyo/1h.html' : 'tokyo/1.html';
         const res = await fetch(filePath);
         if (!res.ok) throw new Error('fetch failed');
         const text = await res.text();
