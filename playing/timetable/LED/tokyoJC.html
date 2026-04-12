@@ -566,8 +566,17 @@
           const hasShowTime = (typeof e.showTime === 'undefined') ? true : !!e.showTime;
           const timeStr = hasShowTime ? (e.time ? e.time : (typeof e.hour !== 'undefined' ? `${String(e.hour)}:${String(e.minute).padStart(2, '0')}` : '')) : '';
           // set internal display row 0 (and update DOM if inputs exist)
+          // map possibly-composite train codes (e.g. "特快,ホお") to their legend text
+          function mapTrainCode(code) {
+            if (!code) return '';
+            const parts = String(code).split(/[\s,、\/]+/).filter(Boolean);
+            const mapped = parts.map(p => {
+              return trainMap[p] || p;
+            });
+            return mapped.join('　'); // join with full-width space
+          }
           const trainCode = (e.type || '').trim();
-          const typeJp = trainMap[trainCode] || (trainCode ? trainCode : '各駅停車');
+          const typeJp = mapTrainCode(trainCode) || (trainCode ? trainCode : '各駅停車');
           const lineVal = e.line || ((dest.indexOf('青　梅') !== -1 || dest.indexOf('拝島') !== -1) ? '青梅線' : '中央線');
           const carsVal = e.cars || ((lineVal === '横浜線') ? '8両' : '10両');
           setDisplayRow(0, { line_jp: lineVal, type_jp: typeJp, time: timeStr, dest_jp: dest, cars_jp: carsVal });
@@ -579,7 +588,7 @@
           const hasShowTime2 = (typeof e.showTime === 'undefined') ? true : !!e.showTime;
           const timeStr = hasShowTime2 ? (e.time ? e.time : (typeof e.hour !== 'undefined' ? `${String(e.hour)}:${String(e.minute).padStart(2, '0')}` : '')) : '';
           const trainCode2 = (e.type || '').trim();
-          const typeJp2 = trainMap[trainCode2] || (trainCode2 ? trainCode2 : '各駅停車');
+          const typeJp2 = mapTrainCode(trainCode2) || (trainCode2 ? trainCode2 : '各駅停車');
           const lineVal2 = e.line || ((dest.indexOf('青　梅') !== -1 || dest.indexOf('拝島') !== -1) ? '青梅線' : '中央線');
           const carsVal2 = e.cars || ((lineVal2 === '横浜線') ? '8両' : '10両');
           setDisplayRow(1, { line_jp: lineVal2, type_jp: typeJp2, time: timeStr, dest_jp: dest, cars_jp: carsVal2 });
