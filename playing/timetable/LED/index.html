@@ -22,6 +22,7 @@
     * {
       box-sizing: border-box;
       margin: 0;
+      font-family: sans-serif;
     }
 
     :root {
@@ -34,7 +35,7 @@
       --orange: #ff9e33;
       --board: #0b0b0b;
       --board2: #030303;
-      --dot-size: 4px;
+      --dot-size: 3.7px;
       /* dot cell size: square */
     }
 
@@ -84,7 +85,7 @@
     .panel {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 14px;
+      padding: 14px 0;
     }
 
     .board-shell {
@@ -109,7 +110,7 @@
       display: inline-block;
       overflow: hidden;
       background: var(--board);
-      margin: 5px;
+      margin: 20px 0px 20px 55px;
       /* no extra gap around LED area */
       padding: 0;
     }
@@ -156,8 +157,7 @@
     }
 
     .field {
-      display: grid;
-      grid-template-columns: 10vw 1fr;
+      display: flex;
       gap: 8px;
       align-items: center;
       font-size: 13px;
@@ -165,6 +165,7 @@
 
     .field label {
       color: var(--muted);
+      width: 15%;
     }
 
     .field input,
@@ -231,7 +232,7 @@
           <p></p>
         </div>
       </div>
-      <div class="board-shell panel">
+      <div class="board-shell">
         <div class="led-board" id="ledShell">
           <div id="boardTable" aria-hidden="true" class="board-grid"></div>
         </div>
@@ -241,20 +242,21 @@
         <div>
           <div class="form">
             <div class="rowcard">
-              <h3>1行目</h3>
-              <div class="field"><label>路線</label><input id="r1Line"></div>
-              <div class="field"><label>種別</label><input id="r1Type" value="JR"></div>
-              <div class="field"><label>時刻</label><input id="r1Time"></div>
-              <div class="field"><label>行先</label><input id="r1Dest"></div>
-              <div class="field"><label>両数</label><input id="r1Cars"></div>
-            </div>
-            <div class="rowcard">
-              <h3>2行目</h3>
-              <div class="field"><label>路線</label><input id="r2Line"></div>
-              <div class="field"><label>種別</label><input id="r2Type"></div>
-              <div class="field"><label>時刻</label><input id="r2Time"></div>
-              <div class="field"><label>行先</label><input id="r2Dest"></div>
-              <div class="field"><label>両数</label><input id="r2Cars"></div>
+              <h3>時刻表にない列車を追加</h3>
+              <div class="field"><label>路線</label><input id="cLine" placeholder="例: 京浜東北線"></div>
+              <div class="field"><label>種別</label><input id="cType" placeholder="例: 快速"></div>
+              <div class="field"><label>時刻</label><input id="cTime" placeholder="HH:MM"><label style="display:inline-flex;align-items:center;gap:8px;"><input type="checkbox" id="cShowTime" checked></label></div>
+              <div class="field"><label>行先</label><input id="cDest" placeholder="例: 東十条"></div>
+              <div class="field"><label>両数</label><input id="cCars" placeholder="例: 10両"></div>
+              <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+                <button id="addCustom">列車を追加</button>
+                <button id="clearCustom">追加リストをクリア</button>
+                <div class="note" style="font-size:12px;">追加された列車は一時的に表示に反映されます（リロードで消えます）。</div>
+              </div>
+              <div style="margin-top:8px;">
+                <div style="color:var(--muted);font-size:13px;margin-bottom:6px;">追加一覧</div>
+                <ul id="customList" style="list-style:none;padding-left:0;margin:0;color:var(--text);"></ul>
+              </div>
             </div>
           </div>
           <div class="toolbar form">
@@ -396,6 +398,42 @@
     let displayLang = 'ja';
     // next departure datetime (set when timetable is loaded)
     let nextDepartureDt = null;
+    // custom (manual) entries added via the form
+    let customEntries = [];
+    // display rows state used when DOM inputs are absent
+    let displayRows = [{}, {}];
+
+    function setDisplayRow(idx, obj) {
+      displayRows[idx] = Object.assign({}, displayRows[idx] || {}, obj || {});
+      // also update DOM inputs if they exist (backwards compatible)
+      const map = [['r1Line','r1Type','r1Time','r1Dest','r1Cars'], ['r2Line','r2Type','r2Time','r2Dest','r2Cars']];
+      const keys = ['line_jp','type_jp','time','dest_jp','cars_jp'];
+      if (map[idx]) {
+        for (let i=0;i<map[idx].length;i++) {
+          const id = map[idx][i];
+          const key = keys[i];
+          const el = $(id);
+          if (el && typeof displayRows[idx][key] !== 'undefined') el.value = displayRows[idx][key];
+        }
+      }
+    }
+
+    function getRowField(idx, field) {
+      // prefer DOM input if present, otherwise use displayRows
+      const idMap = {
+        line_jp: ['r1Line','r2Line'],
+        type_jp: ['r1Type','r2Type'],
+        time: ['r1Time','r2Time'],
+        dest_jp: ['r1Dest','r2Dest'],
+        cars_jp: ['r1Cars','r2Cars']
+      };
+      const ids = idMap[field];
+      if (ids && ids[idx]) {
+        const el = $(ids[idx]);
+        if (el) return el.value || '';
+      }
+      return (displayRows[idx] && displayRows[idx][field]) || '';
+    }
     function startLangCycle() {
       displayLang = 'ja';
       drawFrame();
@@ -484,7 +522,13 @@
         entries.sort((a, b) => a.dt - b.dt);
 
         // filter out trains before (now -1min)
-        const future = entries.filter(e => e.dt.getTime() >= cutoff.getTime());
+        let future = entries.filter(e => e.dt.getTime() >= cutoff.getTime());
+        // include any custom entries added by the user (keep those >= cutoff)
+        if (Array.isArray(customEntries) && customEntries.length) {
+          const validCustom = customEntries.filter(c => c.dt && c.dt.getTime() >= cutoff.getTime());
+          future = future.concat(validCustom);
+          future.sort((a, b) => a.dt - b.dt);
+        }
 
         // take first two upcoming entries
         const pick = future.slice(0, 2);
@@ -495,36 +539,26 @@
           let dest = (e.dest || '').replace(/\s/g, '');
           // if destination is exactly 2 full-width chars, insert full-width space
           if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
-          $('r1Time').value = `${String(e.hour)}:${String(e.minute).padStart(2, '0')}`;
-          $('r1Dest').value = dest;
-          // set type from legend if available
+          const hasShowTime = (typeof e.showTime === 'undefined') ? true : !!e.showTime;
+          const timeStr = hasShowTime ? (e.time ? e.time : (typeof e.hour !== 'undefined' ? `${String(e.hour)}:${String(e.minute).padStart(2, '0')}` : '')) : '';
+          // set internal display row 0 (and update DOM if inputs exist)
           const trainCode = (e.type || '').trim();
           const typeJp = trainMap[trainCode] || (trainCode ? trainCode : '各駅停車');
-          $('r1Type').value = typeJp;
-          if (dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) {
-            $('r1Line').value = '横浜線';
-            $('r1Cars').value = '8両';
-          } else {
-            $('r1Line').value = '京浜東北線';
-            $('r1Cars').value = '10両';
-          }
+          const lineVal = e.line || ((dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) ? '横浜線' : '京浜東北線');
+          const carsVal = e.cars || ((lineVal === '横浜線') ? '8両' : '10両');
+          setDisplayRow(0, { line_jp: lineVal, type_jp: typeJp, time: timeStr, dest_jp: dest, cars_jp: carsVal });
         }
         if (pick.length >= 2) {
           const e = pick[1];
           let dest = (e.dest || '').replace(/\s/g, '');
           if ((/^[^\x00-\x7F]{2}$/).test(dest)) dest = dest[0] + '　' + dest[1];
-          $('r2Time').value = `${String(e.hour)}:${String(e.minute).padStart(2, '0')}`;
-          $('r2Dest').value = dest;
+          const hasShowTime2 = (typeof e.showTime === 'undefined') ? true : !!e.showTime;
+          const timeStr = hasShowTime2 ? (e.time ? e.time : (typeof e.hour !== 'undefined' ? `${String(e.hour)}:${String(e.minute).padStart(2, '0')}` : '')) : '';
           const trainCode2 = (e.type || '').trim();
           const typeJp2 = trainMap[trainCode2] || (trainCode2 ? trainCode2 : '各駅停車');
-          $('r2Type').value = typeJp2;
-          if (dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) {
-            $('r2Line').value = '横浜線';
-            $('r2Cars').value = '8両';
-          } else {
-            $('r2Line').value = '京浜東北線';
-            $('r2Cars').value = '10両';
-          }
+          const lineVal2 = e.line || ((dest.indexOf('橋本') !== -1 || dest.indexOf('八王子') !== -1) ? '横浜線' : '京浜東北線');
+          const carsVal2 = e.cars || ((lineVal2 === '横浜線') ? '8両' : '10両');
+          setDisplayRow(1, { line_jp: lineVal2, type_jp: typeJp2, time: timeStr, dest_jp: dest, cars_jp: carsVal2 });
         }
 
         $('status').textContent = `時刻表読み込み: ${entries.length} 件`;
@@ -666,19 +700,19 @@
         const rowSpecs = [
           {
             row: 0, // top line starts at row 0
-            line_jp: $('r1Line').value,
-            type_jp: $('r1Type').value,
-            time: $('r1Time').value,
-            dest_jp: $('r1Dest').value,
-            cars_jp: $('r1Cars').value,
+            line_jp: getRowField(0, 'line_jp'),
+            type_jp: getRowField(0, 'type_jp'),
+            time: getRowField(0, 'time'),
+            dest_jp: getRowField(0, 'dest_jp'),
+            cars_jp: getRowField(0, 'cars_jp'),
           },
           {
             row: 16, // bottom line starts at row 16 (no overlap)
-            line_jp: $('r2Line').value,
-            type_jp: $('r2Type').value,
-            time: $('r2Time').value,
-            dest_jp: $('r2Dest').value,
-            cars_jp: $('r2Cars').value,
+            line_jp: getRowField(1, 'line_jp'),
+            type_jp: getRowField(1, 'type_jp'),
+            time: getRowField(1, 'time'),
+            dest_jp: getRowField(1, 'dest_jp'),
+            cars_jp: getRowField(1, 'cars_jp'),
           }
         ];
 
@@ -706,14 +740,14 @@
         }
 
         rowSpecs.forEach(row => {
-          // check special alert window: 90s -> 60s before next departure
+          // check special alert window: 90s -> 45s before next departure
           const nowMs = Date.now();
           let specialAlert = false;
           if (nextDepartureDt instanceof Date) {
             const diffSec = (nextDepartureDt.getTime() - nowMs) / 1000;
-            if (diffSec <= 90 && diffSec >= 60) specialAlert = true;
+            if (diffSec <= 90 && diffSec >= 45) specialAlert = true;
           }
-          // blink pattern: 0.5s on, 0.25s off (cycle 1500ms)
+          // blink pattern: 1s on, 0.5s off
           const blinkVisible = (Date.now() % 1500) < 1000;
           // always use Japanese name for color/ classification
           const typeColor = typeToColor(row.type_jp);
@@ -766,7 +800,55 @@
         if (el) el.addEventListener('input', drawFrame);
       });
       const btnRedraw = $('redraw'); if (btnRedraw) btnRedraw.addEventListener('click', drawFrame);
+      const btnAdd = $('addCustom'); if (btnAdd) btnAdd.addEventListener('click', () => { addCustomTrain(); });
+      const btnClear = $('clearCustom'); if (btnClear) btnClear.addEventListener('click', () => { customEntries = []; refreshCustomList(); drawFrame(); });
       window.addEventListener('resize', drawFrame);
+    }
+
+    function refreshCustomList() {
+      const ul = $('customList');
+      if (!ul) return;
+      ul.innerHTML = '';
+      customEntries.forEach((c, i) => {
+        const li = document.createElement('li');
+        const t = c.dt instanceof Date ? `${String(c.dt.getHours()).padStart(2,'0')}:${String(c.dt.getMinutes()).padStart(2,'0')}` : c.time || '';
+        const show = (typeof c.showTime === 'undefined' || c.showTime) ? '表示' : '非表示';
+        li.textContent = `${t} ${c.line||''} ${c.type||''} → ${c.dest||''} ${c.cars||''} （時刻: ${show}）`;
+        li.style.padding = '2px 0';
+        ul.appendChild(li);
+      });
+    }
+
+    function parseTimeToDt(timeStr) {
+      const nowLocal = new Date();
+      const effectiveDate = new Date(nowLocal);
+      if (nowLocal.getHours() < 4) effectiveDate.setDate(effectiveDate.getDate() - 1);
+      const m = String(timeStr||'').trim().match(/^(\d{1,2})[:：]?(\d{2})$/);
+      if (!m) return null;
+      const hour = Number(m[1]);
+      const minute = Number(m[2]);
+      const dt = new Date(effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate(), hour, minute);
+      if (hour < 4) dt.setDate(dt.getDate() + 1);
+      return dt;
+    }
+
+    function addCustomTrain() {
+      const line = ($('cLine')||{}).value || '';
+      const type = ($('cType')||{}).value || '';
+      const time = ($('cTime')||{}).value || '';
+      const dest = ($('cDest')||{}).value || '';
+      const cars = ($('cCars')||{}).value || '';
+      const showTime = !!(($('cShowTime')||{}).checked);
+      const dt = parseTimeToDt(time);
+      if (!dt) { alert('時刻は HH:MM の形式で入力してください'); return; }
+      // normalize to timetable entry shape: include hour/minute and preserve original line/cars
+      const hour = dt.getHours();
+      const minute = dt.getMinutes();
+      customEntries.push({ hour, minute, dest, type, dt, time, line, cars, showTime });
+      customEntries.sort((a,b)=>a.dt-b.dt);
+      refreshCustomList();
+      // reload timetable merge
+      loadTimetableFromFile().then(()=>{ drawFrame(); });
     }
 
     bind();
@@ -775,6 +857,12 @@
     startLangCycle();
     // ensure drawFrame is called frequently so blinking works (every 100ms)
     setInterval(drawFrame, 100);
+    // periodically refresh timetable so display updates automatically
+    // (refresh every second)
+    const TIMETABLE_REFRESH_MS = 1000;
+    setInterval(() => {
+      loadTimetableFromFile().then(() => { drawFrame(); }).catch(() => { /* ignore load errors */ });
+    }, TIMETABLE_REFRESH_MS);
   </script>
 </body>
 
