@@ -345,7 +345,9 @@
       ['中央特快', 'CHŪŌ SPECIAL RAPID'],
       ['青梅特快', 'ŌME SPECIAL RAPID'],
       ['特別快速', 'SPECIAL RAPID'],
-      ['特急', 'LIMITED EXPRESS']
+      ['特急', 'LIMITED EXPRESS'],
+      ['かいじ', 'KAIJI'],
+      ['あずさ', 'AZUSA']
     ];
     const destPairs = [
       ['大　宮', 'ŌMIYA'],
@@ -364,11 +366,15 @@
       ['磯　子', 'ISOGO'],
       ['大　船', 'ŌFUNA'],
       ['橋　本', 'HASHIMOTO'],
+      ['武蔵小金井', 'MUSASHI-KOGANEI'],
       ['八王子', 'HACHIŌJI'],
       ['立　川', 'TACHIKAWA'],
+      ['豊　田', 'TOYODA'],
       ['拝　島', 'HAIJIMA'],
       ['青　梅', 'ŌME'],
-      ['高　尾', 'TAKAO']
+      ['高　尾', 'TAKAO'],
+      ['大　月', 'ŌTSUKI'],
+      ['甲　府', 'KŌFU']
     ];
     const linePairs = [
       ['京浜東北線', 'KEIHIN-TŌHOKU LINE'],
@@ -407,6 +413,8 @@
 
     // language cycle: 12s 日本語 -> 6s English -> repeat
     let displayLang = 'ja';
+    // shared cycle base for 18s cycles (set when startLangCycle() is called)
+    let cycleBase = Date.now();
     // regexes derived from legend_train (populated when timetable is loaded)
     let typeRegexSpecial = null;
     let typeRegexRapid = null;
@@ -450,13 +458,8 @@
       return (displayRows[idx] && displayRows[idx][field]) || '';
     }
     function startLangCycle() {
-      displayLang = 'ja';
-      drawFrame();
-      setTimeout(() => {
-        displayLang = 'en';
-        drawFrame();
-        setTimeout(startLangCycle, 6000);
-      }, 12000);
+      // initialize the shared cycle base so all cycle-based displays align
+      cycleBase = Date.now();
     }
 
     // Load timetable HTML (yamate/2h.html) and populate r1/r2 inputs
@@ -507,8 +510,8 @@
           // build category regexes from parsed legend_train values
           function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
           const typeValues = Array.from(new Set(Object.values(trainMap).map(v => String(v))));
-          const specialList = typeValues.filter(v => v.indexOf('特急') !== -1 || v.indexOf('寝台特急') !== -1 || v.indexOf('踊り子') !== -1);
-          const rapidList = typeValues.filter(v => v.indexOf('快速') !== -1 || v.indexOf('特別快速') !== -1 || v.indexOf('通勤快速') !== -1);
+          const specialList = typeValues.filter(v => v.indexOf('特急') !== -1 || v.indexOf('通勤快速') !== -1 || v.indexOf('寝台特急') !== -1 || v.indexOf('踊り子') !== -1);
+          const rapidList = typeValues.filter(v => v.indexOf('快速') !== -1 || v.indexOf('特別快速') !== -1);
           const normalList = typeValues.filter(v => v.indexOf('普通') !== -1 || v.indexOf('各駅停車') !== -1 || v.indexOf('回送') !== -1);
           typeRegexSpecial = specialList.length ? new RegExp(specialList.map(escapeRegExp).join('|')) : null;
           typeRegexRapid = rapidList.length ? new RegExp(rapidList.map(escapeRegExp).join('|')) : null;
@@ -786,26 +789,27 @@
           const blinkVisible = (Date.now() % 1500) < 1000;
           // always use Japanese name for color/ classification
           const typeColor = typeToColor(row.type_jp);
-          // translate display strings according to displayLang (except type uses its own cycle)
-          const dispLine = (displayLang === 'ja') ? row.line_jp : translatePair(row.line_jp, linePairs);
-          // type column cycles specially when it contains two parts (e.g. "特急　かいじ"): 
-          // sequence: 特急 (6s) -> かいじ (6s) -> LIMITED EXPRESS (3s) -> KAIJI (3s)
-          function getTypeCycleText(typeJp) {
-            const raw = String(typeJp || '').trim();
-            if (!raw) return '';
-            const parts = raw.split(/[\s　,、\/・]+/).filter(Boolean);
-            if (parts.length >= 2) {
-              const enParts = parts.map(p => translatePair(p, typePairs));
-              const phase = Date.now() % 18000; // 18s cycle
-              if (phase < 6000) return parts[0];
-              if (phase < 12000) return parts[1];
-              if (phase < 15000) return enParts[0] || parts[0];
-              return enParts[1] || parts[1] || parts[0];
+          // compute shared phase (ms) within 18s cycle and derive displayLang from it
+            if (!cycleBase) cycleBase = Date.now();
+            const phase = (Date.now() - cycleBase) % 18000; // 18s cycle
+            const dispLine = (phase < 12000) ? row.line_jp : translatePair(row.line_jp, linePairs);
+            // type column cycles specially when it contains two parts (e.g. "特急　かいじ"): 
+            // sequence: 特急 (6s) -> かいじ (6s) -> LIMITED EXPRESS (3s) -> KAIJI (3s)
+            function getTypeCycleText(typeJp) {
+              const raw = String(typeJp || '').trim();
+              if (!raw) return '';
+              const parts = raw.split(/[\s　,、\/・]+/).filter(Boolean);
+              if (parts.length >= 2) {
+                const enParts = parts.map(p => translatePair(p, typePairs));
+                if (phase < 6000) return parts[0];
+                if (phase < 12000) return parts[1];
+                if (phase < 15000) return enParts[0] || parts[0];
+                return enParts[1] || parts[1] || parts[0];
+              }
+              // fallback: respect global displayLang derived from phase
+              return (phase < 12000) ? raw : translatePair(raw, typePairs);
             }
-            // fallback: respect global displayLang for single-part types
-            return (displayLang === 'ja') ? raw : translatePair(raw, typePairs);
-          }
-          const dispType = getTypeCycleText(row.type_jp);
+            const dispType = getTypeCycleText(row.type_jp);
           // If this is second row and special alert active, override display
           if (row.row === 16 && specialAlert) {
             if (blinkVisible) {
