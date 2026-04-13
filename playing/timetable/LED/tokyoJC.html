@@ -374,7 +374,8 @@
       ['青　梅', 'ŌME'],
       ['高　尾', 'TAKAO'],
       ['大　月', 'ŌTSUKI'],
-      ['甲　府', 'KŌFU']
+      ['甲　府', 'KŌFU'],
+      ['松　本', 'MATSUMOTO']
     ];
     const linePairs = [
       ['京浜東北線', 'KEIHIN-TŌHOKU LINE'],
@@ -818,18 +819,56 @@
             }
             return; // skip normal rendering for this row
           }
-          // draw route (路線) then type
-          drawTextToGrid(dispLine || '', xLine, row.row, textColorOrange);
-          // determine rendered width for `dispType` using font glyphs
-          const typeWidth = measureText(dispType || '');
-          // if wide enough (>=48) place at xType; if small (<=32) and Japanese, offset by 8 cols
-          if (typeWidth >= 48) {
-            drawTextToGrid(dispType, xType, row.row, typeColor);
-          } else if (typeWidth > 0 && typeWidth <= 32) {
-            drawTextToGrid(dispType, xType + 8, row.row, typeColor);
+          // special handling for '特急' rows: swap type/brand (愛称) between type column and line column
+          // derive type parts from mapped `type_jp` (joined with full-width space by loader)
+          const typeParts = String(row.type_jp || '').split('　').filter(Boolean);
+          const hasTokkyu = typeParts.some(p => p.indexOf('特急') !== -1);
+          const nicknameJp = typeParts.find(p => p.indexOf('特急') === -1) || '';
+          const nicknameEn = nicknameJp ? translatePair(nicknameJp, typePairs) : '';
+          const typeJpMain = typeParts.find(p => p.indexOf('特急') !== -1) || (typeParts[0] || '');
+          const typeEnMain = typeJpMain ? translatePair(typeJpMain, typePairs) : '';
+
+          let renderTypeText = '';
+          let renderLineText = dispLine || '';
+          let renderLineColor = textColorOrange;
+
+          if (hasTokkyu && nicknameJp) {
+            // 0–6s: show type JP in type column; line blank
+            // 6–12s: show nickname JP in line column; type blank
+            // 12–15s: show type EN in type column; line blank
+            // 15–18s: show nickname EN in line column; type blank
+            if (phase < 6000) {
+              renderTypeText = typeJpMain;
+              renderLineText = '';
+            } else if (phase < 12000) {
+              renderTypeText = '';
+              renderLineText = nicknameJp;
+            } else if (phase < 15000) {
+              renderTypeText = typeEnMain || typeJpMain;
+              renderLineText = '';
+            } else {
+              renderTypeText = '';
+              renderLineText = nicknameEn || nicknameJp;
+            }
+            // nickname color should match type color
+            renderLineColor = typeColor;
           } else {
-            // fallback: draw at standard xType
-            drawTextToGrid(dispType, xType, row.row, typeColor);
+            // non-tokkyu or no nickname: keep normal behavior
+            renderTypeText = dispType;
+            renderLineText = (phase < 12000) ? row.line_jp : translatePair(row.line_jp, linePairs);
+            renderLineColor = textColorOrange;
+          }
+
+          // draw route (路線) then type
+          drawTextToGrid(renderLineText || '', xLine, row.row, renderLineColor);
+          // determine rendered width for `renderTypeText` using font glyphs
+          const typeWidth = measureText(renderTypeText || '');
+          if (typeWidth >= 48) {
+            drawTextToGrid(renderTypeText, xType, row.row, typeColor);
+          } else if (typeWidth > 0 && typeWidth <= 32) {
+            drawTextToGrid(renderTypeText, xType + 8, row.row, typeColor);
+          } else {
+            drawTextToGrid(renderTypeText, xType, row.row, typeColor);
           }
           // special time rendering: try to build keys a/b/c/d per spec, otherwise fallback
           const timeKeys = timeToGlyphKeys(String(row.time || ''));
@@ -840,10 +879,12 @@
           }
           // 行先表示（4文字分の領域: 64 cols）
           const destJp = String(row.dest_jp || '');
-          // full-width 1〜3文字の場合は左8列空けて表示（日本語のみ）
+          // full-width 1〜3文字の場合は左8列空けて表示（日本語表示時）
           const isZenkakuShort = (/^[^\x00-\x7F]{1,3}$/).test(destJp);
-          const dispDest = (displayLang === 'ja') ? destJp : translatePair(destJp, destPairs);
-          const destStart = (displayLang === 'ja' && isZenkakuShort) ? (xDest + 8) : xDest;
+          // derive language from shared phase: first 12s = Japanese, last 6s = English
+          const destIsJa = (phase < 12000);
+          const dispDest = destIsJa ? destJp : translatePair(destJp, destPairs);
+          const destStart = (destIsJa && isZenkakuShort) ? (xDest + 8) : xDest;
           drawTextToGrid(dispDest, destStart, row.row, textColorOrange);
         });
 
