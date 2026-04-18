@@ -597,6 +597,9 @@
           const lineVal2 = e.line || ((dest.indexOf('青　梅') !== -1 || dest.indexOf('拝島') !== -1) ? '青梅線' : '中央線');
           const carsVal2 = e.cars || ((lineVal2 === '横浜線') ? '8両' : '10両');
           setDisplayRow(1, { line_jp: lineVal2, type_jp: typeJp2, time: timeStr, dest_jp: dest, cars_jp: carsVal2 });
+        } else {
+          // 2段目に以前の表示が残ることがあるため、該当データが無ければ明示的にクリアする
+          setDisplayRow(1, { line_jp: '', type_jp: '', time: '', dest_jp: '', cars_jp: '' });
         }
 
         $('status').textContent = `時刻表読み込み: ${entries.length} 件`;
