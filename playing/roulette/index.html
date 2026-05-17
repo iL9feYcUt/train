@@ -45,7 +45,7 @@
 				<button id="apply">更新</button>
 				<button id="spin">回す</button>
 				<label class="meta">回転数: <select id="spins"><option>5</option><option>7</option><option selected>10</option><option>50</option></select></label>
-				<label class="meta">速度: <select id="dur"><option>3</option><option selected>5</option><option>8</option><option>15</option></select>s</label>
+				<label class="meta">速度: <select id="dur"><option>1</option><option>3</option><option selected>5</option><option>8</option><option>15</option></select>s</label>
 			</div>
 
 		</div>
@@ -165,7 +165,8 @@
 			const curMod = ((rotationAccum % 360) + 360) % 360;
 			const displayedCount = sectors.length;
 			const displayedIndex = Math.floor(Math.random() * displayedCount);
-			const centerDraw = displayedIndex * step + step/2; // center angle used in drawing order
+			// pick a random angle anywhere inside the chosen displayed sector (not necessarily the center)
+			const centerDraw = displayedIndex * step + (Math.random() * step);
 			const extra = 360 * spins;
 			const sectorOffsetDeg = (step/2);
 			const drawRotateDeg = -90 + sectorOffsetDeg;
