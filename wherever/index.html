@@ -463,6 +463,7 @@
             "私みなとみらい線上り.mp3",
             "私みなとみらい線下り.mp3",
             "私東急渋谷.mp3",
+            "bellベルA.mp3",
         ];
 
         const musicSelect = document.getElementById('musicSelect');
@@ -486,7 +487,8 @@
             '一般': [],
             'ご当地': [],
             '接近メロディー': [],
-            '私鉄': []
+            '私鉄': [],
+            'ベル': []
         };
 
         // ファイルをグループに分類
@@ -505,13 +507,15 @@
                 groups['接近メロディー'].push(file);
             } else if (file.includes('私')) {
                 groups['私鉄'].push(file);
+            } else if (file.startsWith('bell')) {
+                groups['ベル'].push(file);
             } else {
                 groups['一般'].push(file);
             }
         });
 
         // 表示順を指定
-        const displayOrder = ['JR-SH', 'JR-SHR', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', '接近メロディー', '私鉄'];
+        const displayOrder = ['JR-SH', 'JR-SHR', 'JRE-IKST', 'JRE-IKST（新幹線）', '一般', 'ご当地', 'ベル', '接近メロディー', '私鉄'];
 
         displayOrder.forEach(label => {
             const files = groups[label];
@@ -534,6 +538,8 @@
                     option.textContent = file.replace(/\.mp3$/i, '').replace(/^ｺﾞ/, '');
                 } else if (label === '私鉄') {
                     option.textContent = file.replace(/\.mp3$/i, '').replace(/^私/, '');
+                } else if (label === 'ベル') {
+                    option.textContent = file.replace(/\.mp3$/i, '').replace(/^bell/, '');
                 } else {
                     option.textContent = file.replace(/\.mp3$/i, '');
                 }
