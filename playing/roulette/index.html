@@ -44,8 +44,8 @@
 			<div class="controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
 				<button id="apply">更新</button>
 				<button id="spin">回す</button>
-				<label class="meta">回転数: <select id="spins"><option>5</option><option selected>7</option><option>10</option></select></label>
-				<label class="meta">速度: <select id="dur"><option>3</option><option selected>5</option><option>8</option></select>s</label>
+				<label class="meta">回転数: <select id="spins"><option>5</option><option>7</option><option selected>10</option><option>50</option></select></label>
+				<label class="meta">速度: <select id="dur"><option>3</option><option selected>5</option><option>8</option><option>15</option></select>s</label>
 			</div>
 
 		</div>
@@ -66,7 +66,8 @@
 		let endTimer = null;
 		let animating = false;
 
-		let currentRotation = 0; // degrees
+		let currentRotation = 0; // normalized 0-359 degrees (for calculations)
+		let rotationAccum = 0; // absolute accumulated rotation (increasing value used for transforms)
 		let displayedOrder = [];
 
 		function getSectors(){
@@ -158,9 +159,10 @@
 			const spins = Number(spinsSel.value) || 7;
 			const dur = Number(durSel.value) || 5;
 			const step = 360 / sectors.length;
-			// ensure we read current visual rotation (in case previous spin left transform)
+			// ensure currentRotation is normalized (use internal state rather than reading computed style)
 			if(endTimer){ clearTimeout(endTimer); endTimer = null; }
-			currentRotation = getCurrentRotationDeg();
+			currentRotation = ((currentRotation % 360) + 360) % 360;
+			const curMod = ((rotationAccum % 360) + 360) % 360;
 			const displayedCount = sectors.length;
 			const displayedIndex = Math.floor(Math.random() * displayedCount);
 			const centerDraw = displayedIndex * step + step/2; // center angle used in drawing order
@@ -168,24 +170,23 @@
 			const sectorOffsetDeg = (step/2);
 			const drawRotateDeg = -90 + sectorOffsetDeg;
 			const pointerAngleScreen = 270; // top
-			const curMod = ((currentRotation % 360) + 360) % 360;
 			const needed = ((pointerAngleScreen - (centerDraw + drawRotateDeg) - curMod) % 360 + 360) % 360;
 			const additional = extra + needed;
-			const final = currentRotation + additional;
+			const finalAccum = rotationAccum + additional;
 			// remove any previous listener by using a once listener and clearing flag
 			animating = true;
-			// apply transition and set transform
+			// apply transition and set transform using accumulated final
 			canvas.style.transition = `transform ${dur}s cubic-bezier(.1,.7,.1,1)`;
-			// force style flush
 			canvas.getBoundingClientRect();
-			requestAnimationFrame(()=>{ setWheelRotation(final); });
+			requestAnimationFrame(()=>{ setWheelRotation(finalAccum); });
 
 			const finish = () => {
 				if(!animating) return;
 				animating = false;
 				if(endTimer){ clearTimeout(endTimer); endTimer = null; }
 				canvas.style.transition = '';
-				currentRotation = final % 360;
+				rotationAccum = finalAccum;
+				currentRotation = rotationAccum % 360;
 				// determine landed index robustly
 				let best = {idx:0,diff:360};
 				for(let i=0;i<sectors.length;i++){
@@ -214,18 +215,9 @@
 		// initialize displayedOrder if not set
 		if(!displayedOrder || displayedOrder.length === 0) displayedOrder = shuffle(Array.from({length:getSectors().length}, (_,i)=>i));
 
-		function getCurrentRotationDeg(){
-			const st = window.getComputedStyle(canvas);
-			const tr = st.transform || st.webkitTransform;
-			if(!tr || tr === 'none') return 0;
-			const values = tr.split('(')[1].split(')')[0].split(',');
-			const a = parseFloat(values[0]);
-			const b = parseFloat(values[1]);
-			const angle = Math.round(Math.atan2(b, a) * (180/Math.PI));
-			return (angle + 360) % 360;
-		}
+		// getCurrentRotationDeg removed: rely on internal currentRotation state
 		applyBtn.addEventListener('click', ()=>{ drawWheel(); });
-		window.addEventListener('resize', ()=>{ drawWheel(); setWheelRotation(currentRotation); });
+		window.addEventListener('resize', ()=>{ drawWheel(); setWheelRotation(rotationAccum); });
 		spinBtn.addEventListener('click', spin);
 		spinBtn.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') spin(); });
 	})();
