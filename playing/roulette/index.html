@@ -7,7 +7,7 @@
 	<style>
 		:root{--size:360px}
 		body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px}
-		.wheel-wrap{width:var(--size);height:var(--size);position:relative}
+		.wheel-wrap{width:var(--size);height:var(--size);position:relative;margin:0 auto;display:block}
 		canvas{width:100%;height:100%;display:block;border-radius:50%;transform-origin:50% 50%}
 		.pointer{position:absolute;left:50%;top:-28px;transform:translateX(-50%);width:28px;height:22px;z-index:20}
 		.controls{display:flex;gap:8px;align-items:center}
@@ -28,8 +28,8 @@
 </head>
 <body>
 	<h1 id="title">ルーレット</h1>
-	<div id="main" style="width:100%;max-width:960px;display:flex;gap:16px;align-items:flex-start;">
-		<div style="flex:0 0 var(--size);position:relative">
+	<div id="main" style="margin:0 auto;display:flex;gap:16px;align-items:flex-start;justify-content:center;">
+		<div style="flex:0 0 var(--size);position:relative;display:flex;justify-content:center;align-items:center">
 			<svg class="pointer" aria-hidden width="28" height="22" viewBox="0 0 28 22" xmlns="http://www.w3.org/2000/svg">
 				<polygon points="14,22 0,0 28,0" fill="#e53935" />
 			</svg>
@@ -38,10 +38,10 @@
 			</div>
 		</div>
 
-		<div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px">
+		<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0">
 			<label class="meta">項目（改行で区切る）:</label>
-			<textarea id="items" rows="8" style="width:100%;resize:vertical;padding:8px;font-size:14px">1</textarea>
-			<div class="controls" style="display:flex;gap:8px;align-items:center">
+			<textarea id="items" rows="8" style="width:100%;max-width:100%;padding:8px;font-size:16px;box-sizing:border-box;min-height:80px">1</textarea>
+			<div class="controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
 				<button id="apply">更新</button>
 				<button id="spin">回す</button>
 				<label class="meta">回転数: <select id="spins"><option>5</option><option selected>7</option><option>10</option></select></label>
