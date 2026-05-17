@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>シンプルルーレット</title>
+	<style>
+		:root{--size:360px}
+		body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px}
+		.wheel-wrap{width:var(--size);height:var(--size);position:relative}
+		canvas{width:100%;height:100%;display:block;border-radius:50%;transform-origin:50% 50%}
+		.pointer{position:absolute;left:50%;top:-28px;transform:translateX(-50%);width:28px;height:22px;z-index:20}
+		.controls{display:flex;gap:8px;align-items:center}
+		button{padding:8px 12px;font-size:16px;cursor:pointer}
+		#result{min-height:1.2em;font-weight:700}
+		.meta{font-size:13px;color:#555}
+		@media (max-width:600px){
+			:root{--size:300px}
+			body{padding:12px}
+			#main{flex-direction:column;align-items:center;text-align:center}
+			#main .wheel-area{flex:0 0 auto}
+			.pointer{top:-20px;width:22px;height:18px}
+			button{padding:12px 14px;font-size:18px}
+			textarea{font-size:16px;margin:0 auto}
+			.controls{justify-content:center}
+		}
+	</style>
+</head>
+<body>
+	<h1 id="title">ルーレット</h1>
+	<div id="main" style="width:100%;max-width:960px;display:flex;gap:16px;align-items:flex-start;">
+		<div style="flex:0 0 var(--size);position:relative">
+			<svg class="pointer" aria-hidden width="28" height="22" viewBox="0 0 28 22" xmlns="http://www.w3.org/2000/svg">
+				<polygon points="14,22 0,0 28,0" fill="#e53935" />
+			</svg>
+			<div class="wheel-wrap wheel-area">
+				<canvas id="wheel" width="720" height="720" role="img" aria-label="ルーレット"></canvas>
+			</div>
+		</div>
+
+		<div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px">
+			<label class="meta">項目（改行で区切る）:</label>
+			<textarea id="items" rows="8" style="width:100%;resize:vertical;padding:8px;font-size:14px">1</textarea>
+			<div class="controls" style="display:flex;gap:8px;align-items:center">
+				<button id="apply">更新</button>
+				<button id="spin">回す</button>
+				<label class="meta">回転数: <select id="spins"><option>5</option><option selected>7</option><option>10</option></select></label>
+				<label class="meta">速度: <select id="dur"><option>3</option><option selected>5</option><option>8</option></select>s</label>
+			</div>
+
+		</div>
+	</div>
+
+		<script>
+	(function(){
+		const canvas = document.getElementById('wheel');
+		const ctx = canvas.getContext('2d');
+		const spinBtn = document.getElementById('spin');
+		const applyBtn = document.getElementById('apply');
+		const itemsTa = document.getElementById('items');
+
+		const spinsSel = document.getElementById('spins');
+		const durSel = document.getElementById('dur');
+
+		const defaultColors = ['#f44336','#e91e63','#9c27b0','#3f51b5','#2196f3','#009688','#8bc34a','#ff9800'];
+		let endTimer = null;
+		let animating = false;
+
+		let currentRotation = 0; // degrees
+		let displayedOrder = [];
+
+		function getSectors(){
+			const raw = itemsTa.value.split('\n').map(s=>s.trim()).filter(Boolean);
+			return raw.length ? raw : ['1'];
+		}
+
+		function drawWheel(){
+			const sectors = getSectors();
+			// create a random display order (shuffle indices)
+			const n = sectors.length;
+			displayedOrder = shuffle(Array.from({length:n}, (_,i)=>i));
+			// handle high-DPI and responsive size
+			const rect = canvas.getBoundingClientRect();
+			const DPR = Math.max(1, window.devicePixelRatio || 1);
+			canvas.width = Math.round(rect.width * DPR);
+			canvas.height = Math.round(rect.height * DPR);
+			ctx.setTransform(DPR,0,0,DPR,0,0);
+			ctx.clearRect(0,0,canvas.width,canvas.height);
+			const w = rect.width, h = rect.height;
+			const cx = w/2, cy = h/2, r = Math.min(cx,cy) - 8;
+			const step = 360 / sectors.length;
+			ctx.save();
+			ctx.translate(cx,cy);
+			const sectorOffset = (step/2) * Math.PI/180; // shift so sector centers align with top
+			ctx.rotate(-Math.PI/2 + sectorOffset);
+
+			for(let i=0;i<sectors.length;i++){
+				const start = (i*step) * Math.PI/180;
+				const end = ((i+1)*step) * Math.PI/180;
+				ctx.beginPath();
+				ctx.moveTo(0,0);
+				ctx.arc(0,0,r,start,end);
+				ctx.closePath();
+				const originalIndex = displayedOrder[i];
+				ctx.fillStyle = colorForIndex(originalIndex, sectors.length);
+				ctx.fill();
+				ctx.save();
+				ctx.rotate((start+end)/2);
+				ctx.fillStyle = '#fff';
+				ctx.font = Math.max(16, Math.min(36, Math.floor(r/6))) + 'px sans-serif';
+				ctx.textAlign = 'right';
+				wrapText(ctx, sectors[originalIndex], r - 12, 8, r - 40, parseInt(ctx.font,10));
+				ctx.restore();
+			}
+			ctx.restore();
+		}
+
+		function shuffle(arr){
+			for(let i=arr.length-1;i>0;i--){
+				const j = Math.floor(Math.random()*(i+1));
+				[arr[i],arr[j]] = [arr[j],arr[i]];
+			}
+			return arr;
+		}
+
+		function colorForIndex(i, n){
+			const h = Math.round((i * 360 / n) % 360);
+			return `hsl(${h},70%,50%)`;
+		}
+
+		function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+			const words = text.split(' ');
+			let line = '';
+			for(let n=0;n<words.length;n++){
+				const testLine = line + words[n] + ' ';
+				const metrics = ctx.measureText(testLine);
+				if(metrics.width > maxWidth && n>0){
+					ctx.fillText(line, x, y);
+					line = words[n] + ' ';
+					y += lineHeight;
+				} else {
+					line = testLine;
+				}
+			}
+			ctx.fillText(line.trim(), x, y);
+		}
+
+		function setWheelRotation(deg){
+			canvas.style.transform = `rotate(${deg}deg)`;
+		}
+
+		function spin(){
+			if(spinBtn.disabled) return;
+			spinBtn.disabled = true;
+
+			document.getElementById('title').textContent = '回転中...';
+			const sectors = getSectors();
+			const spins = Number(spinsSel.value) || 7;
+			const dur = Number(durSel.value) || 5;
+			const step = 360 / sectors.length;
+			// ensure we read current visual rotation (in case previous spin left transform)
+			if(endTimer){ clearTimeout(endTimer); endTimer = null; }
+			currentRotation = getCurrentRotationDeg();
+			const displayedCount = sectors.length;
+			const displayedIndex = Math.floor(Math.random() * displayedCount);
+			const centerDraw = displayedIndex * step + step/2; // center angle used in drawing order
+			const extra = 360 * spins;
+			const sectorOffsetDeg = (step/2);
+			const drawRotateDeg = -90 + sectorOffsetDeg;
+			const pointerAngleScreen = 270; // top
+			const curMod = ((currentRotation % 360) + 360) % 360;
+			const needed = ((pointerAngleScreen - (centerDraw + drawRotateDeg) - curMod) % 360 + 360) % 360;
+			const additional = extra + needed;
+			const final = currentRotation + additional;
+			// remove any previous listener by using a once listener and clearing flag
+			animating = true;
+			// apply transition and set transform
+			canvas.style.transition = `transform ${dur}s cubic-bezier(.1,.7,.1,1)`;
+			// force style flush
+			canvas.getBoundingClientRect();
+			requestAnimationFrame(()=>{ setWheelRotation(final); });
+
+			const finish = () => {
+				if(!animating) return;
+				animating = false;
+				if(endTimer){ clearTimeout(endTimer); endTimer = null; }
+				canvas.style.transition = '';
+				currentRotation = final % 360;
+				// determine landed index robustly
+				let best = {idx:0,diff:360};
+				for(let i=0;i<sectors.length;i++){
+					const cDraw = i*step + step/2;
+					let cScreen = (cDraw + drawRotateDeg + currentRotation) % 360;
+					if(cScreen < 0) cScreen += 360;
+					let diff = Math.abs(((cScreen - pointerAngleScreen + 540) % 360) - 180);
+					if(diff < best.diff){ best = {idx:i,diff:diff}; }
+				}
+				const idx = best.idx;
+				// map drawn index to original input index
+				const originalIdx = displayedOrder[idx];
+
+				document.getElementById('title').textContent = sectors[originalIdx];
+				spinBtn.disabled = false;
+				canvas.removeEventListener('transitionend', finish);
+			};
+
+			canvas.addEventListener('transitionend', finish, {once:true});
+			// fallback in case transitionend doesn't fire
+			endTimer = setTimeout(finish, (dur * 1000) + 300);
+		}
+
+		// hook up
+		drawWheel();
+		// initialize displayedOrder if not set
+		if(!displayedOrder || displayedOrder.length === 0) displayedOrder = shuffle(Array.from({length:getSectors().length}, (_,i)=>i));
+
+		function getCurrentRotationDeg(){
+			const st = window.getComputedStyle(canvas);
+			const tr = st.transform || st.webkitTransform;
+			if(!tr || tr === 'none') return 0;
+			const values = tr.split('(')[1].split(')')[0].split(',');
+			const a = parseFloat(values[0]);
+			const b = parseFloat(values[1]);
+			const angle = Math.round(Math.atan2(b, a) * (180/Math.PI));
+			return (angle + 360) % 360;
+		}
+		applyBtn.addEventListener('click', ()=>{ drawWheel(); });
+		window.addEventListener('resize', ()=>{ drawWheel(); setWheelRotation(currentRotation); });
+		spinBtn.addEventListener('click', spin);
+		spinBtn.addEventListener('keyup', (e)=>{ if(e.key === 'Enter') spin(); });
+	})();
+	</script>
+</body>
+</html>
