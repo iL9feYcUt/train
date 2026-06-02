@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1000">
+    <title>Oslo S Real Departure Board</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-main: #ffffff;
+            --text-sub: #a0a0a0;
+            --blue-bar: #3444b4;
+            --border-color: #222222;
+            --cancel-color: #f5b041;
+            
+            /* 路線カラー */
+            --color-fly: #e67e22; /* Flytoget (オレンジ) */
+            --color-l: #82e076;   /* Lokaltog (明るい緑) */
+            --color-r: #e74c3c;   /* Regiontog (赤/ピンク) */
+            --color-re: #3498db;  /* RegionEkspress (青) */
+            --color-default: #555555;
+        }
+
+        body {
+            background-color: #000000;
+            color: var(--text-main);
+            font-family: 'Frutiger', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .board {
+            width: 100%;
+            max-width: 1200px;
+            background-color: var(--bg-color);
+            position: relative;
+            padding-top: 20px;
+        }
+
+        /* 画面上部の青いバー */
+        .top-bar {
+            height: 12px;
+            background-color: var(--blue-bar);
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .title strong {
+            font-weight: 700;
+        }
+
+        .title span {
+            font-weight: 300;
+            margin-left: 8px;
+        }
+
+        .clock {
+            font-size: 2.8rem;
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+
+        /* テーブルヘッダー (2段表記) */
+        .table-header {
+            display: flex;
+            font-size: 0.8rem;
+            color: #888;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            line-height: 1.2;
+        }
+
+        .table-header span { display: block; }
+        .table-header .eng { color: #666; }
+
+        /* カラム幅設定 */
+        .col-time { width: 10%; padding-left: 10px; }
+        .col-dest { width: 30%; }
+        .col-exp { width: 15%; }
+        .col-track { width: 10%; text-align: center; }
+        .col-remark { width: 35%; text-align: right; padding-right: 10px;}
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .time { font-weight: 700; padding-left: 10px; }
+        
+        /* 運休時の取り消し線（文字もグレーになる） */
+        .time-cancelled {
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+            color: #888;
+        }
+
+        /* 遅延（時刻変更）時の取り消し線（白い線で消す） */
+        .time-delayed {
+            text-decoration: line-through;
+            text-decoration-color: #ffffff;
+            text-decoration-thickness: 2px;
+        }
+
+        /* 路線バッジ */
+        .dest-wrapper { display: flex; align-items: center; gap: 10px; }
+        .badge {
+            font-size: 0.9rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #fff;
+            min-width: 24px;
+            text-align: center;
+        }
+        .badge.type-fly { background-color: var(--color-fly); }
+        .badge.type-l { background-color: var(--color-l); color: #000; }
+        .badge.type-r { background-color: var(--color-r); }
+        .badge.type-re { background-color: var(--color-re); }
+        .badge.type-default { background-color: var(--color-default); }
+
+        /* 予想・ステータス */
+        .expected { font-weight: 700; color: var(--cancel-color); }
+        
+        /* 番線と運休アイコン */
+        .track { font-weight: 700; font-size: 1.5rem; text-align: center;}
+        .track-cancelled {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background-color: var(--cancel-color);
+            color: #000;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            line-height: 24px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* 備考・運行会社 */
+        .remark {
+            font-size: 0.9rem;
+            font-weight: normal;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-right: 10px;
+        }
+        .remark-text { color: var(--text-main); }
+        .operator {
+            font-weight: 700;
+            font-style: italic;
+            font-size: 1rem;
+            letter-spacing: -0.5px;
+        }
+        .operator.vy { color: #ffffff; }
+        .operator.flytoget { color: #ffffff; font-style: normal; font-size: 0.8rem; border-bottom: 2px solid var(--color-fly); padding-bottom: 1px;}
+    </style>
+</head>
+<body>
+    <div class="board">
+        <div class="top-bar"></div>
+        <header>
+            <div class="title"><strong>Avganger</strong> <span>Departures</span></div>
+            <div class="clock" id="clock">12 19</div>
+        </header>
+
+        <div class="table-header">
+            <div class="col-time">Avgang<span class="eng">Departure</span></div>
+            <div class="col-dest">Tog til<span class="eng">Destination</span></div>
+            <div class="col-exp">Forventet<span class="eng">Expected</span></div>
+            <div class="col-track">Spor<span class="eng">Track</span></div>
+            <div class="col-remark"></div>
+        </div>
+
+        <ul id="departures-list">
+            </ul>
+    </div>
+
+    <script>
+        const STOP_PLACE_ID = 'NSR:StopPlace:59872'; // Oslo S
+        const CLIENT_NAME = 'githubuser-oslo-railway-board'; 
+        const API_URL = 'https://api.entur.io/journey-planner/v3/graphql';
+
+        const query = `
+        {
+          stopPlace(id: "${STOP_PLACE_ID}") {
+            estimatedCalls(numberOfDepartures: 15, whiteListedModes: [rail]) {
+              aimedDepartureTime
+              expectedDepartureTime
+              cancellation
+              destinationDisplay {
+                frontText
+              }
+              serviceJourney {
+                journeyPattern {
+                  line {
+                    publicCode
+                  }
+                }
+                operator {
+                  name
+                }
+              }
+              quay {
+                publicCode
+              }
+            }
+          }
+        }
+        `;
+
+        function getBadgeClass(code) {
+            if (!code) return 'type-default';
+            code = code.toUpperCase();
+            if (code.startsWith('FLY')) return 'type-fly';
+            if (code.startsWith('RE')) return 'type-re';
+            if (code.startsWith('R')) return 'type-r';
+            if (code.startsWith('L')) return 'type-l';
+            return 'type-default';
+        }
+
+        async function fetchDepartures() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ET-Client-Name': CLIENT_NAME
+                    },
+                    body: JSON.stringify({ query })
+                });
+
+                const result = await response.json();
+                const calls = result.data.stopPlace.estimatedCalls;
+                renderDepartures(calls);
+            } catch (error) {
+                console.error('API Fetch Error:', error);
+            }
+        }
+
+        function renderDepartures(calls) {
+            const list = document.getElementById('departures-list');
+            list.innerHTML = ''; 
+
+            calls.forEach(call => {
+                const lineCode = call.serviceJourney.journeyPattern.line.publicCode || "";
+                const destination = call.destinationDisplay.frontText;
+                let track = call.quay ? call.quay.publicCode : "";
+                const operatorName = call.serviceJourney.operator.name || "";
+                
+                const aimedTime = new Date(call.aimedDepartureTime);
+                const expectedTime = new Date(call.expectedDepartureTime);
+                const isCancelled = call.cancellation;
+
+                const timeOptions = { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit' };
+                let aimedTimeStr = aimedTime.toLocaleTimeString('no-NO', timeOptions);
+                let expectedTimeStr = expectedTime.toLocaleTimeString('no-NO', timeOptions);
+
+                let timeClass = "time";
+                let expectedText = "";
+                let trackHtml = track;
+                let remarkText = "";
+
+                if (isCancelled) {
+                    // 運休の場合
+                    timeClass += " time-cancelled";
+                    expectedText = "Innstilt";
+                    trackHtml = `<span class="track-cancelled">!</span>`;
+                    remarkText = `<span style="color: var(--cancel-color);">For mer informasjon - se vy.no eller Vys app</span>`;
+                } else if (aimedTime.getTime() !== expectedTime.getTime()) {
+                    // 遅延（時刻変更）の場合
+                    timeClass += " time-delayed";
+                    expectedText = expectedTimeStr; 
+                }
+
+                const badgeClass = getBadgeClass(lineCode);
+
+                let operatorHtml = "";
+                if (operatorName.toLowerCase().includes("vy")) {
+                    operatorHtml = `<span class="operator vy">vy</span>`;
+                } else if (operatorName.toLowerCase().includes("flytoget")) {
+                    operatorHtml = `<span class="operator flytoget">Flytoget</span>`;
+                } else {
+                    operatorHtml = `<span class="operator">${operatorName}</span>`;
+                }
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="col-time ${timeClass}">${aimedTimeStr}</div>
+                    <div class="col-dest dest-wrapper">
+                        <span class="badge ${badgeClass}">${lineCode}</span>
+                        <span>${destination}</span>
+                    </div>
+                    <div class="col-exp expected">${expectedText}</div>
+                    <div class="col-track track">${trackHtml}</div>
+                    <div class="col-remark remark">
+                        <span class="remark-text">${remarkText}</span>
+                        ${operatorHtml}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('no-NO', { 
+                timeZone: 'Europe/Oslo', 
+                hour: '2-digit', 
+                minute: '2-digit'
+            }).replace(':', ' '); 
+            
+            document.getElementById('clock').textContent = timeStr;
+        }
+
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        fetchDepartures();
+        setInterval(fetchDepartures, 5000);
+    </script>
+</body>
+</html>
