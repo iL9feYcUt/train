@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oslo T-bane Departures</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        /* 全体のヘッダー */
+        .main-header {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin: 0;
+            color: #ffffff;
+        }
+
+        .time {
+            font-size: 1.5rem;
+            color: #f39c12; /* 時計をオレンジに */
+            font-weight: bold;
+        }
+
+        /* 左右のボードを並べるコンテナ */
+        .boards-wrapper {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        /* 個別の発車標 */
+        .board {
+            flex: 1;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .board h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #aaaaaa;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .table-header {
+            display: flex;
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            padding: 0 10px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            padding: 12px 10px;
+            border-bottom: 1px solid #333;
+            font-size: 1.2rem;
+        }
+
+        .line { width: 15%; }
+        .destination { width: 65%; }
+        .departure { 
+            width: 20%; 
+            text-align: right; 
+            color: #f39c12; 
+        }
+
+        /* 路線カラー共通設定 */
+        .line-number {
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+            min-width: 16px;
+        }
+
+        /* オスロ T-baneの公式ラインカラー */
+        .line-1 { background-color: #11a2d6; }
+        .line-2 { background-color: #ed6c05; }
+        .line-3 { background-color: #751a70; }
+        .line-4 { background-color: #003087; }
+        .line-5 { background-color: #76b928; }
+        .line-default { background-color: #555555; border: 1px solid #777;}
+
+        /* スマホ向けのレスポンシブ対応 */
+        @media (max-width: 768px) {
+            .boards-wrapper {
+                flex-direction: column;
+            }
+            .main-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <h1 id="station-name">Loading...</h1>
+        <div class="time" id="current-time"></div>
+    </header>
+
+    <div class="boards-wrapper">
+        <div class="board">
+            <h2>Spor 1 - Østgående (Eastbound)</h2>
+            <div class="table-header">
+                <span class="line">Line</span>
+                <span class="destination">Destination</span>
+                <span class="departure">Departure</span>
+            </div>
+            <ul id="east-list"></ul>
+        </div>
+
+        <div class="board">
+            <h2>Spor 2 - Vestgående (Westbound)</h2>
+            <div class="table-header">
+                <span class="line">Line</span>
+                <span class="destination">Destination</span>
+                <span class="departure">Departure</span>
+            </div>
+            <ul id="west-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        const STOP_PLACE_ID = 'NSR:StopPlace:58366';
+        const CLIENT_NAME = 'githubuser-oslo-departure-board'; // ご自身の名前に変更推奨
+
+        const API_URL = 'https://api.entur.io/journey-planner/v3/graphql';
+
+        // 取得件数を40件に増やし、quay (プラットフォーム) の情報を追加で取得
+        const query = `
+        {
+          stopPlace(id: "${STOP_PLACE_ID}") {
+            name
+            estimatedCalls(numberOfDepartures: 40, whiteListedModes: [metro]) {
+              expectedArrivalTime
+              destinationDisplay {
+                frontText
+              }
+              serviceJourney {
+                journeyPattern {
+                  line {
+                    publicCode
+                  }
+                }
+              }
+              quay {
+                publicCode
+              }
+            }
+          }
+        }
+        `;
+
+        async function fetchDepartures() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ET-Client-Name': CLIENT_NAME
+                    },
+                    body: JSON.stringify({ query })
+                });
+
+                const result = await response.json();
+                const stopPlace = result.data.stopPlace;
+                
+                document.getElementById('station-name').textContent = stopPlace.name + " (T-bane)";
+                
+                // プラットフォーム(quay)ごとにデータを分割
+                const allCalls = stopPlace.estimatedCalls;
+                
+                // Spor 1 (東行き) と Spor 2 (西行き) に振り分け、それぞれ最大8件表示
+                const eastCalls = allCalls.filter(call => call.quay && call.quay.publicCode === '1').slice(0, 8);
+                const westCalls = allCalls.filter(call => call.quay && call.quay.publicCode === '2').slice(0, 8);
+
+                renderList('east-list', eastCalls);
+                renderList('west-list', westCalls);
+
+            } catch (error) {
+                console.error('API Fetch Error:', error);
+                document.getElementById('station-name').textContent = "Error loading data";
+            }
+        }
+
+        function renderList(elementId, calls) {
+            const list = document.getElementById(elementId);
+            list.innerHTML = ''; 
+
+            if (calls.length === 0) {
+                list.innerHTML = '<li><div class="destination" style="color:#888;">No upcoming departures</div></li>';
+                return;
+            }
+
+            calls.forEach(call => {
+                const line = call.serviceJourney.journeyPattern.line.publicCode;
+                const destination = call.destinationDisplay.frontText;
+                const expectedTime = new Date(call.expectedArrivalTime);
+                
+                const now = new Date();
+                const diffMs = expectedTime - now;
+                const diffMins = Math.floor(diffMs / 60000);
+                
+                let timeDisplay;
+                if (diffMins < 1) {
+                    timeDisplay = "Now";
+                } else if (diffMins <= 10) {
+                    timeDisplay = `${diffMins} min`;
+                } else {
+                    timeDisplay = expectedTime.toLocaleTimeString('no-NO', { 
+                        timeZone: 'Europe/Oslo', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                }
+
+                const lineClass = (line >= 1 && line <= 5) ? `line-${line}` : 'line-default';
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="line"><span class="line-number ${lineClass}">${line}</span></div>
+                    <div class="destination">${destination}</div>
+                    <div class="departure">${timeDisplay}</div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateClock() {
+            document.getElementById('current-time').textContent = new Date().toLocaleTimeString('no-NO', { 
+                timeZone: 'Europe/Oslo', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        fetchDepartures();
+        setInterval(fetchDepartures, 1000);
+    </script>
+</body>
+</html>
