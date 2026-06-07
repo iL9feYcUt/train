@@ -2,142 +2,148 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1000">
-    <title>Oslo S Real Departure Board</title>
+    <meta name="viewport" content="width=1200">
+    <title>Oslo S Dual Monitors</title>
     <style>
         :root {
             --bg-color: #050505;
             --text-main: #ffffff;
             --text-sub: #a0a0a0;
             --blue-bar: #3444b4;
-            --border-color: #222222;
+            --gray-bar: #656f83;
+            --border-color: #707070;
             --cancel-color: #f5b041;
             
             /* 路線カラー */
-            --color-fly: #e67e22; /* Flytoget (オレンジ) */
-            --color-l: #82e076;   /* Lokaltog (明るい緑) */
-            --color-r: #e74c3c;   /* Regiontog (赤/ピンク) */
-            --color-re: #3498db;  /* RegionEkspress (青) */
+            --color-fly: #e67e22; 
+            --color-l: #82e076;   
+            --color-r: #e74c3c;   
+            --color-re: #3498db;  
             --color-default: #555555;
         }
 
         body {
-            background-color: #000000;
+            background-color: #111111; 
             color: var(--text-main);
             font-family: 'Frutiger', Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 40px;
             display: flex;
             justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
 
-        .board {
+        /* 2つのモニターを並べるコンテナ */
+        .monitor-wall {
+            display: flex;
+            gap: 20px; 
             width: 100%;
-            max-width: 1200px;
+            max-width: 2400px;
+        }
+
+        /* 個別のモニター (16:9のアスペクト比を強制) */
+        .screen {
+            flex: 1;
+            aspect-ratio: 4 / 3;
             background-color: var(--bg-color);
             position: relative;
-            padding-top: 20px;
+            padding: 1% 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid #000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            overflow: hidden; /* はみ出し防止 */
         }
 
-        /* 画面上部の青いバー */
+        /* 画面上部のバー */
         .top-bar {
-            height: 12px;
-            background-color: var(--blue-bar);
+            height: 2.5%;
             width: 100%;
             position: absolute;
             top: 0;
             left: 0;
         }
+        .top-bar.blue { background-color: var(--blue-bar); }
+        .top-bar.gray { background-color: var(--gray-bar); }
 
+        /* --- ヘッダー共通 --- */
         header {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            padding: 20px 0;
-            margin-bottom: 20px;
+            margin-bottom: 1.5%;
+            margin-top: 1%;
+            flex-shrink: 0; /* ヘッダーは潰さない */
         }
 
         .title {
-            font-size: 2.5rem;
+            font-size: 2.2vw;
             letter-spacing: -0.5px;
         }
 
-        .title strong {
-            font-weight: 700;
-        }
-
-        .title span {
-            font-weight: 300;
-            margin-left: 8px;
-        }
+        .title strong { font-weight: 700; }
+        .title span { font-weight: 300; margin-left: 10px; color: #ddd; }
 
         .clock {
-            font-size: 2.8rem;
+            font-size: 2.5vw;
             font-weight: 500;
             letter-spacing: 2px;
         }
 
-        /* テーブルヘッダー (2段表記) */
+        /* --- 左モニター: リスト表示 --- */
         .table-header {
             display: flex;
-            font-size: 0.8rem;
+            font-size: 0.7vw;
             color: #888;
-            padding-bottom: 15px;
+            padding-bottom: 0.5%;
             border-bottom: 1px solid var(--border-color);
             line-height: 1.2;
+            flex-shrink: 0;
         }
-
         .table-header span { display: block; }
         .table-header .eng { color: #666; }
 
-        /* カラム幅設定 */
         .col-time { width: 10%; padding-left: 10px; }
-        .col-dest { width: 30%; }
-        .col-exp { width: 15%; }
+        .col-dest { width: 32%; }
+        .col-exp { width: 18%; }
         .col-track { width: 10%; text-align: center; }
-        .col-remark { width: 35%; text-align: right; padding-right: 10px;}
+        .col-remark { width: 30%; text-align: right; padding-right: 10px;}
 
-        ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        ul { 
+            list-style: none; 
+            padding: 0; 
+            margin: 0; 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; /* 14行を均等に配置 */
         }
-
+        
         li {
             display: flex;
             align-items: center;
-            padding: 12px 0;
+            flex: 1; /* 縦幅を均等分割 */
             border-bottom: 1px solid var(--border-color);
-            font-size: 1.5rem;
+            font-size: 1.3vw;
             font-weight: 500;
         }
 
         .time { font-weight: 700; padding-left: 10px; }
-        
-        /* 運休時の取り消し線（文字もグレーになる） */
-        .time-cancelled {
-            text-decoration: line-through;
-            text-decoration-thickness: 2px;
-            color: #888;
-        }
+        .time-cancelled { text-decoration: line-through; text-decoration-thickness: 2px; color: #888; }
+        .time-delayed { text-decoration: line-through; text-decoration-color: #ffffff; text-decoration-thickness: 2px; }
 
-        /* 遅延（時刻変更）時の取り消し線（白い線で消す） */
-        .time-delayed {
-            text-decoration: line-through;
-            text-decoration-color: #ffffff;
-            text-decoration-thickness: 2px;
-        }
-
-        /* 路線バッジ */
-        .dest-wrapper { display: flex; align-items: center; gap: 10px; }
+        .dest-wrapper { display: flex; align-items: center; gap: 8px; }
         .badge {
-            font-size: 0.9rem;
-            font-weight: 700;
+            font-size: 0.8vw;
+            font-weight: 600;
             padding: 2px 6px;
-            border-radius: 3px;
+            border-radius: 2px;
             color: #fff;
-            min-width: 24px;
-            text-align: center;
+            min-width: 1.8vw;
+            text-align: left;
         }
         .badge.type-fly { background-color: var(--color-fly); }
         .badge.type-l { background-color: var(--color-l); color: #000; }
@@ -145,62 +151,107 @@
         .badge.type-re { background-color: var(--color-re); }
         .badge.type-default { background-color: var(--color-default); }
 
-        /* 予想・ステータス */
         .expected { font-weight: 700; color: var(--cancel-color); }
-        
-        /* 番線と運休アイコン */
-        .track { font-weight: 700; font-size: 1.5rem; text-align: center;}
+        .track { font-weight: 700; font-size: 1.3vw; text-align: center;}
         .track-cancelled {
             display: inline-block;
-            width: 24px;
-            height: 24px;
+            width: 1.8vw;
+            height: 1.8vw;
             background-color: var(--cancel-color);
             color: #000;
             border-radius: 50%;
-            font-size: 1.2rem;
-            line-height: 24px;
+            font-size: 1vw;
+            line-height: 1.8vw;
             text-align: center;
             font-weight: bold;
         }
 
-        /* 備考・運行会社 */
-        .remark {
-            font-size: 0.9rem;
-            font-weight: normal;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-right: 10px;
-        }
+        .remark { font-size: 0.75vw; font-weight: normal; display: flex; justify-content: space-between; align-items: center; padding-right: 10px; }
         .remark-text { color: var(--text-main); }
-        .operator {
-            font-weight: 700;
-            font-style: italic;
-            font-size: 1rem;
-            letter-spacing: -0.5px;
-        }
+        .operator { font-weight: 700; font-style: italic; font-size: 0.9vw; letter-spacing: -0.5px; }
         .operator.vy { color: #ffffff; }
-        .operator.flytoget { color: #ffffff; font-style: normal; font-size: 0.8rem; border-bottom: 2px solid var(--color-fly); padding-bottom: 1px;}
+        .operator.flytoget { color: #ffffff; font-style: normal; font-size: 0.7vw; border-bottom: 2px solid var(--color-fly); padding-bottom: 1px;}
+
+        /* --- 右モニター: グリッド表示 --- */
+        .destinations-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(3, 1fr); /* 確実に3行分（計6枠）に分割 */
+            gap: 2% 6%;
+            margin-top: 1%;
+            flex: 1;
+        }
+
+        .dest-block { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; /* 枠内で上下中央寄せ */
+        }
+
+        .dest-block-header {
+            display: flex;
+            align-items: baseline;
+            border-bottom: 2px solid #444;
+            padding-bottom: 4px;
+            margin-bottom: 10px;
+            white-space: nowrap;
+        }
+
+        .dest-block-title { font-size: 1.4vw; font-weight: 700; }
+        .dest-block-subtitle { font-size: 0.8vw; color: #bbb; margin-left: 10px; font-weight: normal; }
+
+        .trains-row { display: flex; gap: 20px; }
+        .train-item { flex: 1; display: flex; flex-direction: column; }
+
+        .train-time-display { font-size: 2.2vw; font-weight: 700; line-height: 1.1; margin-bottom: 5px; }
+
+        .train-line-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1vw;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .train-track-small { font-size: 0.8vw; color: #aaa; margin-top: 4px; }
+        .no-trains { font-size: 1vw; color: #555; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="board">
-        <div class="top-bar"></div>
-        <header>
-            <div class="title"><strong>Avganger</strong> <span>Departures</span></div>
-            <div class="clock" id="clock">12 19</div>
-        </header>
+    <div class="monitor-wall">
+        
+        <div class="screen">
+            <div class="top-bar blue"></div>
+            <header>
+                <div class="title"><strong>Avganger</strong> <span>Departures</span></div>
+                <div class="clock" id="clock">12 19</div>
+            </header>
 
-        <div class="table-header">
-            <div class="col-time">Avgang<span class="eng">Departure</span></div>
-            <div class="col-dest">Tog til<span class="eng">Destination</span></div>
-            <div class="col-exp">Forventet<span class="eng">Expected</span></div>
-            <div class="col-track">Spor<span class="eng">Track</span></div>
-            <div class="col-remark"></div>
+            <div class="table-header">
+                <div class="col-time">Avgang<span class="eng">Departure</span></div>
+                <div class="col-dest">Tog til<span class="eng">Destination</span></div>
+                <div class="col-exp">Forventet<span class="eng">Expected</span></div>
+                <div class="col-track">Spor<span class="eng">Track</span></div>
+                <div class="col-remark"></div>
+            </div>
+
+            <ul id="departures-list">
+                </ul>
         </div>
 
-        <ul id="departures-list">
-            </ul>
+        <div class="screen">
+            <div class="top-bar gray"></div>
+            <header>
+                <div class="title"><strong>Neste tog til</strong> <span>Next train to</span></div>
+            </header>
+            
+            <div class="destinations-grid" id="destinations-grid">
+                </div>
+        </div>
+
     </div>
 
     <script>
@@ -208,29 +259,29 @@
         const CLIENT_NAME = 'githubuser-oslo-railway-board'; 
         const API_URL = 'https://api.entur.io/journey-planner/v3/graphql';
 
+        // 6方面の表示設定
+        const destinationBlocks = [
+            { id: "asker", title: "Asker", subtitle: "via Nationaltheatret • Lysaker", targets: ["Asker", "Drammen", "Spikkestad", "Kongsberg", "Skien", "Stabekk", "Bergen", "Kristiansand"] },
+            { id: "lillestrom", title: "Lillestrøm", subtitle: "Direkte tog / Direct trains", targets: ["Lillestrøm", "Eidsvoll", "Kongsvinger", "Lillehammer", "Oslo lufthavn", "Trondheim"] },
+            { id: "ski", title: "Ski", subtitle: "Direkte tog / Direct trains", targets: ["Ski", "Moss", "Halden", "Rakkestad", "Göteborg"] },
+            { id: "osl", title: "Oslo Lufthavn ✈", subtitle: "Oslo Airport", targets: ["Oslo lufthavn", "Eidsvoll", "Lillehammer", "Trondheim"] },
+            { id: "nittedal", title: "Nittedal", subtitle: "", targets: ["Hakadal", "Jaren", "Gjøvik"] },
+            { id: "jessheim", title: "Jessheim", subtitle: "", targets: ["Dal"] }
+        ];
+
         const query = `
         {
           stopPlace(id: "${STOP_PLACE_ID}") {
-            estimatedCalls(numberOfDepartures: 15, whiteListedModes: [rail]) {
+            estimatedCalls(numberOfDepartures: 60, whiteListedModes: [rail]) {
               aimedDepartureTime
               expectedDepartureTime
               cancellation
-              destinationDisplay {
-                frontText
-              }
+              destinationDisplay { frontText }
               serviceJourney {
-                journeyPattern {
-                  line {
-                    publicCode
-                  }
-                }
-                operator {
-                  name
-                }
+                journeyPattern { line { publicCode } }
+                operator { name }
               }
-              quay {
-                publicCode
-              }
+              quay { publicCode }
             }
           }
         }
@@ -250,22 +301,22 @@
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ET-Client-Name': CLIENT_NAME
-                    },
+                    headers: { 'Content-Type': 'application/json', 'ET-Client-Name': CLIENT_NAME },
                     body: JSON.stringify({ query })
                 });
 
                 const result = await response.json();
                 const calls = result.data.stopPlace.estimatedCalls;
-                renderDepartures(calls);
+                
+                // 左画面は14行のみ描画
+                renderLeftList(calls.slice(0, 14)); 
+                renderRightGrid(calls);             
             } catch (error) {
                 console.error('API Fetch Error:', error);
             }
         }
 
-        function renderDepartures(calls) {
+        function renderLeftList(calls) {
             const list = document.getElementById('departures-list');
             list.innerHTML = ''; 
 
@@ -279,7 +330,7 @@
                 const expectedTime = new Date(call.expectedDepartureTime);
                 const isCancelled = call.cancellation;
 
-                const timeOptions = { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit' };
+                const timeOptions = { timeZone: 'Europe/Oslo', hour: 'numeric', minute: '2-digit' };
                 let aimedTimeStr = aimedTime.toLocaleTimeString('no-NO', timeOptions);
                 let expectedTimeStr = expectedTime.toLocaleTimeString('no-NO', timeOptions);
 
@@ -289,13 +340,11 @@
                 let remarkText = "";
 
                 if (isCancelled) {
-                    // 運休の場合
                     timeClass += " time-cancelled";
                     expectedText = "Innstilt";
                     trackHtml = `<span class="track-cancelled">!</span>`;
                     remarkText = `<span style="color: var(--cancel-color);">For mer informasjon - se vy.no eller Vys app</span>`;
                 } else if (aimedTime.getTime() !== expectedTime.getTime()) {
-                    // 遅延（時刻変更）の場合
                     timeClass += " time-delayed";
                     expectedText = expectedTimeStr; 
                 }
@@ -329,11 +378,79 @@
             });
         }
 
+        function renderRightGrid(allCalls) {
+            const grid = document.getElementById('destinations-grid');
+            grid.innerHTML = '';
+
+            destinationBlocks.forEach(block => {
+                const matchingCalls = allCalls.filter(call => 
+                    block.targets.includes(call.destinationDisplay.frontText)
+                );
+                const top2Calls = matchingCalls.slice(0, 2);
+                const blockDiv = document.createElement('div');
+                blockDiv.className = 'dest-block';
+
+                let html = `
+                    <div class="dest-block-header">
+                        <span class="dest-block-title">${block.title}</span>
+                        <span class="dest-block-subtitle">${block.subtitle}</span>
+                    </div>
+                    <div class="trains-row">
+                `;
+
+                if (top2Calls.length === 0) {
+                    html += `<div class="no-trains">Ingen avganger funnet</div>`;
+                } else {
+                    top2Calls.forEach(call => {
+                        const lineCode = call.serviceJourney.journeyPattern.line.publicCode || "";
+                        const destination = call.destinationDisplay.frontText;
+                        const track = call.quay ? call.quay.publicCode : "TBA";
+                        
+                        const expectedTime = new Date(call.expectedDepartureTime);
+                        const aimedTime = new Date(call.aimedDepartureTime);
+                        const isCancelled = call.cancellation;
+                        
+                        const now = new Date();
+                        const diffMs = expectedTime - now;
+                        const diffMins = Math.floor(diffMs / 60000);
+                        
+                        let timeDisplay = "";
+                        if (isCancelled) {
+                            timeDisplay = `<span style="color: var(--cancel-color); font-size: 1.8vw;">Innstilt</span>`;
+                        } else if (diffMins < 1) {
+                            timeDisplay = "Nå";
+                        } else if (diffMins <= 15) {
+                            timeDisplay = `${diffMins} min`;
+                        } else {
+                            timeDisplay = aimedTime.toLocaleTimeString('no-NO', { timeZone: 'Europe/Oslo', hour: 'numeric', minute: '2-digit' });
+                        }
+
+                        const badgeClass = getBadgeClass(lineCode);
+
+                        html += `
+                            <div class="train-item">
+                                <div class="train-time-display">${timeDisplay}</div>
+                                <div class="train-line-info">
+                                    <span class="badge ${badgeClass}">${lineCode}</span>
+                                    <span>${destination}</span>
+                                </div>
+                                <div class="train-track-small">Spor ${track}</div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div>`;
+                blockDiv.innerHTML = html;
+                grid.appendChild(blockDiv);
+            });
+        }
+
         function updateClock() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString('no-NO', { 
                 timeZone: 'Europe/Oslo', 
-                hour: '2-digit', 
+                hour: 'numeric', 
                 minute: '2-digit'
             }).replace(':', ' '); 
             
@@ -344,7 +461,7 @@
         setInterval(updateClock, 1000);
 
         fetchDepartures();
-        setInterval(fetchDepartures, 5000);
+        setInterval(fetchDepartures, 10000);
     </script>
 </body>
 </html>
