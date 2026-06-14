@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>津波情報システム</title>
+<style>
+  /* 画面全体を余白なしで目一杯に使う */
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    background-color: #f5f5f5;
+  }
+
+  /* 画面の比率に合わせて自動伸縮するコンテナ */
+  .container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  /* ヘッダー部分：横いっぱいに広げて要素を左右に分散 */
+  .header {
+    background-color: #004494;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    z-index: 10;
+  }
+
+  .header-title-area {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header h1 {
+    margin: 0;
+    font-size: 32px; /* 文字を大きく */
+  }
+
+  .header p {
+    margin: 6px 0 0 0;
+    font-size: 18px; /* 文字を大きく */
+    opacity: 0.9;
+  }
+
+  /* 目立たないプルダウンのスタイル */
+  .select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    opacity: 0.65; /* 通常時は透過させて存在感を抑える */
+    transition: opacity 0.2s ease;
+  }
+  
+  .select-wrapper:hover {
+    opacity: 1; /* マウスホバーでくっきり表示 */
+  }
+  
+  #info-selector {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 18px;
+    cursor: pointer;
+    outline: none;
+  }
+  
+  #info-selector option {
+    background-color: #222;
+    color: white;
+  }
+
+  /* コンテンツ領域：縦の余り幅をすべて使い、溢れたらスクロール */
+  .content {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  #status-message {
+    font-size: 26px; /* 文字を大きく */
+    font-weight: bold;
+    text-align: center;
+    margin-top: 50px;
+    color: #333;
+  }
+
+  /* 各警報・注意報セクションの枠組み */
+  .tsunami-section {
+    margin-bottom: 40px;
+  }
+
+  /* 左上のカテゴリラベル */
+  .section-title {
+    font-size: 26px;
+    font-weight: bold;
+    padding: 10px 24px;
+    display: inline-block;
+    border-radius: 6px 6px 0 0;
+    color: white;
+  }
+
+  /* テーブルのベーススタイル（ヘッダーなし） */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  td {
+    border: 1px solid #ddd;
+    padding: 15px 24px; /* パディングを広く */
+    text-align: left;
+    font-size: 30px; /* 文字を大きく */
+    font-weight: bold;
+  }
+
+  /* 複数のテーブル間で縦のラインを綺麗に揃えるための列幅固定 */
+  .col-name {
+    width: 40%;
+  }
+  .col-time {
+    width: 40%;
+  }
+  .col-height {
+    width: 20%;
+  }
+
+  /* 大津波警報の配色 */
+  .grade-major .section-title {
+    background-color: #4a148c;
+  }
+  .grade-major table {
+    border-top: 4px solid #4a148c;
+  }
+  .grade-major tr {
+    background-color: #f3e5f5;
+  }
+
+  /* 津波警報の配色 */
+  .grade-warning .section-title {
+    background-color: #c62828;
+  }
+  .grade-warning table {
+    border-top: 4px solid #c62828;
+  }
+  .grade-warning tr {
+    background-color: #ffebee;
+  }
+
+  /* 津波注意報の配色 */
+  .grade-watch .section-title {
+    background-color: #e65100;
+  }
+  .grade-watch table {
+    border-top: 4px solid #e65100;
+  }
+  .grade-watch tr {
+    background-color: #fffde7;
+  }
+
+  /* 直ちに来襲する場合のバッジ */
+  .immediate-badge {
+    display: inline-block;
+    background-color: #d32f2f;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 25px;
+    margin-right: 12px;
+    font-weight: bold;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="header-title-area">
+      <h1>津波情報</h1>
+      <p id="issue-time">データ取得中...</p>
+    </div>
+    <div class="select-wrapper">
+      <label for="info-selector">過去の履歴:</label>
+      <select id="info-selector">
+        <option value="">読み込み中...</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="content" id="content-body">
+    <div id="status-message"></div>
+    </div>
+</div>
+
+<script>
+  let tsunamiDataLog = []; // 取得した全データを保持する配列
+
+  async function fetchTsunamiData() {
+    try {
+      // P2P地震情報APIからデータを取得
+      const response = await fetch('https://api.p2pquake.net/v2/jma/tsunami?limit=100');
+      tsunamiDataLog = await response.json();
+
+      if (!tsunamiDataLog || tsunamiDataLog.length === 0) {
+        document.getElementById('issue-time').innerText = "情報なし";
+        document.getElementById('status-message').innerText = "現在、津波に関する情報はありません。";
+        return;
+      }
+
+      // プルダウンメニューの組み立て
+      setupSelector();
+
+      // 初期状態として最新のデータ(インデックス0)を表示
+      displayData(0);
+
+    } catch (error) {
+      console.error("データの取得に失敗しました:", error);
+      document.getElementById('issue-time').innerText = "取得エラー";
+      document.getElementById('status-message').innerText = "データの取得に失敗しました。";
+    }
+  }
+
+  // プルダウンメニューを生成する関数
+  function setupSelector() {
+    const selector = document.getElementById('info-selector');
+    selector.innerHTML = ''; // 初期化
+
+    tsunamiDataLog.forEach((item, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+
+      // プルダウン内を識別しやすくするためのテキスト（月日 時分 ＋ 状態）
+      const timeStr = new Date(item.issue.time).toLocaleString('ja-JP', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const statusStr = item.cancelled ? "【解除】" : `【発表】(${item.areas.length}地域)`;
+      
+      option.innerText = `${timeStr} ${statusStr}`;
+      selector.appendChild(option);
+    });
+
+    // プルダウン変更時のイベント
+    selector.onchange = (e) => {
+      displayData(Number(e.target.value));
+    };
+  }
+
+  // 指定されたインデックスの津波情報を画面に描画する関数
+  function displayData(index) {
+    const item = tsunamiDataLog[index];
+    const contentBody = document.getElementById('content-body');
+    const issueTimeEl = document.getElementById('issue-time');
+
+    // 表示内容を一旦クリアしてステータスメッセージ用要素だけ用意
+    contentBody.innerHTML = '<div id="status-message"></div>';
+    const statusMessage = document.getElementById('status-message');
+
+    // 発表時刻のフォーマット
+    const issueTime = new Date(item.issue.time).toLocaleString('ja-JP', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
+    issueTimeEl.innerText = `${item.issue.source} 発表 (${issueTime})`;
+
+    // 「解除」データだった場合
+    if (item.cancelled) {
+      statusMessage.innerText = "この発表時点で、津波警報・注意報はすべて解除されています。";
+      statusMessage.style.display = 'block';
+      return;
+    }
+
+    // 津波対象エリアがない場合
+    if (!item.areas || item.areas.length === 0) {
+      statusMessage.innerText = "有効なエリア情報がありません。";
+      statusMessage.style.display = 'block';
+      return;
+    }
+
+    statusMessage.style.display = 'none';
+
+    // 各グレード（カテゴリ）の管理用オブジェクト
+    const groups = {
+      MajorWarning: { title: '大津波警報', class: 'grade-major', areas: [] },
+      Warning: { title: '津波警報', class: 'grade-warning', areas: [] },
+      Watch: { title: '津波注意報', class: 'grade-watch', areas: [] }
+    };
+
+    // 取得データをグレードごとに振り分け
+    item.areas.forEach(area => {
+      if (groups[area.grade]) {
+        groups[area.grade].areas.push(area);
+      }
+    });
+
+    // 大津波警報 -> 津波警報 -> 津波注意報 の順にテーブルを生成
+    ['MajorWarning', 'Warning', 'Watch'].forEach(gradeKey => {
+      const group = groups[gradeKey];
+      
+      // 該当する地域のデータがない区分はスキップ（非表示）
+      if (group.areas.length === 0) return;
+
+      // セクション全体のコンテナ
+      const section = document.createElement('div');
+      section.className = `tsunami-section ${group.class}`;
+
+      // 左上のタイトルラベル
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'section-title';
+      titleDiv.innerText = group.title;
+      section.appendChild(titleDiv);
+
+      // テーブルの生成（ヘッダーなし）
+      const table = document.createElement('table');
+      const tbody = document.createElement('tbody');
+
+      group.areas.forEach(area => {
+        const tr = document.createElement('tr');
+
+        // 到達予想時刻・状況の組み立て
+        let arrivalText = "";
+        if (area.immediate) {
+          arrivalText += `<span class="immediate-badge">すぐ来る</span>`;
+        }
+
+        if (area.firstHeight.condition) {
+          arrivalText += area.firstHeight.condition;
+        } else if (area.firstHeight.arrivalTime) {
+          const arrivalDate = new Date(area.firstHeight.arrivalTime);
+          const hours = arrivalDate.getHours();
+          const minutes = String(arrivalDate.getMinutes()).padStart(2, '0');
+          arrivalText += `${hours}:${minutes}`;
+        } else {
+          arrivalText += "確認中";
+        }
+
+        const maxHeightStr = area.maxHeight ? area.maxHeight.description : "-";
+
+        // 列順を「地域」・「予想時刻・状況」・「津波の高さ」に変更
+        tr.innerHTML = `
+          <td class="col-name"><strong>${area.name}</strong></td>
+          <td class="col-time">${arrivalText}</td>
+          <td class="col-height">${maxHeightStr}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      section.appendChild(table);
+      contentBody.appendChild(section);
+    });
+  }
+
+  // 読み込み完了時に実行
+  window.onload = fetchTsunamiData;
+</script>
+
+</body>
+</html>
