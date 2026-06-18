@@ -475,9 +475,11 @@
         const onSound = document.getElementById('onSound');
         const offSound = document.getElementById('offSound');
 
-        // COSMOS用: 再生開始から6秒後に1回だけ流すためのタイマーとaudio要素
-        let cosmosTimeoutId = null;
-        let cosmosAudio = null;
+        // COSMOS用: 再生開始から7秒後に放送を開始するためのタイマーと状態管理
+        let cosmosBroadcastTimeoutId = null;
+        let cosmosBroadcastInProgress = false;
+        // COSMOS用の追加セレクト要素（名前、号数(百/十/一)、行先、次の停車駅）
+        let cosmosUI = null;
         const sortedMp3Files = mp3Files.slice().sort((a, b) => a.localeCompare(b, 'ja'));
 
 
@@ -569,18 +571,237 @@
 
         onSound.src = 'sounds/' + musicSelect.value;
 
+        // --- COSMOS用UI生成と放送再生ロジック ---
+        function createCosmosUI() {
+            if (cosmosUI) return;
+            const selectContainer = document.getElementById('select');
+            cosmosUI = document.createElement('div');
+            cosmosUI.id = 'cosmosUI';
+            cosmosUI.style.marginTop = '8px';
+            cosmosUI.style.display = 'flex';
+            cosmosUI.style.alignItems = 'center';
+
+            // 名前
+            const nameSel = document.createElement('select');
+            nameSel.id = 'cosmosName';
+            ['はやぶさ','やまびこ','なすの','はやて','こまち','スーパーこまち','つばさ','とき','Maxとき','たにがわ','Maxたにがわ','かがやき','はくたか','あさま','つるぎ'].forEach(n => {
+                const o = document.createElement('option'); o.value = n; o.textContent = n; nameSel.appendChild(o);
+            });
+            cosmosUI.appendChild(nameSel);
+            nameSel.style.marginRight = '4px'; nameSel.style.width = '80px';
+
+            // 号数（百・十・一） — 内部は3つのselectを維持し表示は結合して見せる
+            const noContainer = document.createElement('span');
+            noContainer.style.display = 'inline-flex';
+            noContainer.style.alignItems = 'center';
+
+            const noHund = document.createElement('select'); noHund.id = 'cosmosNoHundreds';
+            const hundOptions = ['0','1','2','3','4','5','6','7','8','9'];
+            hundOptions.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noHund.appendChild(o);});
+            noHund.style.display = 'inline-block'; noHund.style.width = '27px';
+
+            const noTen = document.createElement('select'); noTen.id = 'cosmosNoTens';
+            const tenOptions = ['0','1','2','3','4','5','6','7','8','9'];
+            tenOptions.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noTen.appendChild(o);});
+            noTen.style.display = 'inline-block'; noTen.style.width = '27px';
+
+            const noOne = document.createElement('select'); noOne.id = 'cosmosNoOnes';
+            const oneOptions = ['0','1','2','3','4','5','6','7','8','9'];
+            oneOptions.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noOne.appendChild(o);});
+            noOne.style.display = 'inline-block'; noOne.style.width = '27px';
+
+            // noDisplay を廃止。数値は表示せず『号』ラベルのみ表示する
+
+            noContainer.appendChild(noHund);
+            noContainer.appendChild(noTen);
+            noContainer.appendChild(noOne);
+            const noSuffix = document.createElement('span'); noSuffix.id = 'cosmosNoSuffix'; noSuffix.textContent = '号';
+            noContainer.appendChild(noSuffix);
+            cosmosUI.appendChild(noContainer);
+
+            // 行先（表示は行を追加）
+            const destWrap = document.createElement('span'); destWrap.style.display='inline-flex'; destWrap.style.alignItems='center';
+            const destSel = document.createElement('select'); destSel.id = 'cosmosDestination';
+            ['山形・新庄','東京','新函館北斗','新青森','秋田','山形','仙台','新潟','長野','敦賀'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
+            const destSuffix = document.createElement('span'); destSuffix.textContent = '行'; destSuffix.style.marginRight = '4px';
+            destWrap.appendChild(destSel); destWrap.appendChild(destSuffix);
+            cosmosUI.appendChild(destWrap);
+
+            // 次の停車駅（表示に「次は」を付ける）
+            const nextWrap = document.createElement('span'); nextWrap.style.display='inline-flex'; nextWrap.style.alignItems='center'; nextWrap.style.paddingTop = '0px';
+            const nextLabel = document.createElement('span'); nextLabel.textContent = '次は';
+            const nextSel = document.createElement('select'); nextSel.id = 'cosmosNext';
+            ['浦佐'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; nextSel.appendChild(o);});
+            nextWrap.appendChild(nextLabel); nextWrap.appendChild(nextSel);
+            cosmosUI.appendChild(nextWrap);
+
+            selectContainer.appendChild(cosmosUI);
+            cosmosUI.style.display = 'none';
+            // 初期表示更新不要（数値表示なし）
+        }
+
+        // 号数のパーツ候補リストを作成
+        function buildNoParts(hund, ten, one) {
+            // hund/ten/one are digits 0-9
+            const parts = [];
+            const hd = parseInt(hund,10)||0;
+            const td = parseInt(ten,10)||0;
+            const od = parseInt(one,10)||0;
+            const h = hd * 100;
+            const t = td * 10;
+            const o = od;
+
+            // 特別扱い: ちょうど百の倍数（例:100,200...）
+            if (h > 0 && t === 0 && o === 0) {
+                // まず単独の「100号.mp3」を優先して、その後で素の100.mp3を試す
+                parts.push([`COSMOS/no/${h}号.mp3`, `COSMOS/no/${h}.mp3`]);
+                return parts;
+            }
+
+            // 百の位（存在する場合はまず素の100.mp3を流すのが基本）
+            if (h > 0) {
+                parts.push([`COSMOS/no/${h}.mp3`, `COSMOS/no/${h}号.mp3`]);
+            }
+
+            // 十の位
+            if (t > 0) {
+                if (o === 0) {
+                    // ちょうど10の倍数（例:10,20,...,90,120など）では「20号.mp3」を優先
+                    parts.push([`COSMOS/no/${t}号.mp3`, `COSMOS/no/${t}.mp3`]);
+                } else {
+                    // 一の位がある場合はまず素の20.mp3を流す
+                    parts.push([`COSMOS/no/${t}.mp3`, `COSMOS/no/${t}号.mp3`]);
+                }
+            }
+
+            // 一の位（あれば必ず「3号.mp3」をまず試す）
+            if (o > 0) {
+                parts.push([`COSMOS/no/${o}号.mp3`, `COSMOS/no/${o}.mp3`]);
+            }
+
+            return parts;
+        }
+
+        // 各パートは候補配列（存在しない場合は次の候補へフォールバック）
+        function playPartsWithFallbacks(parts, onFinished) {
+            let idx = 0;
+            cosmosBroadcastInProgress = true;
+
+            function playPart(partCandidates) {
+                if (!cosmosBroadcastInProgress) { if (onFinished) onFinished(); return; }
+                if (!partCandidates || partCandidates.length === 0) { nextPart(); return; }
+                let candIndex = 0;
+            const audio = document.createElement('audio');
+            audio.className = 'cosmos-broadcast-audio';
+                audio.autoplay = false;
+                audio.preload = 'auto';
+
+                function tryCandidate() {
+                    if (candIndex >= partCandidates.length) { nextPart(); return; }
+                    const url = partCandidates[candIndex];
+                    audio.src = url;
+                    // エラーなら次の候補へ
+                    audio.onerror = function () { candIndex++; tryCandidate(); };
+                    audio.onended = function () { try{ audio.remove(); }catch(e){} nextPart(); };
+                    // 再生可能になれば再生
+                    audio.oncanplaythrough = function () {
+                        audio.play().catch(e=>{ nextPart(); });
+                    };
+                    // 読み込み開始してみる
+                    audio.load();
+                    // タイムアウト: 読み込めなければ次へ（1.5s）
+                    setTimeout(()=>{ if (!audio.duration || isNaN(audio.duration)) { candIndex++; tryCandidate(); } }, 1500);
+                }
+
+                tryCandidate();
+            }
+
+            function nextPart() {
+                idx++;
+                if (idx > parts.length - 1) {
+                    if (onFinished) onFinished();
+                    return;
+                }
+                playPart(parts[idx]);
+            }
+
+            // start
+            if (parts.length === 0) { cosmosBroadcastInProgress = false; if (onFinished) onFinished(); return; }
+            idx = 0;
+            playPart(parts[0]);
+        }
+
+        // 放送実行: trackNumは番線（11など）
+        function startCosmosBroadcast(trackNum) {
+            // 既に放送中なら無視
+            if (cosmosBroadcastInProgress) return;
+            createCosmosUI();
+            // 取得値
+            const nameVal = (document.getElementById('cosmosName') || {value:''}).value;
+            const h = (document.getElementById('cosmosNoHundreds') || {value:'0'}).value;
+            const t = (document.getElementById('cosmosNoTens') || {value:'0'}).value;
+            const o = (document.getElementById('cosmosNoOnes') || {value:'0'}).value;
+            const dest = (document.getElementById('cosmosDestination') || {value:''}).value;
+            const next = (document.getElementById('cosmosNext') || {value:''}).value;
+
+            // 構成パーツ（論理パーツごとに候補配列）
+            const parts = [];
+            // 〇番線から
+            parts.push([`COSMOS/track_from/${trackNum}.mp3`]);
+            // 列車愛称
+            if (nameVal) parts.push([`COSMOS/name/${nameVal}.mp3`]);
+            // 号数（複数ファイル候補）
+            const noParts = buildNoParts(h,t,o);
+            noParts.forEach(p=>parts.push(p));
+            // 行先
+            if (dest) parts.push([`COSMOS/stations_up/${dest}.mp3`]);
+
+            // 再生開始
+            playPartsWithFallbacks(parts, function () {
+                if (!cosmosBroadcastInProgress) return;
+                playFixedPhrases(next);
+            });
+        }
+
+        // 固定フレーズを順次再生する (nextStationは表示名)
+        function playFixedPhrases(nextStation, onFinished) {
+            const seq = [
+                'COSMOS/行が.mp3',
+                'COSMOS/発車いたします.mp3',
+                'COSMOS/次は.mp3',
+                `COSMOS/next/${nextStation}.mp3`,
+                'COSMOS/とまります.mp3',
+                'COSMOS/黄色い点字ブロック.mp3'
+            ];
+            let i = 0;
+            function playNext() {
+                if (!cosmosBroadcastInProgress) { if (onFinished) onFinished(); return; }
+                if (i >= seq.length) { if (onFinished) onFinished(); cosmosBroadcastInProgress = false; return; }
+                const a = document.createElement('audio');
+                a.className = 'cosmos-broadcast-audio';
+                a.autoplay = true;
+                a.src = seq[i];
+                a.onended = function () { try{ a.remove(); }catch(e){} i++; playNext(); };
+                a.onerror = function () { try{ a.remove(); }catch(e){} i++; playNext(); };
+                document.body.appendChild(a);
+                // in case oncanplay isn't fired, try to play after load
+                a.load();
+            }
+            playNext();
+        }
+
+        // peopleSelectがCOSMOSのときUIを表示
+        peopleSelect.addEventListener('change', function () {
+            createCosmosUI();
+            if (this.value === 'cosmos') {
+                cosmosUI.style.display = 'block';
+            } else if (cosmosUI) {
+                cosmosUI.style.display = 'none';
+            }
+        });
+
+
         function playOn() {
-            // 既存のCOSMOSタイマー/オーディオがあればクリア
-            if (cosmosTimeoutId) {
-                clearTimeout(cosmosTimeoutId);
-                cosmosTimeoutId = null;
-            }
-            if (cosmosAudio) {
-                try { cosmosAudio.pause(); } catch (e) {}
-                try { cosmosAudio.currentTime = 0; } catch (e) {}
-                cosmosAudio.remove();
-                cosmosAudio = null;
-            }
 
             // オーディオが再生中の場合は一旦停止
             if (!onSound.paused) {
@@ -592,51 +813,38 @@
                 console.error('再生エラー:', error);
             });
 
-            // COSMOSが選択されている場合、ONと同時にCOSMOS/test.mp3を1回だけ再生
-            const trackNum = trackSelect.value;
-            if (peopleSelect.value === 'cosmos') {
-                onSound.loop = true;
-                // 保留中のタイマーがあればクリア
-                if (cosmosTimeoutId) {
-                    clearTimeout(cosmosTimeoutId);
-                    cosmosTimeoutId = null;
-                }
-                // 既にある場合は消す
-                if (cosmosAudio) {
-                    try { cosmosAudio.pause(); } catch (e) {}
-                    try { cosmosAudio.currentTime = 0; } catch (e) {}
-                    try { cosmosAudio.remove(); } catch (e) {}
-                    cosmosAudio = null;
-                }
-                cosmosAudio = document.createElement('audio');
-                cosmosAudio.id = 'cosmosTestAudio';
-                cosmosAudio.src = `COSMOS/${trackNum}.mp3`;
-                cosmosAudio.autoplay = true;
-                cosmosAudio.addEventListener('ended', function () {
-                    if (cosmosAudio) {
-                        try { cosmosAudio.remove(); } catch (e) {}
-                        cosmosAudio = null;
+                // COSMOSが選択されている場合は通常の音楽をループ再生し、
+                // 7秒後に放送を開始する
+                const trackNum = trackSelect.value;
+                if (peopleSelect.value === 'cosmos') {
+                    onSound.loop = true;
+                    // 既存の放送タイマーがあればクリア
+                    if (cosmosBroadcastTimeoutId) {
+                        clearTimeout(cosmosBroadcastTimeoutId);
+                        cosmosBroadcastTimeoutId = null;
                     }
-                });
-                document.body.appendChild(cosmosAudio);
-            } else {
-                onSound.loop = true;
-            }
+                    // 放送を7秒後に開始
+                    cosmosBroadcastTimeoutId = setTimeout(() => {
+                        startCosmosBroadcast(trackNum);
+                    }, 7000);
+                } else {
+                    onSound.loop = true;
+                }
         }
 
         function playOff() {
-            // COSMOS用のタイマー/オーディオを停止・破棄
-            if (cosmosTimeoutId) {
-                clearTimeout(cosmosTimeoutId);
-                cosmosTimeoutId = null;
+            // COSMOS用の保留タイマーをクリア（放送が既に開始していれば続行させる）
+            if (cosmosBroadcastTimeoutId) {
+                clearTimeout(cosmosBroadcastTimeoutId);
+                cosmosBroadcastTimeoutId = null;
             }
-            // NOTE: Do NOT stop `cosmosAudio` if it's already playing — let it finish.
 
+            // 音楽だけ止める
             onSound.pause();
             onSound.currentTime = 0;
 
             const folder = peopleSelect.value;
-            // COSMOS選択時はOFF時に何も流さない
+            // COSMOS選択時はOFF時に放送を中断しない（音楽のみ停止）
             if (folder === 'cosmos') return;
 
             const trackNum = trackSelect.value;
