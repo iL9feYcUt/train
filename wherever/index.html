@@ -622,7 +622,7 @@
             // 行先（表示は行を追加）
             const destWrap = document.createElement('span'); destWrap.style.display='inline-flex'; destWrap.style.alignItems='center';
             const destSel = document.createElement('select'); destSel.id = 'cosmosDestination';
-            ['山形・新庄','東京','新函館北斗','新青森','秋田','山形','仙台','新潟','長野','敦賀'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
+            ["新函館北斗","札幌","新青森","秋田","大石田","山形・新庄","山形","盛岡","仙台","郡山","那須塩原","宇都宮","小山","新潟","越後湯沢","ガーラ湯沢","長野","富山","金沢","福井","敦賀","高崎","大宮","上野","東京"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
             const destSuffix = document.createElement('span'); destSuffix.textContent = '行'; destSuffix.style.marginRight = '4px';
             destWrap.appendChild(destSel); destWrap.appendChild(destSuffix);
             cosmosUI.appendChild(destWrap);
@@ -631,12 +631,78 @@
             const nextWrap = document.createElement('span'); nextWrap.style.display='inline-flex'; nextWrap.style.alignItems='center'; nextWrap.style.paddingTop = '0px';
             const nextLabel = document.createElement('span'); nextLabel.textContent = '次は';
             const nextSel = document.createElement('select'); nextSel.id = 'cosmosNext';
-            ['浦佐'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; nextSel.appendChild(o);});
+            ["東京","上野","大宮","小山","宇都宮","那須塩原","新白河","郡山","福島","仙台","水沢江刺","七戸十和田","長万部","新小樽","熊谷","本庄早稲田","高崎","浦佐","長岡","燕三条"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; nextSel.appendChild(o);});
             nextWrap.appendChild(nextLabel); nextWrap.appendChild(nextSel);
             cosmosUI.appendChild(nextWrap);
-
             selectContainer.appendChild(cosmosUI);
             cosmosUI.style.display = 'none';
+
+            // --- 併結用UI（下段） ---
+            const cosmosUI2 = document.createElement('div');
+            cosmosUI2.id = 'cosmosUI2';
+            cosmosUI2.style.marginTop = '8px';
+            cosmosUI2.style.display = 'flex';
+            cosmosUI2.style.alignItems = 'center';
+            cosmosUI2.style.justifyContent = 'center';
+            cosmosUI2.style.width = '100%';
+
+            // 名前2
+            const nameSel2 = document.createElement('select');
+            nameSel2.id = 'cosmosName2';
+            // nameSel の選択肢をコピーして同じ内容にする
+            try { nameSel2.innerHTML = nameSel.innerHTML; } catch(e) { /* fallback below */ }
+            if (!nameSel2.options || nameSel2.options.length === 0) {
+                ['はやぶさ','こまち','つばめ','やまびこ'].forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; nameSel2.appendChild(o); });
+            }
+            nameSel2.style.marginRight = '4px'; nameSel2.style.width = '80px'; nameSel2.style.alignSelf = 'center';
+            cosmosUI2.appendChild(nameSel2);
+
+            // 号数2（百・十・一）
+            const noContainer2 = document.createElement('span');
+            noContainer2.style.display = 'inline-flex';
+            noContainer2.style.alignItems = 'center';
+            noContainer2.style.alignSelf = 'center';
+
+            const noHund2 = document.createElement('select'); noHund2.id = 'cosmosNoHundreds2';
+            const hundOptions2 = ['0','1','2','3','4','5','6','7','8','9'];
+            hundOptions2.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noHund2.appendChild(o);});
+            noHund2.style.display = 'inline-block'; noHund2.style.width = '27px';
+
+            const noTen2 = document.createElement('select'); noTen2.id = 'cosmosNoTens2';
+            const tenOptions2 = ['0','1','2','3','4','5','6','7','8','9'];
+            tenOptions2.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noTen2.appendChild(o);});
+            noTen2.style.display = 'inline-block'; noTen2.style.width = '27px';
+
+            const noOne2 = document.createElement('select'); noOne2.id = 'cosmosNoOnes2';
+            const oneOptions2 = ['0','1','2','3','4','5','6','7','8','9'];
+            oneOptions2.forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; noOne2.appendChild(o);});
+            noOne2.style.display = 'inline-block'; noOne2.style.width = '27px';
+
+            const noSuffix2 = document.createElement('span'); noSuffix2.id = 'cosmosNoSuffix2'; noSuffix2.textContent = '号';
+            noContainer2.appendChild(noHund2); noContainer2.appendChild(noTen2); noContainer2.appendChild(noOne2); noContainer2.appendChild(noSuffix2);
+            cosmosUI2.appendChild(noContainer2);
+
+            // 行先2
+            const destWrap2 = document.createElement('span'); destWrap2.style.display='inline-flex'; destWrap2.style.alignItems='center'; destWrap2.style.alignSelf='center';
+            const destSel2 = document.createElement('select'); destSel2.id = 'cosmosDestination2';
+            // destSel の選択肢をコピーして同じ内容にする
+            try { destSel2.innerHTML = destSel.innerHTML; } catch(e) { }
+            if (!destSel2.options || destSel2.options.length === 0) {
+                ['山形・新庄','東京','新函館北斗','新青森'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel2.appendChild(o);});
+            }
+            const destSuffix2 = document.createElement('span'); destSuffix2.textContent = '行'; destSuffix2.style.marginRight = '4px';
+            destWrap2.appendChild(destSel2); destWrap2.appendChild(destSuffix2);
+            cosmosUI2.appendChild(destWrap2);
+
+            // 併結チェックボックス（次駅欄の代わり）
+            const coupledWrap = document.createElement('span'); coupledWrap.style.display='inline-flex'; coupledWrap.style.alignItems='center'; coupledWrap.style.marginLeft='18px';
+            const coupledChk = document.createElement('input'); coupledChk.type = 'checkbox'; coupledChk.id = 'cosmosCoupled';
+            const coupledLabel = document.createElement('label'); coupledLabel.htmlFor = 'cosmosCoupled'; coupledLabel.textContent = '併結'; coupledLabel.style.marginLeft = '2px'; coupledLabel.style.marginRight = '49px';
+            coupledWrap.appendChild(coupledChk); coupledWrap.appendChild(coupledLabel);
+            cosmosUI2.appendChild(coupledWrap);
+
+            selectContainer.appendChild(cosmosUI2);
+            cosmosUI2.style.display = 'none';
             // 初期表示更新不要（数値表示なし）
         }
 
@@ -743,22 +809,79 @@
             const o = (document.getElementById('cosmosNoOnes') || {value:'0'}).value;
             const dest = (document.getElementById('cosmosDestination') || {value:''}).value;
             const next = (document.getElementById('cosmosNext') || {value:''}).value;
+            const coupled = !!(document.getElementById('cosmosCoupled') && document.getElementById('cosmosCoupled').checked);
+            const nameVal2 = (document.getElementById('cosmosName2') || {value:''}).value;
+            const h2 = (document.getElementById('cosmosNoHundreds2') || {value:'0'}).value;
+            const t2 = (document.getElementById('cosmosNoTens2') || {value:'0'}).value;
+            const o2 = (document.getElementById('cosmosNoOnes2') || {value:'0'}).value;
+            const dest2 = (document.getElementById('cosmosDestination2') || {value:''}).value;
 
             // 構成パーツ（論理パーツごとに候補配列）
             const parts = [];
             // 〇番線から
             parts.push([`COSMOS/track_from/${trackNum}.mp3`]);
-            // 列車愛称
-            if (nameVal) parts.push([`COSMOS/name/${nameVal}.mp3`]);
-            // 号数（複数ファイル候補）
-            const noParts = buildNoParts(h,t,o);
-            noParts.forEach(p=>parts.push(p));
-            // 行先
-            if (dest) parts.push([`COSMOS/stations_up/${dest}.mp3`]);
+
+            if (!coupled) {
+                // 通常の単独放送
+                if (nameVal) parts.push([`COSMOS/name/${nameVal}.mp3`]);
+                const noParts = buildNoParts(h,t,o);
+                noParts.forEach(p=>parts.push(p));
+                if (dest) parts.push([`COSMOS/stations_up/${dest}.mp3`]);
+            } else {
+                // 併結放送
+                // 異なる行先
+                if (dest !== dest2) {
+                    if (nameVal) parts.push([`COSMOS/name/${nameVal}.mp3`]);
+                    const noPartsA = buildNoParts(h,t,o);
+                    noPartsA.forEach(p=>parts.push(p));
+                    if (dest) parts.push([`COSMOS/stations_up/${dest}.mp3`]);
+                    // 1本目の後に「行と」
+                    parts.push([`COSMOS/行と.mp3`]);
+
+                    // 2本目
+                    if (nameVal2) parts.push([`COSMOS/name/${nameVal2}.mp3`]);
+                    const noPartsB = buildNoParts(h2,t2,o2);
+                    noPartsB.forEach(p=>parts.push(p));
+                    if (dest2) parts.push([`COSMOS/stations_up/${dest2}.mp3`]);
+                } else {
+                    // 同一行先: 1本目は行先を後に回す、かつ最後の号数を「号と」にする
+                    if (nameVal) parts.push([`COSMOS/name/${nameVal}.mp3`]);
+                    const noPartsA = buildNoParts(h,t,o);
+                    // 最後のパートに '号と' を優先候補として挿入（onesがある場合）
+                    if (noPartsA.length > 0) {
+                        // 最後の数値パート（百・十・一のいずれか）を特定して '号と' 候補を先頭に追加
+                        const hdA = parseInt(h,10)||0;
+                        const tdA = parseInt(t,10)||0;
+                        const odA = parseInt(o,10)||0;
+                        const numericPartsA = [];
+                        if (hdA > 0) numericPartsA.push(hdA * 100);
+                        if (tdA > 0) numericPartsA.push(tdA * 10);
+                        if (odA > 0) numericPartsA.push(odA);
+                        if (numericPartsA.length > 0) {
+                            const lastNumber = numericPartsA[numericPartsA.length - 1];
+                            const lastIdx = noPartsA.length - 1;
+                            const candidate = `COSMOS/no/${lastNumber}号と.mp3`;
+                            if (noPartsA[lastIdx].indexOf(candidate) === -1) {
+                                noPartsA[lastIdx].unshift(candidate);
+                            }
+                        }
+                    }
+                    noPartsA.forEach(p=>parts.push(p));
+
+                    // 2本目
+                    if (nameVal2) parts.push([`COSMOS/name/${nameVal2}.mp3`]);
+                    const noPartsB = buildNoParts(h2,t2,o2);
+                    noPartsB.forEach(p=>parts.push(p));
+                    // ここで行先を1回だけ追加
+                    if (dest) parts.push([`COSMOS/stations_up/${dest}.mp3`]);
+                }
+            }
 
             // 再生開始
             playPartsWithFallbacks(parts, function () {
                 if (!cosmosBroadcastInProgress) return;
+                // 併結かつ行先が異なる場合、固定フレーズの前に追加の '行が' は parts に含まれるため通常でOK
+                // ただし、異なる行先でも最終的には '行が' + 発車以下を再生したいため playFixedPhrases を呼ぶ
                 playFixedPhrases(next);
             });
         }
@@ -793,11 +916,10 @@
         // peopleSelectがCOSMOSのときUIを表示
         peopleSelect.addEventListener('change', function () {
             createCosmosUI();
-            if (this.value === 'cosmos') {
-                cosmosUI.style.display = 'block';
-            } else if (cosmosUI) {
-                cosmosUI.style.display = 'none';
-            }
+            const show = this.value === 'cosmos';
+            if (cosmosUI) cosmosUI.style.display = show ? 'block' : 'none';
+            const cosmosUI2 = document.getElementById('cosmosUI2');
+            if (cosmosUI2) cosmosUI2.style.display = show ? 'flex' : 'none';
         });
 
 
