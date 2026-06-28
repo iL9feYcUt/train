@@ -622,7 +622,7 @@
             // 行先（表示は行を追加）
             const destWrap = document.createElement('span'); destWrap.style.display='inline-flex'; destWrap.style.alignItems='center';
             const destSel = document.createElement('select'); destSel.id = 'cosmosDestination';
-            ["新函館北斗","札幌","新青森","秋田","大石田","山形・新庄","山形","盛岡","仙台","郡山","那須塩原","宇都宮","小山","新潟","越後湯沢","ガーラ湯沢","長野","富山","金沢","福井","敦賀","高崎","大宮","上野","東京"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
+            ["新函館北斗","札幌","新青森","八戸","秋田","大曲","角館","田沢湖","雫石","小岩井","盛岡","北上","一ノ関","古川","仙台","白石蔵王","山形・新庄","山形","大石田","さくらんぼ東根","天童","かみのやま温泉","赤湯","米沢","福島","郡山","新白河","那須塩原","宇都宮","小山","新潟","燕三条","長岡","浦佐","越後湯沢","ガーラ湯沢","上毛高原","新大阪","敦賀","金沢","福井","富山","上越妙高","長野","軽井沢","高崎","熊谷","大宮","上野","東京"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
             const destSuffix = document.createElement('span'); destSuffix.textContent = '行'; destSuffix.style.marginRight = '4px';
             destWrap.appendChild(destSel); destWrap.appendChild(destSuffix);
             cosmosUI.appendChild(destWrap);
@@ -631,7 +631,7 @@
             const nextWrap = document.createElement('span'); nextWrap.style.display='inline-flex'; nextWrap.style.alignItems='center'; nextWrap.style.paddingTop = '0px';
             const nextLabel = document.createElement('span'); nextLabel.textContent = '次は';
             const nextSel = document.createElement('select'); nextSel.id = 'cosmosNext';
-            ["東京","上野","大宮","小山","宇都宮","那須塩原","新白河","郡山","福島","仙台","水沢江刺","七戸十和田","長万部","新小樽","熊谷","本庄早稲田","高崎","浦佐","長岡","燕三条"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; nextSel.appendChild(o);});
+            ["東京","上野","大宮","小山","宇都宮","那須塩原","新白河","郡山","福島","白石蔵王","仙台","古川","くりこま高原","一ノ関","水沢江刺","北上","新花巻","盛岡","いわて沼宮内","二戸","八戸","七戸十和田","新青森","奥津軽いまべつ","木古内","新函館北斗","長万部","新小樽","熊谷","本庄早稲田","高崎","上毛高原","越後湯沢","ガーラ湯沢","浦佐","長岡","燕三条","新潟","安中榛名","軽井沢","佐久平","上田","長野","上越妙高","糸魚川","黒部宇奈月温泉","富山","新高岡","金沢","小松","加賀温泉","芦原温泉","福井","越前たけふ","敦賀"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; nextSel.appendChild(o);});
             nextWrap.appendChild(nextLabel); nextWrap.appendChild(nextSel);
             cosmosUI.appendChild(nextWrap);
             selectContainer.appendChild(cosmosUI);
@@ -695,9 +695,9 @@
             cosmosUI2.appendChild(destWrap2);
 
             // 併結チェックボックス（次駅欄の代わり）
-            const coupledWrap = document.createElement('span'); coupledWrap.style.display='inline-flex'; coupledWrap.style.alignItems='center'; coupledWrap.style.marginLeft='18px';
+            const coupledWrap = document.createElement('span'); coupledWrap.style.display='inline-flex'; coupledWrap.style.alignItems='center'; coupledWrap.style.marginLeft='15px';
             const coupledChk = document.createElement('input'); coupledChk.type = 'checkbox'; coupledChk.id = 'cosmosCoupled';
-            const coupledLabel = document.createElement('label'); coupledLabel.htmlFor = 'cosmosCoupled'; coupledLabel.textContent = '併結'; coupledLabel.style.marginLeft = '2px'; coupledLabel.style.marginRight = '49px';
+            const coupledLabel = document.createElement('label'); coupledLabel.htmlFor = 'cosmosCoupled'; coupledLabel.textContent = '併結'; coupledLabel.style.marginLeft = '2px'; coupledLabel.style.marginRight = '78px';
             coupledWrap.appendChild(coupledChk); coupledWrap.appendChild(coupledLabel);
             cosmosUI2.appendChild(coupledWrap);
 
