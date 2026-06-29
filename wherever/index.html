@@ -693,6 +693,33 @@
             }, 200);
         }
 
+        function randomizeCosmosUI() {
+            const ids = [
+                'cosmosName', 'cosmosName2',
+                'cosmosNoHundreds', 'cosmosNoHundreds2',
+                'cosmosNoTens', 'cosmosNoTens2',
+                'cosmosNoOnes', 'cosmosNoOnes2',
+                'cosmosDestination', 'cosmosDestination2',
+                'cosmosNext'
+            ];
+
+            ids.forEach(id => {
+                const element = document.getElementById(id);
+                if (!element || !element.options || element.options.length === 0) return;
+                const randomIndex = Math.floor(Math.random() * element.options.length);
+                element.selectedIndex = randomIndex;
+            });
+
+            const coupledCheck = document.getElementById('cosmosCoupled');
+            if (coupledCheck) {
+                coupledCheck.checked = Math.random() < 0.5;
+            }
+
+            if (peopleSelect.value === 'cosmos') {
+                scheduleCosmosPreload(trackSelect.value);
+            }
+        }
+
         // --- COSMOS用UI生成と放送再生ロジック ---
         function createCosmosUI() {
             if (cosmosUI) return;
@@ -822,7 +849,7 @@
             if (!destSel2.options || destSel2.options.length === 0) {
                 ['山形・新庄','東京','新函館北斗','新青森'].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel2.appendChild(o);});
             }
-            const destSuffix2 = document.createElement('span'); destSuffix2.textContent = '行'; destSuffix2.style.marginRight = '4px';
+            const destSuffix2 = document.createElement('span'); destSuffix2.textContent = '行'; destSuffix2.style.marginRight = '0px';
             destWrap2.appendChild(destSel2); destWrap2.appendChild(destSuffix2);
             cosmosUI2.appendChild(destWrap2);
             destSel2.addEventListener('change', () => scheduleCosmosPreload(trackSelect.value));
@@ -830,8 +857,14 @@
             // 併結チェックボックス（次駅欄の代わり）
             const coupledWrap = document.createElement('span'); coupledWrap.style.display='inline-flex'; coupledWrap.style.alignItems='center'; coupledWrap.style.marginLeft='15px';
             const coupledChk = document.createElement('input'); coupledChk.type = 'checkbox'; coupledChk.id = 'cosmosCoupled';
-            const coupledLabel = document.createElement('label'); coupledLabel.htmlFor = 'cosmosCoupled'; coupledLabel.textContent = '併結'; coupledLabel.style.marginLeft = '2px'; coupledLabel.style.marginRight = '78px';
-            coupledWrap.appendChild(coupledChk); coupledWrap.appendChild(coupledLabel);
+            const coupledLabel = document.createElement('label'); coupledLabel.htmlFor = 'cosmosCoupled'; coupledLabel.textContent = '併結'; coupledLabel.style.marginLeft = '2px'; coupledLabel.style.marginRight = '25px';
+            const randomBtn = document.createElement('button');
+            randomBtn.type = 'button';
+            randomBtn.textContent = '🎲';
+            randomBtn.title = 'COSMOS設定をランダムにする';
+            randomBtn.style.marginRight = '23px';
+            randomBtn.addEventListener('click', randomizeCosmosUI);
+            coupledWrap.appendChild(coupledChk); coupledWrap.appendChild(coupledLabel); coupledWrap.appendChild(randomBtn);
             cosmosUI2.appendChild(coupledWrap);
             coupledChk.addEventListener('change', () => scheduleCosmosPreload(trackSelect.value));
 
