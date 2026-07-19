@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusFlight - Web Edition (Interactive Boarding)</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --panel-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent-blue: #0284c7;
+            --accent-orange: #ea580c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --ticket-bg: #f8fafc;
+            --hole-bg: #f1f5f9;
+            --font-main: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body.overlay-active {
+            --hole-bg: rgba(15, 23, 42, 0.95);
+        }
+
+        /* --- Header & Mileage --- */
+        .header {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--accent-blue);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mileage-badge {
+            background: var(--text-main);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* --- Main Dashboard --- */
+        .dashboard {
+            background: var(--panel-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .route-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px dashed #e2e8f0;
+        }
+
+        .port { text-align: center; }
+        .port-code { font-size: 2.5rem; font-weight: 900; color: var(--text-main); letter-spacing: 2px; }
+        .port-name { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; }
+        .flight-icon { font-size: 2rem; color: var(--accent-blue); transform: rotate(90deg); }
+
+        .setup-panel { text-align: center; margin-bottom: 1.5rem; transition: opacity 0.3s; }
+        .setup-panel label { font-size: 0.9rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; }
+        .setup-panel input {
+            width: 80px; padding: 10px; font-size: 1.5rem; text-align: center;
+            background: var(--bg-color); color: var(--text-main);
+            border: 2px solid #e2e8f0; border-radius: 8px; margin-left: 10px; font-family: var(--font-mono); font-weight: bold;
+        }
+        .setup-panel input:focus { outline: none; border-color: var(--accent-blue); }
+
+        .status-text { text-align: center; margin: 10px 0; color: var(--accent-orange); font-size: 0.85rem; letter-spacing: 2px; font-weight: bold; }
+        .time-display { text-align: center; font-size: 5rem; font-family: var(--font-mono); font-weight: bold; margin: 1rem 0; letter-spacing: 2px; color: var(--text-main); }
+
+        .audio-toggle { text-align: center; margin-bottom: 1.5rem; display: none; }
+        .audio-toggle label { font-size: 0.85rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
+        .controls { display: flex; gap: 15px; justify-content: center; }
+        button {
+            border: none; padding: 14px 28px; font-size: 1rem; font-weight: bold;
+            border-radius: 8px; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; text-transform: uppercase;
+        }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        button:disabled { background: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; transform: none; box-shadow: none; }
+        #btn-takeoff { background: var(--accent-blue); color: white; flex-grow: 1; }
+        #btn-abort { background: var(--danger); color: white; }
+
+        .progress-container { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; position: relative; margin-top: 2rem; }
+        .progress-bar { height: 100%; background: var(--accent-blue); width: 0%; border-radius: 4px; transition: width 1s linear; }
+        .plane-progress-icon { position: absolute; top: -14px; left: 0%; transform: translateX(-50%); font-size: 1.5rem; transition: left 1s linear; }
+
+        /* --- Boarding Pass Components (FIXED) --- */
+        .ticket {
+            /* 親要素には背景や影を持たせない（白残りを防ぐ） */
+            display: flex;
+            position: relative;
+            max-width: 100%;
+        }
+
+        .ticket-left {
+            padding: 20px;
+            flex-grow: 1;
+            position: relative;
+            background: var(--ticket-bg);
+            border: 1px solid #cbd5e1;
+            border-right: 2px dashed #94a3b8; /* ミシン目 */
+            border-radius: 12px 0 0 12px;
+            box-shadow: -5px 10px 25px rgba(0,0,0,0.15), 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 2;
+        }
+
+        /* 切り欠き穴 */
+        .ticket-left::before, .ticket-left::after {
+            content: '';
+            position: absolute;
+            right: -11px;
+            width: 20px;
+            height: 20px;
+            background: var(--hole-bg);
+            border-radius: 50%;
+            border: 1px solid #cbd5e1;
+            z-index: 3;
+            transition: background 0.3s;
+        }
+        .ticket-left::before { top: -11px; border-top: none; border-left: none; transform: rotate(45deg); }
+        .ticket-left::after { bottom: -11px; border-bottom: none; border-right: none; transform: rotate(45deg); }
+
+        .ticket-right {
+            padding: 20px 15px;
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-left: none; /* ダブりを防ぐ */
+            border-radius: 0 12px 12px 0;
+            box-shadow: 5px 10px 25px rgba(0,0,0,0.15);
+            transform-origin: left top;
+            z-index: 1;
+        }
+
+        /* ログ用ちぎられたチケット */
+        .ticket-torn .ticket-left {
+            border-radius: 12px 6px 6px 12px; /* ちぎれた跡を少しだけ丸める */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); /* ログ用に影を控えめに */
+        }
+
+        .ticket-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-bottom: 10px; }
+        .ticket-route { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .ticket-route .code { font-size: 1.5rem; font-weight: 900; color: var(--accent-blue); }
+        .ticket-route .arrow { color: var(--text-muted); font-size: 1.2rem; }
+        
+        .ticket-details { display: flex; gap: 20px; font-size: 0.8rem; margin-bottom: 10px; flex-wrap: wrap; }
+        .detail-group span { display: block; }
+        .detail-label { color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; }
+        .detail-value { font-weight: bold; font-size: 0.9rem; }
+
+        /* リアルなバーコード用Canvas */
+        .barcode-canvas,
+        .barcode-canvas-stub {
+            width: 100%;
+            height: auto;
+            display: block;
+            image-rendering: pixelated;
+            margin-top: 10px;
+            max-width: 100%;
+        }
+        .barcode-canvas { max-height: 70px; }
+        .barcode-canvas-stub { max-height: 60px; }
+
+        /* --- Overlay Boarding Animation --- */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .overlay-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #boarding-ticket {
+            max-width: 95%;
+            width: 450px;
+        }
+        @media (min-width: 600px) {
+            #boarding-ticket { transform: scale(1.1); }
+        }
+
+        /* ちぎれるアニメーション */
+        .tear-off { animation: tearOffAnim 1s ease-in forwards; }
+        @keyframes tearOffAnim {
+            0% { transform: rotate(0) translateY(0); opacity: 1; }
+            20% { transform: rotate(-5deg) translateY(5px); } 
+            100% { transform: rotate(30deg) translateY(300px); opacity: 0; } 
+        }
+
+        /* 飛んでいくアニメーション */
+        .fly-away { animation: flyAwayAnim 0.8s ease-in forwards; }
+        @keyframes flyAwayAnim {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-400px) scale(0.8); opacity: 0; }
+        }
+
+        /* タップ指示のアニメーション */
+        .tap-hint {
+            color: white;
+            margin-top: 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            animation: pulseHint 1.5s infinite;
+            transition: opacity 0.3s;
+        }
+        @keyframes pulseHint {
+            0% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.4; transform: scale(1); }
+        }
+
+        .log-section { width: 100%; max-width: 600px; margin-top: 2rem; }
+        .log-section h2 {
+            font-size: 1.1rem; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 1px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>✈️ FocusFlight</h1>
+        <div class="mileage-badge">SKYMILES: <span id="total-miles">0</span></div>
+    </div>
+
+    <!-- オーバーレイ (タップ待機＆搭乗アニメーション用) -->
+    <div id="boarding-overlay" class="overlay">
+        <div class="overlay-content-wrapper">
+            <div class="ticket" id="boarding-ticket">
+                <div class="ticket-left">
+                    <div class="ticket-header">
+                        <span>BOARDING PASS</span>
+                        <span>CLASS: FOCUS</span>
+                    </div>
+                    <div class="ticket-route">
+                        <span class="code">HND</span>
+                        <span class="arrow">✈</span>
+                        <span class="code" id="bt-dest-code">---</span>
+                    </div>
+                    <div class="ticket-details">
+                        <div class="detail-group">
+                            <span class="detail-label">FLIGHT</span>
+                            <span class="detail-value" id="bt-flight-id">---</span>
+                        </div>
+                        <div class="detail-group">
+                            <span class="detail-label">DATE</span>
+                            <span class="detail-value" id="bt-date">---</span>
+                        </div>
+                        <div class="detail-group">
+                            <span class="detail-label">DURATION</span>
+                            <span class="detail-value" id="bt-duration">---</span>
+                        </div>
+                    </div>
+                    <canvas id="bt-barcode-left" class="barcode-canvas"></canvas>
+                </div>
+                
+                <div class="ticket-right" id="boarding-ticket-stub">
+                    <div class="ticket-header" style="justify-content:center;">STUB</div>
+                    <div class="ticket-route" style="flex-direction:column; gap:5px; margin-bottom:5px;">
+                        <span class="code" style="font-size:1.2rem;">HND</span>
+                        <span class="arrow" style="transform:rotate(90deg);">✈</span>
+                        <span class="code" id="bt-dest-code-stub" style="font-size:1.2rem;">---</span>
+                    </div>
+                    <canvas id="bt-barcode-right" class="barcode-canvas-stub"></canvas>
+                </div>
+            </div>
+            
+            <div class="tap-hint" id="tap-hint">
+                👆 TAP TO TEAR
+            </div>
+        </div>
+    </div>
+
+    <!-- メインダッシュボード -->
+    <div class="dashboard">
+        <div class="route-display">
+            <div class="port">
+                <div class="port-code">HND</div>
+                <div class="port-name">Tokyo Haneda</div>
+            </div>
+            <div class="flight-icon">✈️</div>
+            <div class="port" id="dest-port">
+                <div class="port-code" id="dest-code">---</div>
+                <div class="port-name" id="dest-name">Select Time</div>
+            </div>
+        </div>
+
+        <div class="setup-panel" id="setup-panel">
+            <label for="flight-time">Flight Duration (min):</label>
+            <input type="number" id="flight-time" value="25" min="1" max="180">
+        </div>
+
+        <div class="status-text" id="flight-status">BOARDING</div>
+        <div class="time-display" id="time-display">25:00</div>
+
+        <div class="audio-toggle" id="audio-toggle">
+            <label>
+                <input type="checkbox" id="noise-checkbox">
+                🎧 In-Flight Sound (White Noise)
+            </label>
+        </div>
+
+        <div class="controls">
+            <button id="btn-takeoff">TAKEOFF</button>
+            <button id="btn-abort" disabled>ABORT</button>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+            <div class="plane-progress-icon" id="plane-icon">✈️</div>
+        </div>
+    </div>
+
+    <!-- 履歴 (ちぎられた半券が残る) -->
+    <div class="log-section">
+        <h2>Flight Log (Stubbed Passes)</h2>
+        <div id="ticket-list"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js/dist/bwip-js-min.js"></script>
+    <script>
+        const timeDisplay = document.getElementById('time-display');
+        const flightTimeInput = document.getElementById('flight-time');
+        const btnTakeoff = document.getElementById('btn-takeoff');
+        const btnAbort = document.getElementById('btn-abort');
+        const progressBar = document.getElementById('progress-bar');
+        const planeIcon = document.getElementById('plane-icon');
+        const flightStatus = document.getElementById('flight-status');
+        const setupPanel = document.getElementById('setup-panel');
+        const destCodeDisplay = document.getElementById('dest-code');
+        const destNameDisplay = document.getElementById('dest-name');
+        const totalMilesDisplay = document.getElementById('total-miles');
+        const ticketList = document.getElementById('ticket-list');
+        const audioToggleDiv = document.getElementById('audio-toggle');
+        const noiseCheckbox = document.getElementById('noise-checkbox');
+
+        let timer = null;
+        let totalSeconds = 0;
+        let remainingSeconds = 0;
+        let isFlying = false;
+        let totalMiles = 0;
+        let currentDestination = { code: '---', name: 'Select Time' };
+        let currentFlightId = "";
+
+        const destinations = [
+            { maxMin: 10, code: 'NGO', name: 'Nagoya Chubu' },
+            { maxMin: 20, code: 'KIX', name: 'Osaka Kansai' },
+            { maxMin: 30, code: 'CTS', name: 'Sapporo Chitose' },
+            { maxMin: 45, code: 'OKA', name: 'Okinawa Naha' },
+            { maxMin: 60, code: 'ICN', name: 'Seoul Incheon' },
+            { maxMin: 90, code: 'TPE', name: 'Taipei Taoyuan' },
+            { maxMin: 120, code: 'SIN', name: 'Singapore Changi' },
+            { maxMin: 150, code: 'HNL', name: 'Honolulu' },
+            { maxMin: Infinity, code: 'JFK', name: 'New York' }
+        ];
+
+        // --- Audio Context ---
+        let audioCtx, noiseNode, gainNode;
+        function toggleWhiteNoise(play) {
+            if (play) {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (noiseNode) return;
+
+                const bufferSize = audioCtx.sampleRate * 2;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+                noiseNode = audioCtx.createBufferSource();
+                noiseNode.buffer = buffer;
+                noiseNode.loop = true;
+
+                gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0.03; 
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+
+                noiseNode.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                noiseNode.start();
+            } else {
+                if (noiseNode) { noiseNode.stop(); noiseNode.disconnect(); noiseNode = null; }
+            }
+        }
+
+        noiseCheckbox.addEventListener('change', (e) => {
+            if (isFlying) toggleWhiteNoise(e.target.checked);
+        });
+
+        // --- Helpers ---
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateDestinationInfo() {
+            const mins = parseInt(flightTimeInput.value) || 0;
+            if (mins <= 0) return;
+            const dest = destinations.find(d => mins <= d.maxMin);
+            if (dest) {
+                currentDestination = dest;
+                destCodeDisplay.textContent = dest.code;
+                destNameDisplay.textContent = dest.name;
+            }
+        }
+
+        function getCurrentDate() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function drawBarcode(canvasId, text) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            const containerWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 450;
+            const isStub = canvas.classList.contains('barcode-canvas-stub');
+            const w = Math.min(containerWidth, isStub ? 280 : 420);
+            const h = isStub ? 60 : 90;
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+
+            if (window.bwipjs && typeof bwipjs.toCanvas === 'function') {
+                try {
+                    bwipjs.toCanvas(canvas, {
+                        bcid: 'pdf417',
+                        text,
+                        scale: w > 300 ? 2 : 1,
+                        includetext: false,
+                        padding: 8,
+                        backgroundcolor: 'ffffff',
+                        barcolor: '000000'
+                    });
+                    return;
+                } catch (err) {
+                    console.warn('PDF417 generation failed, falling back to generic barcode', err);
+                }
+            }
+
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+                hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                hash |= 0;
+            }
+            const rng = function() {
+                hash = Math.sin(hash) * 10000;
+                return hash - Math.floor(hash);
+            };
+
+            ctx.fillStyle = '#1e293b';
+            let x = 20;
+            while (x < w - 20) {
+                let bw = Math.floor(Math.abs(rng()) * 5) + 1;
+                let space = Math.floor(Math.abs(rng()) * 4) + 1;
+                if (x + bw > w - 20) bw = w - 20 - x;
+                ctx.fillRect(x, 10, bw, h - 40);
+                x += bw + space;
+            }
+
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#64748b';
+            const displayStr = text.split('').join(' ');
+            ctx.fillText(displayStr, w / 2, h - 10);
+        }
+
+        function addTornBoardingPass(mins, dest, flightId) {
+            const textId = flightId + "-" + dest.code;
+            const canvasId = "log-barcode-" + Date.now();
+            
+            // 親の .ticket は背景を持たず、.ticket-left だけが背景と影を持つ
+            const ticketHTML = `
+                <div class="ticket ticket-torn">
+                    <div class="ticket-left">
+                        <div class="ticket-header">
+                            <span>BOARDING PASS</span>
+                            <span>CLASS: FOCUS</span>
+                        </div>
+                        <div class="ticket-route">
+                            <span class="code">HND</span>
+                            <span class="arrow">✈</span>
+                            <span class="code">${dest.code}</span>
+                        </div>
+                        <div class="ticket-details">
+                            <div class="detail-group">
+                                <span class="detail-label">FLIGHT</span>
+                                <span class="detail-value">${flightId}</span>
+                            </div>
+                            <div class="detail-group">
+                                <span class="detail-label">DATE</span>
+                                <span class="detail-value">${getCurrentDate()}</span>
+                            </div>
+                            <div class="detail-group">
+                                <span class="detail-label">DURATION</span>
+                                <span class="detail-value">${mins} MIN</span>
+                            </div>
+                        </div>
+                        <canvas id="${canvasId}" class="barcode-canvas"></canvas>
+                    </div>
+                </div>
+            `;
+            ticketList.insertAdjacentHTML('afterbegin', ticketHTML);
+            drawBarcode(canvasId, textId);
+        }
+
+        // --- Process & Actions ---
+        flightTimeInput.addEventListener('input', () => {
+            if (!isFlying) {
+                const mins = parseInt(flightTimeInput.value) || 0;
+                timeDisplay.textContent = formatTime(mins * 60);
+                updateDestinationInfo();
+            }
+        });
+
+        function updateProgress() {
+            const elapsed = totalSeconds - remainingSeconds;
+            const percentage = totalSeconds > 0 ? (elapsed / totalSeconds) * 100 : 0;
+            
+            progressBar.style.width = `${percentage}%`;
+            planeIcon.style.left = `${percentage}%`;
+            timeDisplay.textContent = formatTime(remainingSeconds);
+
+            if (percentage < 3) flightStatus.textContent = "TAXI / TAKEOFF";
+            else if (percentage < 25) flightStatus.textContent = "CLIMBING";
+            else if (percentage < 80) flightStatus.textContent = "CRUISE";
+            else if (percentage < 95) flightStatus.textContent = "DESCENT / APPROACH";
+            else flightStatus.textContent = "LANDING";
+        }
+
+        function flightArrived(mins) {
+            isFlying = false;
+            toggleWhiteNoise(false);
+            audioToggleDiv.style.display = 'none';
+            
+            flightStatus.textContent = "ARRIVED / BLOCK-IN";
+            flightStatus.style.color = "var(--success)";
+            
+            btnTakeoff.disabled = false;
+            btnAbort.disabled = true;
+            flightTimeInput.disabled = false;
+            setupPanel.style.opacity = '1';
+            
+            progressBar.style.width = '100%';
+            planeIcon.style.left = '100%';
+
+            totalMiles += mins;
+            totalMilesDisplay.textContent = totalMiles;
+            
+            addTornBoardingPass(mins, currentDestination, currentFlightId);
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("FocusFlight", { body: `${currentDestination.name} に到着しました！ ${mins}マイル獲得！` });
+            } else {
+                setTimeout(() => alert(`フライト完了！${currentDestination.name}に到着しました。`), 100);
+            }
+        }
+
+        function startFlightTimer(mins) {
+            isFlying = true;
+            totalSeconds = mins * 60;
+            remainingSeconds = totalSeconds;
+            
+            btnTakeoff.disabled = true;
+            btnAbort.disabled = false;
+            flightTimeInput.disabled = true;
+            setupPanel.style.opacity = '0.4';
+            flightStatus.style.color = "var(--text-muted)";
+            audioToggleDiv.style.display = 'block';
+
+            if(noiseCheckbox.checked) toggleWhiteNoise(true);
+
+            updateDestinationInfo();
+            updateProgress();
+
+            timer = setInterval(() => {
+                remainingSeconds--;
+                updateProgress();
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(timer);
+                    flightArrived(mins);
+                }
+            }, 1000);
+        }
+
+        // --- TAKEOFF (Animation Trigger) ---
+        btnTakeoff.addEventListener('click', () => {
+            const mins = parseInt(flightTimeInput.value);
+            if (isNaN(mins) || mins <= 0) {
+                alert("正しいフライト時間を設定してください。");
+                return;
+            }
+
+            if ("Notification" in window && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+            // 1. 搭乗券データの生成と更新
+            currentFlightId = "FC" + Math.floor(Math.random() * 9000 + 1000);
+            const textId = currentFlightId + "-" + currentDestination.code;
+            
+            document.getElementById('bt-dest-code').textContent = currentDestination.code;
+            document.getElementById('bt-dest-code-stub').textContent = currentDestination.code;
+            document.getElementById('bt-flight-id').textContent = currentFlightId;
+            document.getElementById('bt-date').textContent = getCurrentDate();
+            document.getElementById('bt-duration').textContent = mins + " MIN";
+            
+            drawBarcode('bt-barcode-left', textId);
+            drawBarcode('bt-barcode-right', textId);
+
+            // 2. アニメーションクラスのリセット
+            const overlay = document.getElementById('boarding-overlay');
+            const ticket = document.getElementById('boarding-ticket');
+            const stub = document.getElementById('boarding-ticket-stub');
+            const hint = document.getElementById('tap-hint');
+            
+            ticket.classList.remove('fly-away');
+            stub.classList.remove('tear-off');
+            hint.style.opacity = '1';
+            
+            // 3. オーバーレイ表示
+            document.body.classList.add('overlay-active');
+            overlay.classList.add('active');
+            
+            // 4. クリック（タップ）した時に半券を切るイベントリスナーを追加
+            overlay.addEventListener('click', function tearHandler() {
+                // 案内テキストを消す
+                hint.style.opacity = '0';
+                
+                // 半券をちぎって落とす
+                stub.classList.add('tear-off');
+                
+                // 1秒後：メインの搭乗券が上へ飛んでいく
+                setTimeout(() => {
+                    ticket.classList.add('fly-away');
+                }, 1000);
+                
+                // 1.8秒後：儀式完了、タイマースタート
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    document.body.classList.remove('overlay-active');
+                    startFlightTimer(mins);
+                }, 1800);
+
+            }, { once: true }); // イベントが重複しないよう { once: true } で1回だけ実行させる
+        });
+
+        // --- ABORT ---
+        btnAbort.addEventListener('click', () => {
+            if (confirm("フライトを中断（Abort）して引き返しますか？（マイルは獲得できません）")) {
+                clearInterval(timer);
+                isFlying = false;
+                toggleWhiteNoise(false);
+                
+                const mins = parseInt(flightTimeInput.value) || 25;
+                remainingSeconds = mins * 60;
+                timeDisplay.textContent = formatTime(remainingSeconds);
+                
+                flightStatus.textContent = "FLIGHT ABORTED";
+                flightStatus.style.color = "var(--danger)";
+                audioToggleDiv.style.display = 'none';
+                
+                progressBar.style.width = '0%';
+                planeIcon.style.left = '0%';
+                
+                btnTakeoff.disabled = false;
+                btnAbort.disabled = true;
+                flightTimeInput.disabled = false;
+                setupPanel.style.opacity = '1';
+                
+                setTimeout(() => {
+                    if (!isFlying) {
+                        flightStatus.textContent = "BOARDING";
+                        flightStatus.style.color = "var(--text-muted)";
+                    }
+                }, 3000);
+            }
+        });
+
+        // Initialize display
+        updateDestinationInfo();
+        timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value) || 25) * 60);
+    </script>
+</body>
+</html>
