@@ -14,9 +14,8 @@
             --accent-orange: #ea580c;
             --danger: #ef4444;
             --success: #10b981;
-            --ticket-bg: #f8fafc;
             --hole-bg: #f1f5f9;
-            --font-main: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            --font-main: 'Helvetica Neue', Helvetica, Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
             --font-mono: 'Courier New', Courier, monospace;
         }
         
@@ -123,24 +122,71 @@
         .progress-bar { height: 100%; background: var(--accent-blue); width: 0%; border-radius: 4px; transition: width 1s linear; }
         .plane-progress-icon { position: absolute; top: -14px; left: 0%; transform: translateX(-50%); font-size: 1.5rem; transition: left 1s linear; }
 
-        /* --- Boarding Pass Components (FIXED) --- */
+        /* --- Boarding Pass Components (ANA Style) --- */
         .ticket {
-            /* 親要素には背景や影を持たせない（白残りを防ぐ） */
             display: flex;
+            width: 100%;
+            gap: 0;
+            overflow: hidden;
+            border-radius: 8px;
             position: relative;
             max-width: 100%;
+            align-items: stretch;
+            box-sizing: border-box;
+            color: #111;
         }
 
         .ticket-left {
-            padding: 20px;
             flex-grow: 1;
+            min-width: 0;
             position: relative;
-            background: var(--ticket-bg);
-            border: 1px solid #cbd5e1;
-            border-right: 2px dashed #94a3b8; /* ミシン目 */
-            border-radius: 12px 0 0 12px;
+            background: #ffffff;
+            border: 1px solid #b0b0b0;
+            border-right: 2px dashed #a0a0a0;
+            border-radius: 8px 0 0 8px;
             box-shadow: -5px 10px 25px rgba(0,0,0,0.15), 0 10px 25px rgba(0,0,0,0.1);
             z-index: 2;
+            display: flex;
+            align-items: stretch;
+        }
+
+        .ticket-edge {
+            width: 25px;
+            background: #f4f4f4;
+            border-right: 1px solid #d0d0d0;
+            border-left: 4px solid #009944; /* グリーンのライン */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .ticket-edge span {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 0.65rem;
+            color: #888;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        .ticket-barcode-strip {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ffffff;
+            border-right: 1px solid #d0d0d0;
+            min-width: 45px;
+            max-width: 45px;
+            overflow: hidden;
+        }
+
+        .barcode-canvas-vertical {
+            transform: rotate(-90deg);
+            width: 200px !important;
+            height: 35px !important;
+            display: block;
         }
 
         /* 切り欠き穴 */
@@ -152,57 +198,146 @@
             height: 20px;
             background: var(--hole-bg);
             border-radius: 50%;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #b0b0b0;
             z-index: 3;
             transition: background 0.3s;
         }
         .ticket-left::before { top: -11px; border-top: none; border-left: none; transform: rotate(45deg); }
         .ticket-left::after { bottom: -11px; border-bottom: none; border-right: none; transform: rotate(45deg); }
 
-        .ticket-right {
-            padding: 20px 15px;
-            width: 80px;
+        .ticket-main-content {
+            flex-grow: 1;
+            padding: 12px 18px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            justify-content: space-between;
+            position: relative;
             background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-left: none; /* ダブりを防ぐ */
-            border-radius: 0 12px 12px 0;
-            box-shadow: 5px 10px 25px rgba(0,0,0,0.15);
-            transform-origin: left top;
+            min-width: 0;
+        }
+
+        /* 背景の透かし文字 'Y' */
+        .ticket-bg-y {
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            font-size: 150px;
+            color: transparent;
+            -webkit-text-stroke: 1px #555;
+            font-weight: 700;
+            opacity: 0.15;
+            pointer-events: none;
+            line-height: 1;
+            z-index: 0;
+        }
+
+        .ana-header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-end;
+            gap: 15px;
+            margin-bottom: 8px;
             z-index: 1;
         }
 
+        .ana-logo {
+            font-size: 1.4rem;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: -1px;
+        }
+
+        .ana-class {
+            font-size: 0.75rem;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .ana-grid {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            row-gap: 2px;
+            align-items: baseline;
+            margin-bottom: 12px;
+            z-index: 1;
+        }
+
+        .ana-label { font-size: 0.65rem; color: #333; }
+        .ana-val { font-size: 0.9rem; font-weight: bold; }
+        .ana-val-lg { font-size: 1.4rem; font-weight: bold; letter-spacing: 1px; }
+
+        .ana-boxes {
+            display: flex;
+            border: 1px solid #333;
+            z-index: 1;
+        }
+
+        .ana-box {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 8px;
+        }
+
+        .ana-box:first-child { border-right: 1px solid #333; }
+        .ana-box-label { font-size: 0.65rem; line-height: 1.2; }
+        .ana-box-val { font-size: 1.3rem; font-weight: bold; }
+
+        .ana-footer-text {
+            font-size: 0.55rem;
+            text-align: center;
+            color: #666;
+            margin-top: 5px;
+            z-index: 1;
+        }
+
+        /* 半券 */
+        .ticket-right {
+            padding: 10px 12px;
+            width: 170px;
+            min-width: 170px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: #ffffff;
+            border: 1px solid #b0b0b0;
+            border-left: none;
+            border-right: 4px solid #009944; /* 右端の緑ライン */
+            border-radius: 0 8px 8px 0;
+            box-shadow: 5px 10px 25px rgba(0,0,0,0.15);
+            transform-origin: left top;
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        .stub-top { font-size: 0.55rem; color: #888; margin-bottom: 4px; }
+        .stub-flight { font-size: 1.2rem; font-weight: bold; margin-bottom: 2px; }
+        .stub-date { font-size: 0.75rem; font-weight: bold; margin-bottom: 6px; }
+        .stub-route { font-size: 0.7rem; line-height: 1.5; margin-bottom: 8px; }
+        .stub-route-row { display: flex; justify-content: space-between; }
+        .stub-notice {
+            font-size: 0.55rem;
+            line-height: 1.3;
+            color: #333;
+            margin-bottom: 8px;
+            letter-spacing: -0.2px;
+        }
+        .stub-seat-box {
+            border: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 8px;
+        }
+        .stub-seat-label { font-size: 0.65rem; line-height: 1.2; }
+        .stub-seat-val { font-size: 1.2rem; font-weight: bold; }
+
         /* ログ用ちぎられたチケット */
         .ticket-torn .ticket-left {
-            border-radius: 12px 6px 6px 12px; /* ちぎれた跡を少しだけ丸める */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05); /* ログ用に影を控えめに */
+            border-radius: 8px 4px 4px 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
-
-        .ticket-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-bottom: 10px; }
-        .ticket-route { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
-        .ticket-route .code { font-size: 1.5rem; font-weight: 900; color: var(--accent-blue); }
-        .ticket-route .arrow { color: var(--text-muted); font-size: 1.2rem; }
-        
-        .ticket-details { display: flex; gap: 20px; font-size: 0.8rem; margin-bottom: 10px; flex-wrap: wrap; }
-        .detail-group span { display: block; }
-        .detail-label { color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; }
-        .detail-value { font-weight: bold; font-size: 0.9rem; }
-
-        /* リアルなバーコード用Canvas */
-        .barcode-canvas,
-        .barcode-canvas-stub {
-            width: 100%;
-            height: auto;
-            display: block;
-            image-rendering: pixelated;
-            margin-top: 10px;
-            max-width: 100%;
-        }
-        .barcode-canvas { max-height: 70px; }
-        .barcode-canvas-stub { max-height: 60px; }
 
         /* --- Overlay Boarding Animation --- */
         .overlay {
@@ -231,10 +366,25 @@
 
         #boarding-ticket {
             max-width: 95%;
-            width: 450px;
+            width: min(700px, 95vw);
+            aspect-ratio: 5 / 2;
+            height: auto;
+            margin: 0 auto;
+        }
+        .ticket {
+            height: 100%;
+        }
+        .ticket-left, .ticket-right {
+            height: 100%;
+        }
+        @media (max-width: 1024px) {
+            #boarding-ticket { width: 90%; }
+        }
+        @media (max-width: 780px) {
+            #boarding-ticket { width: 95%; aspect-ratio: auto; }
         }
         @media (min-width: 600px) {
-            #boarding-ticket { transform: scale(1.1); }
+            #boarding-ticket { transform: none; }
         }
 
         /* ちぎれるアニメーション */
@@ -285,42 +435,94 @@
     <!-- オーバーレイ (タップ待機＆搭乗アニメーション用) -->
     <div id="boarding-overlay" class="overlay">
         <div class="overlay-content-wrapper">
+            
             <div class="ticket" id="boarding-ticket">
                 <div class="ticket-left">
-                    <div class="ticket-header">
-                        <span>BOARDING PASS</span>
-                        <span>CLASS: FOCUS</span>
+                    <div class="ticket-edge">
+                        <span>A FOCUS ALLIANCE MEMBER</span>
                     </div>
-                    <div class="ticket-route">
-                        <span class="code">HND</span>
-                        <span class="arrow">✈</span>
-                        <span class="code" id="bt-dest-code">---</span>
+                    <div class="ticket-barcode-strip">
+                        <canvas id="bt-barcode-left" class="barcode-canvas-vertical"></canvas>
                     </div>
-                    <div class="ticket-details">
-                        <div class="detail-group">
-                            <span class="detail-label">FLIGHT</span>
-                            <span class="detail-value" id="bt-flight-id">---</span>
+                    <div class="ticket-main-content">
+                        <div class="ticket-bg-y">Y</div>
+                        
+                        <div class="ana-header">
+                            <div class="ana-logo"><i>FOCUS</i> //</div>
+                            <div class="ana-class">
+                                ECONOMY CLASS<br>
+                                <span id="bt-date" style="font-weight:normal;">---</span>
+                            </div>
                         </div>
-                        <div class="detail-group">
-                            <span class="detail-label">DATE</span>
-                            <span class="detail-value" id="bt-date">---</span>
+
+                        <div class="ana-grid">
+                            <div class="ana-label">便名 / FLIGHT</div>
+                            <div class="ana-val-lg" id="bt-flight-id">---</div>
+
+                            <div class="ana-label">出発地 / FROM</div>
+                            <div class="ana-val">TOKYO/HND</div>
+
+                            <div class="ana-label">到着地 / TO</div>
+                            <div class="ana-val" id="bt-dest-code-main">---</div>
+
+                            <div class="ana-label">出発時刻 / DEP. TIME</div>
+                            <div class="ana-val" id="bt-dep-time">10:15</div>
+
+                            <div class="ana-label">座席番号 / SEAT</div>
+                            <div class="ana-val-lg">34D</div>
                         </div>
-                        <div class="detail-group">
-                            <span class="detail-label">DURATION</span>
-                            <span class="detail-value" id="bt-duration">---</span>
+
+                        <div class="ana-boxes">
+                            <div class="ana-box">
+                                <div class="ana-box-label">搭乗口<br>GATE</div>
+                                <div class="ana-box-val" id="bt-gate">110</div>
+                            </div>
+                            <div class="ana-box">
+                                <div class="ana-box-label">搭乗時刻<br>Boarding Time</div>
+                                <div class="ana-box-val" id="bt-boarding-time">09:50</div>
+                            </div>
                         </div>
+
+                        <div class="ana-footer-text">
+                            API ETKT 205222327210602 &nbsp;&nbsp; 0083
+                        </div>
+
+                        <!-- 互換性維持のための非表示要素 -->
+                        <span style="display:none;" id="bt-dest-code-arrive">---</span>
+                        <span style="display:none;" id="bt-duration">---</span>
                     </div>
-                    <canvas id="bt-barcode-left" class="barcode-canvas"></canvas>
                 </div>
                 
                 <div class="ticket-right" id="boarding-ticket-stub">
-                    <div class="ticket-header" style="justify-content:center;">STUB</div>
-                    <div class="ticket-route" style="flex-direction:column; gap:5px; margin-bottom:5px;">
-                        <span class="code" style="font-size:1.2rem;">HND</span>
-                        <span class="arrow" style="transform:rotate(90deg);">✈</span>
-                        <span class="code" id="bt-dest-code-stub" style="font-size:1.2rem;">---</span>
+                    <div>
+                        <div class="stub-top">A FOCUS ALLIANCE MEMBER</div>
+                        <div class="stub-flight" id="bt-flight-id-stub">---</div>
+                        <div class="stub-date" id="bt-date-stub">---</div>
+                        
+                        <div class="stub-route">
+                            <div class="stub-route-row">
+                                <span>出発地 / FROM</span><span>HND</span>
+                            </div>
+                            <div class="stub-route-row">
+                                <span>到着地 / TO</span><span id="bt-dest-code-stub">---</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stub-notice">
+                            お時間に余裕をもって搭乗口へお越し下さい。出発10分前を過ぎますと、お乗り頂けないこともございます。<br>
+                            Please be at the gate 10 mins before the departure time. Otherwise you may not be able to board.
+                        </div>
                     </div>
-                    <canvas id="bt-barcode-right" class="barcode-canvas-stub"></canvas>
+
+                    <div>
+                        <div class="stub-seat-box">
+                            <div class="stub-seat-label">座席番号<br>SEAT</div>
+                            <div class="stub-seat-val" id="bt-seat-stub">34D</div>
+                        </div>
+                        <div class="ana-footer-text" style="text-align: right; margin-top: 8px;">0083</div>
+                        <!-- エラー回避用の非表示Canvas -->
+                        <canvas id="bt-barcode-right" style="display:none;"></canvas>
+                    </div>
                 </div>
             </div>
             
@@ -413,6 +615,50 @@
             { maxMin: Infinity, code: 'JFK', name: 'New York' }
         ];
 
+                // --- Dynamic times & gate ---
+                let currentGate = '110';
+
+                function roundUpTo5(d) {
+                    const dt = new Date(d);
+                    dt.setSeconds(0,0);
+                    const m = dt.getMinutes();
+                    const rem = m % 5;
+                    if (rem !== 0) dt.setMinutes(m + (5 - rem));
+                    return dt;
+                }
+
+                function formatHM(d) {
+                    const hh = d.getHours().toString().padStart(2,'0');
+                    const mm = d.getMinutes().toString().padStart(2,'0');
+                    return `${hh}:${mm}`;
+                }
+
+                function generateGate() {
+                    // Gate number between 1 and 140 (common domestic gates)
+                    return String(Math.floor(Math.random() * 140) + 1);
+                }
+
+                function setDynamicTimesAndGate() {
+                    const now = new Date();
+                    // Boarding time = now rounded up to next 5-min
+                    const boarding = roundUpTo5(now);
+                    // Departure = boarding + 25 minutes (matching original UI gap)
+                    const departure = new Date(boarding.getTime() + 25 * 60000);
+
+                    currentGate = generateGate();
+
+                    const btBoarding = document.getElementById('bt-boarding-time');
+                    const btDep = document.getElementById('bt-dep-time');
+                    const btGate = document.getElementById('bt-gate');
+                    if (btBoarding) btBoarding.textContent = formatHM(boarding);
+                    if (btDep) btDep.textContent = formatHM(departure);
+                    if (btGate) btGate.textContent = currentGate;
+
+                    // Update stub area if present
+                    const stubDate = document.getElementById('bt-date-stub');
+                    if (stubDate) stubDate.textContent = getCurrentDate();
+                }
+
         // --- Audio Context ---
         let audioCtx, noiseNode, gainNode;
         function toggleWhiteNoise(play) {
@@ -480,10 +726,10 @@
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
 
+            const isVertical = canvas.classList.contains('barcode-canvas-vertical');
             const containerWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 450;
-            const isStub = canvas.classList.contains('barcode-canvas-stub');
-            const w = Math.min(containerWidth, isStub ? 280 : 420);
-            const h = isStub ? 60 : 90;
+            const w = isVertical ? 220 : Math.min(containerWidth, 320);
+            const h = isVertical ? 100 : 80;
             const dpr = window.devicePixelRatio || 1;
 
             canvas.width = Math.round(w * dpr);
@@ -498,9 +744,9 @@
                     bwipjs.toCanvas(canvas, {
                         bcid: 'pdf417',
                         text,
-                        scale: w > 300 ? 2 : 1,
+                        scale: 2,
                         includetext: false,
-                        padding: 8,
+                        padding: 0,
                         backgroundcolor: 'ffffff',
                         barcolor: '000000'
                     });
@@ -541,34 +787,51 @@
             const textId = flightId + "-" + dest.code;
             const canvasId = "log-barcode-" + Date.now();
             
-            // 親の .ticket は背景を持たず、.ticket-left だけが背景と影を持つ
+            // 履歴用の搭乗券もANA風レイアウトに合わせる
             const ticketHTML = `
-                <div class="ticket ticket-torn">
+                <div class="ticket ticket-torn" style="margin-bottom: 20px;">
                     <div class="ticket-left">
-                        <div class="ticket-header">
-                            <span>BOARDING PASS</span>
-                            <span>CLASS: FOCUS</span>
+                        <div class="ticket-edge">
+                            <span>A FOCUS ALLIANCE MEMBER</span>
                         </div>
-                        <div class="ticket-route">
-                            <span class="code">HND</span>
-                            <span class="arrow">✈</span>
-                            <span class="code">${dest.code}</span>
+                        <div class="ticket-barcode-strip">
+                            <canvas id="${canvasId}" class="barcode-canvas-vertical"></canvas>
                         </div>
-                        <div class="ticket-details">
-                            <div class="detail-group">
-                                <span class="detail-label">FLIGHT</span>
-                                <span class="detail-value">${flightId}</span>
+                        <div class="ticket-main-content">
+                            <div class="ticket-bg-y">Y</div>
+                            <div class="ana-header">
+                                <div class="ana-logo"><i>FOCUS</i> //</div>
+                                <div class="ana-class">
+                                    ECONOMY CLASS<br>
+                                    <span style="font-weight:normal;">${getCurrentDate()}</span>
+                                </div>
                             </div>
-                            <div class="detail-group">
-                                <span class="detail-label">DATE</span>
-                                <span class="detail-value">${getCurrentDate()}</span>
+                            <div class="ana-grid">
+                                <div class="ana-label">便名 / FLIGHT</div>
+                                <div class="ana-val-lg">${flightId}</div>
+                                <div class="ana-label">出発地 / FROM</div>
+                                <div class="ana-val">TOKYO/HND</div>
+                                <div class="ana-label">到着地 / TO</div>
+                                <div class="ana-val">${dest.code}</div>
+                                <div class="ana-label">出発時刻 / DEP. TIME</div>
+                                <div class="ana-val">10:15</div>
+                                <div class="ana-label">座席番号 / SEAT</div>
+                                <div class="ana-val-lg">34D</div>
                             </div>
-                            <div class="detail-group">
-                                <span class="detail-label">DURATION</span>
-                                <span class="detail-value">${mins} MIN</span>
+                            <div class="ana-boxes">
+                                <div class="ana-box">
+                                    <div class="ana-box-label">搭乗口<br>GATE</div>
+                                    <div class="ana-box-val">${currentGate}</div>
+                                </div>
+                                <div class="ana-box">
+                                    <div class="ana-box-label">所要時間<br>Duration</div>
+                                    <div class="ana-box-val" style="font-size: 1.2rem;">${mins} MIN</div>
+                                </div>
+                            </div>
+                            <div class="ana-footer-text">
+                                API ETKT 205222327210602 &nbsp;&nbsp; 0083
                             </div>
                         </div>
-                        <canvas id="${canvasId}" class="barcode-canvas"></canvas>
                     </div>
                 </div>
             `;
@@ -670,14 +933,27 @@
 
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
-            // 1. 搭乗券データの生成と更新
+            // 1. 動的時刻・搭乗口を生成して表示
+            setDynamicTimesAndGate();
+
+            // 2. 搭乗券データの生成と更新
             currentFlightId = "FC" + Math.floor(Math.random() * 9000 + 1000);
             const textId = currentFlightId + "-" + currentDestination.code;
             
-            document.getElementById('bt-dest-code').textContent = currentDestination.code;
+            document.getElementById('bt-dest-code-main').textContent = currentDestination.code;
+            document.getElementById('bt-dest-code-arrive').textContent = currentDestination.code;
             document.getElementById('bt-dest-code-stub').textContent = currentDestination.code;
             document.getElementById('bt-flight-id').textContent = currentFlightId;
+            document.getElementById('bt-flight-id-stub').textContent = currentFlightId;
             document.getElementById('bt-date').textContent = getCurrentDate();
+            document.getElementById('bt-date-stub').textContent = getCurrentDate();
+            // ensure gate/time values are reflected on the ticket elements
+            const btGateEl = document.getElementById('bt-gate');
+            const btBoardEl = document.getElementById('bt-boarding-time');
+            const btDepEl = document.getElementById('bt-dep-time');
+            if (btGateEl) btGateEl.textContent = currentGate;
+            if (btBoardEl) btBoardEl.textContent = btBoardEl.textContent || btBoardEl.textContent;
+            if (btDepEl) btDepEl.textContent = btDepEl.textContent || btDepEl.textContent;
             document.getElementById('bt-duration').textContent = mins + " MIN";
             
             drawBarcode('bt-barcode-left', textId);
@@ -754,6 +1030,7 @@
 
         // Initialize display
         updateDestinationInfo();
+        setDynamicTimesAndGate();
         timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value) || 25) * 60);
     </script>
 </body>
