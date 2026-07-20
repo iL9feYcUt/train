@@ -111,7 +111,7 @@
         .ticket-barcode-strip { display: flex; justify-content: center; align-items: center; background: #ffffff; border-right: 1px solid #d0d0d0; min-width: 45px; max-width: 45px; overflow: hidden; }
         .barcode-canvas-vertical { transform: rotate(-90deg); width: 220px !important; height: 35px !important; display: block; }
 
-        .ticket-main-content { flex-grow: 1; padding: 15px 20px; display: flex; flex-direction: column; justify-content: space-between; position: relative; background: #ffffff; border-radius: 0 0 0 8px; }
+        .ticket-main-content { flex-grow: 1; padding: 10px 20px; display: flex; flex-direction: column; justify-content: space-between; position: relative; background: #ffffff; border-radius: 0 0 0 8px; }
         .ticket-bg-y { position: absolute; top: -5px; right: 25px; font-size: 160px; color: transparent; -webkit-text-stroke: 1px #555; font-weight: 700; opacity: 0.35; pointer-events: none; line-height: 1; z-index: 0; }
         
         .ana-header { display: flex; justify-content: flex-start; align-items: flex-end; gap: 15px; margin-bottom: 10px; z-index: 1; }
@@ -137,7 +137,7 @@
             border-left: none; /* 点線と噛み合う部分 */
             border-right: 4px solid #009944;
             border-radius: 0 8px 8px 0;
-            padding: 15px 15px;
+            padding: 10px 15px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -174,7 +174,6 @@
         .stub-seat-val { font-size: 1.3rem; font-weight: bold; }
 
         /* Animations */
-        .fly-away { transform: translateY(-500px) scale(0.8); opacity: 0; }
         .tap-hint { color: white; margin-top: 40px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; animation: pulseHint 1.5s infinite; transition: opacity 0.3s; }
         @keyframes pulseHint { 0% { opacity: 0.4; transform: translateY(0); } 50% { opacity: 1; transform: translateY(8px); } 100% { opacity: 0.4; transform: translateY(0); } }
         .log-section { width: 100%; max-width: 600px; margin-top: 2rem; }
@@ -208,12 +207,12 @@
                                 <div class="ana-label">便名 / FLIGHT</div><div class="ana-val-lg" id="bt-flight-id">---</div>
                                 <div class="ana-label">出発地 / FROM</div><div class="ana-val">TOKYO/HND</div>
                                 <div class="ana-label">到着地 / TO</div><div class="ana-val" id="bt-dest-code-main">---</div>
-                                <div class="ana-label">出発時刻 / DEP. TIME</div><div class="ana-val" id="bt-dep-time">10:15</div>
+                                <div class="ana-label">出発時刻 / DEP. TIME</div><div class="ana-val" id="bt-dep-time">---</div>
                                 <div class="ana-label">座席番号 / SEAT</div><div class="ana-val-lg">34D</div>
                             </div>
                             <div class="ana-boxes">
-                                <div class="ana-box"><div class="ana-box-label">搭乗口<br>GATE</div><div class="ana-box-val" id="bt-gate">110</div></div>
-                                <div class="ana-box"><div class="ana-box-label">搭乗時刻<br>Boarding Time</div><div class="ana-box-val" id="bt-boarding-time">09:50</div></div>
+                                <div class="ana-box"><div class="ana-box-label">搭乗口<br>GATE</div><div class="ana-box-val" id="bt-gate">---</div></div>
+                                <div class="ana-box"><div class="ana-box-label">搭乗時刻<br>Boarding Time</div><div class="ana-box-val" id="bt-boarding-time">---</div></div>
                             </div>
                             <div class="ana-footer-text">API ETKT 205222327210602 &nbsp;&nbsp; 0083</div>
                         </div>
@@ -308,12 +307,68 @@
             { maxMin: Infinity, code: 'JFK', name: 'New York' }
         ];
 
-        // --- ダッシュボードの目的地表示を更新する関数 ---
+        // --- 搭乗口・時刻の自動生成用データと関数 ---
+        const gateList = [
+            "47", "48", "49", "50A", "50B", "51A", "51B",
+            ...Array.from({length: 15}, (_, i) => `${52 + i}`),
+            "67A", "67B",
+            ...Array.from({length: 6}, (_, i) => `${68 + i}`),
+            "105", "106A", "106B", "107A", "107B", "108A", "108B",
+            ...Array.from({length: 6}, (_, i) => `${109 + i}`),
+            ...Array.from({length: 19}, (_, i) => `${131 + i}`),
+            ...Array.from({length: 12}, (_, i) => `${500 + i}`)
+        ];
+
+        function getRandomGate() {
+            return gateList[Math.floor(Math.random() * gateList.length)];
+        }
+
+        function generateFlightTimes() {
+            const now = new Date();
+            let minutes = now.getMinutes();
+            let roundedMinutes = Math.ceil(minutes / 5) * 5;
+            
+            const depTime = new Date(now);
+            depTime.setMinutes(roundedMinutes);
+            depTime.setSeconds(0);
+            
+            const boardingTime = new Date(depTime);
+            boardingTime.setMinutes(depTime.getMinutes() - 20); // 搭乗時刻は出発の20分前
+            
+            const format = (date) => `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            
+            return {
+                dep: format(depTime),
+                boarding: format(boardingTime)
+            };
+        }
+
         function updateDestinationPreview() {
             const mins = parseInt(flightTimeInput.value) || 0;
             const dest = destinations.find(d => mins <= d.maxMin) || destinations[destinations.length-1];
             document.getElementById('dest-code').textContent = dest.code;
             document.getElementById('dest-name').textContent = dest.name;
+        }
+
+        // --- チケット情報の更新 ---
+        function updateTicketData(mins) {
+            const dest = destinations.find(d => mins <= d.maxMin) || destinations[destinations.length-1];
+            const currentFlightId = "NH" + Math.floor(Math.random() * 1100 + 100);
+            const times = generateFlightTimes();
+            const gate = getRandomGate();
+            
+            document.getElementById('bt-dest-code-main').textContent = dest.code;
+            document.getElementById('bt-dest-code-stub').textContent = dest.code;
+            document.getElementById('bt-flight-id').textContent = currentFlightId;
+            document.getElementById('bt-flight-id-stub').textContent = currentFlightId;
+            document.getElementById('bt-date').textContent = getCurrentDate();
+            document.getElementById('bt-date-stub').textContent = getCurrentDate();
+            
+            document.getElementById('bt-dep-time').textContent = times.dep;
+            document.getElementById('bt-boarding-time').textContent = times.boarding;
+            document.getElementById('bt-gate').textContent = gate;
+            
+            drawBarcode('bt-barcode-left', currentFlightId + "-" + dest.code);
         }
 
         function formatTime(seconds) {
@@ -334,14 +389,13 @@
 
         // --- 3D カール（曲げ）アニメーションを生成するコアロジック ---
         let sliceSegments = [];
-        const NUM_SLICES = 36; // 36分割に増やして滑らかに
-        const TOTAL_CURL_ANGLE = 198; // 全体で曲がる合計の角度
+        const NUM_SLICES = 36;
+        const TOTAL_CURL_ANGLE = 198;
         
         function initSlicedStub() {
             const original = document.getElementById('boarding-ticket-stub-content');
             const container = document.getElementById('stub-slice-container');
             
-            // サイズ取得のために一瞬だけ表示
             original.style.display = 'flex';
             const w = original.offsetWidth;
             const h = original.offsetHeight;
@@ -354,7 +408,6 @@
             let currentParent = container;
             sliceSegments = [];
             
-            // 下から上へ向かって入れ子（ネスト）構造を作ることで、回転角度が累積して物理的な曲線を描く
             for(let i = NUM_SLICES - 1; i >= 0; i--) {
                 const slice = document.createElement('div');
                 slice.style.position = 'absolute';
@@ -365,25 +418,50 @@
                 slice.style.transformOrigin = 'bottom center';
                 slice.style.transformStyle = 'preserve-3d';
                 
+                // 表面コンテナ (backface-visibility で裏からは見えないようにする)
+                const front = document.createElement('div');
+                front.style.position = 'absolute';
+                front.style.top = '0';
+                front.style.left = '0';
+                front.style.width = '100%';
+                front.style.height = (sliceH + 0.5) + 'px'; // 隙間防止
+                front.style.backfaceVisibility = 'hidden';
+
                 const mask = document.createElement('div');
                 mask.style.position = 'absolute';
                 mask.style.top = '0';
                 mask.style.left = '0';
                 mask.style.width = '100%';
-                mask.style.height = (sliceH + 0.5) + 'px'; // 隙間防止
+                mask.style.height = '100%';
                 mask.style.overflow = 'hidden';
                 
                 const clone = original.cloneNode(true);
                 clone.style.display = 'flex';
                 clone.style.position = 'absolute';
-                clone.style.top = -(i * sliceH) + 'px'; // スライス位置に合わせて中身をズラす
+                clone.style.top = -(i * sliceH) + 'px';
                 clone.style.left = '0';
                 clone.style.width = w + 'px';
                 clone.style.height = h + 'px';
                 clone.removeAttribute('id');
                 
                 mask.appendChild(clone);
-                slice.appendChild(mask);
+                front.appendChild(mask);
+                
+                // 裏面コンテナ (白紙)
+                const back = document.createElement('div');
+                back.style.position = 'absolute';
+                back.style.top = '0';
+                back.style.left = '0';
+                back.style.width = '100%';
+                back.style.height = (sliceH + 0.5) + 'px';
+                back.style.backfaceVisibility = 'hidden';
+                back.style.transform = 'rotateX(180deg)'; // 裏面に向ける
+                back.style.backgroundColor = '#ffffff';
+                back.style.boxSizing = 'border-box';
+                back.style.borderRight = '4px solid #009944'; // 右端の緑線
+                
+                slice.appendChild(front);
+                slice.appendChild(back);
                 
                 currentParent.appendChild(slice);
                 sliceSegments.unshift({ element: slice });
@@ -418,14 +496,11 @@
             
             const progress = Math.max(0, Math.min(1, deltaY / 250));
             
-            // 下にずらす translateY と translateX を削除（少し傾ける rotateZ だけ残す）
             container.style.transform = `rotateZ(${progress * 1}deg)`;
             
-            // 分割数に合わせて1つあたりの曲がる角度を計算
             sliceSegments.forEach(seg => {
                 const angle = progress * (TOTAL_CURL_ANGLE / NUM_SLICES); 
                 seg.element.style.transform = `rotateX(-${angle}deg)`;
-                // seg.shadow.style.opacity = progress * 2;
             });
             
             if (progress >= 0.9) completeTear(deltaY);
@@ -442,7 +517,6 @@
             sliceSegments.forEach(seg => {
                 seg.element.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
                 seg.element.style.transform = `rotateX(0deg)`;
-                // seg.shadow.style.opacity = '0';
             });
             document.getElementById('tap-hint').style.opacity = '1';
         });
@@ -451,16 +525,15 @@
             isDragging = false;
             isTorn = true;
             
-            // 丸まったまま画面外へ落下
+            // 半券だけが丸まったまま落下（メインチケットは消さない）
             container.style.transition = 'transform 0.8s cubic-bezier(0.6, -0.2, 1, 1)';
             container.style.transform = `translateY(${currentDeltaY + 600}px) translateX(${currentDeltaY * 0.2 + 150}px) rotateZ(45deg) rotateY(20deg)`;
             sliceSegments.forEach(seg => {
                 seg.element.style.transition = 'transform 0.8s';
                 const finalAngle = (TOTAL_CURL_ANGLE / NUM_SLICES) * 0.9; 
-                seg.element.style.transform = `rotateX(-${finalAngle}deg)`; // 丸まりをキープ
+                seg.element.style.transform = `rotateX(-${finalAngle}deg)`;
             });
             
-            setTimeout(() => { document.getElementById('boarding-ticket-main').classList.add('fly-away'); }, 400);
             setTimeout(() => {
                 document.getElementById('boarding-overlay').classList.remove('active');
                 document.body.classList.remove('overlay-active');
@@ -472,26 +545,13 @@
         btnTakeoff.addEventListener('click', () => {
             const mins = parseInt(flightTimeInput.value) || 25;
             pendingFlightMins = mins;
-            const dest = destinations.find(d => mins <= d.maxMin) || destinations[destinations.length-1];
-            const currentFlightId = "NH" + Math.floor(Math.random() * 1100 + 100);
             
-            // 隠しテンプレートのテキストを更新
-            document.getElementById('bt-dest-code-main').textContent = dest.code;
-            document.getElementById('bt-dest-code-stub').textContent = dest.code;
-            document.getElementById('bt-flight-id').textContent = currentFlightId;
-            document.getElementById('bt-flight-id-stub').textContent = currentFlightId;
-            document.getElementById('bt-date').textContent = getCurrentDate();
-            document.getElementById('bt-date-stub').textContent = getCurrentDate();
-            
-            drawBarcode('bt-barcode-left', currentFlightId + "-" + dest.code);
-            
-            // テキスト更新後に3Dスライスを生成
+            updateTicketData(mins);
             initSlicedStub();
 
             // 状態リセット
             container.style.transition = 'none';
             container.style.transform = 'none';
-            document.getElementById('boarding-ticket-main').classList.remove('fly-away');
             document.getElementById('tap-hint').style.opacity = '1';
             isTorn = false;
             
@@ -533,11 +593,12 @@
         
         flightTimeInput.addEventListener('input', () => { 
             timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value) || 0) * 60); 
-            updateDestinationPreview(); // 入力時に目的地を更新
+            updateDestinationPreview();
         });
         
-        // 初期化時に目的地表示を更新
+        // 初期化処理
         updateDestinationPreview();
+        updateTicketData(parseInt(flightTimeInput.value) || 25);
         
     </script>
 </body>
