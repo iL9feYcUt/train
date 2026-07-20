@@ -265,53 +265,53 @@
         // 厳選した世界の主要空港リスト
         const majorAirportsList = [
             { code: 'HND', name: 'Tokyo Haneda', lat: 35.5494, lon: 139.7798 },
-            { code: 'NRT', name: 'Tokyo Narita', lat: 35.7647, lon: 140.3863 },
-            { code: 'KIX', name: 'Osaka Kansai', lat: 34.4320, lon: 135.2304 },
-            { code: 'CTS', name: 'Sapporo New Chitose', lat: 42.7752, lon: 141.6923 },
+            { code: 'NRT', name: 'Tokyo', lat: 35.7647, lon: 140.3863 },
+            { code: 'KIX', name: 'Osaka', lat: 34.4320, lon: 135.2304 },
+            { code: 'CTS', name: 'Sapporo', lat: 42.7752, lon: 141.6923 },
             { code: 'FUK', name: 'Fukuoka', lat: 33.5859, lon: 130.4507 },
-            { code: 'OKA', name: 'Okinawa Naha', lat: 26.1958, lon: 127.6459 },
-            { code: 'ICN', name: 'Seoul Incheon', lat: 37.4602, lon: 126.4407 },
-            { code: 'TPE', name: 'Taipei Taoyuan', lat: 25.0797, lon: 121.2342 },
+            { code: 'OKA', name: 'Okinawa', lat: 26.1958, lon: 127.6459 },
+            { code: 'ICN', name: 'Incheon', lat: 37.4602, lon: 126.4407 },
+            { code: 'TPE', name: 'Taipei', lat: 25.0797, lon: 121.2342 },
             { code: 'HKG', name: 'Hong Kong', lat: 22.3080, lon: 113.9185 },
-            { code: 'PVG', name: 'Shanghai Pudong', lat: 31.1443, lon: 121.8083 },
-            { code: 'PEK', name: 'Beijing Capital', lat: 40.0799, lon: 116.6031 },
-            { code: 'SIN', name: 'Singapore Changi', lat: 1.3644, lon: 103.9915 },
-            { code: 'BKK', name: 'Bangkok Suvarnabhumi', lat: 13.6900, lon: 100.7501 },
+            { code: 'PVG', name: 'Shanghai', lat: 31.1443, lon: 121.8083 },
+            { code: 'PEK', name: 'Beijing', lat: 40.0799, lon: 116.6031 },
+            { code: 'SIN', name: 'Singapore', lat: 1.3644, lon: 103.9915 },
+            { code: 'BKK', name: 'Bangkok', lat: 13.6900, lon: 100.7501 },
             { code: 'KUL', name: 'Kuala Lumpur', lat: 2.7456, lon: 101.7099 },
-            { code: 'CGK', name: 'Jakarta Soekarno-Hatta', lat: -6.1256, lon: 106.6558 },
-            { code: 'MNL', name: 'Manila Ninoy Aquino', lat: 14.5090, lon: 121.0194 },
-            { code: 'DEL', name: 'Delhi Indira Gandhi', lat: 28.5562, lon: 77.1000 },
-            { code: 'SYD', name: 'Sydney Kingsford Smith', lat: -33.9399, lon: 151.1753 },
+            { code: 'CGK', name: 'Jakarta', lat: -6.1256, lon: 106.6558 },
+            { code: 'MNL', name: 'Manila', lat: 14.5090, lon: 121.0194 },
+            { code: 'DEL', name: 'Delhi', lat: 28.5562, lon: 77.1000 },
+            { code: 'SYD', name: 'Sydney', lat: -33.9399, lon: 151.1753 },
             { code: 'MEL', name: 'Melbourne', lat: -37.6690, lon: 144.8410 },
             { code: 'AKL', name: 'Auckland', lat: -37.0082, lon: 174.7925 },
             { code: 'HNL', name: 'Honolulu', lat: 21.3206, lon: -157.9242 },
-            { code: 'JFK', name: 'New York JFK', lat: 40.6413, lon: -73.7781 },
+            { code: 'JFK', name: 'New York', lat: 40.6413, lon: -73.7781 },
             { code: 'LAX', name: 'Los Angeles', lat: 33.9416, lon: -118.4085 },
             { code: 'SFO', name: 'San Francisco', lat: 37.6213, lon: -122.3790 },
             { code: 'ORD', name: 'Chicago O\'Hare', lat: 41.9742, lon: -87.9073 },
-            { code: 'ATL', name: 'Atlanta Hartsfield-Jackson', lat: 33.6407, lon: -84.4277 },
+            { code: 'ATL', name: 'Atlanta', lat: 33.6407, lon: -84.4277 },
             { code: 'YVR', name: 'Vancouver', lat: 49.1967, lon: -123.1815 },
-            { code: 'YYZ', name: 'Toronto Pearson', lat: 43.6777, lon: -79.6248 },
+            { code: 'YYZ', name: 'Toronto', lat: 43.6777, lon: -79.6248 },
             { code: 'MEX', name: 'Mexico City', lat: 19.4361, lon: -99.0719 },
-            { code: 'GRU', name: 'São Paulo Guarulhos', lat: -23.4356, lon: -46.4731 },
-            { code: 'LHR', name: 'London Heathrow', lat: 51.4700, lon: -0.4543 },
-            { code: 'CDG', name: 'Paris Charles de Gaulle', lat: 49.0097, lon: 2.5479 },
+            { code: 'GRU', name: 'São Paulo', lat: -23.4356, lon: -46.4731 },
+            { code: 'LHR', name: 'London', lat: 51.4700, lon: -0.4543 },
+            { code: 'CDG', name: 'Paris', lat: 49.0097, lon: 2.5479 },
             { code: 'FRA', name: 'Frankfurt', lat: 50.0333, lon: 8.5706 },
-            { code: 'AMS', name: 'Amsterdam Schiphol', lat: 52.3105, lon: 4.7683 },
-            { code: 'ARN', name: 'Stockholm Arlanda', lat: 59.6519, lon: 17.9186 },
-            { code: 'OSL', name: 'Oslo Gardermoen', lat: 60.1939, lon: 11.1004 },
-            { code: 'CPH', name: 'Copenhagen Kastrup', lat: 55.6179, lon: 12.6560 },
-            { code: 'KEF', name: 'Reykjavik Keflavik', lat: 63.9850, lon: -22.6056 },
+            { code: 'AMS', name: 'Amsterdam', lat: 52.3105, lon: 4.7683 },
+            { code: 'ARN', name: 'Stockholm', lat: 59.6519, lon: 17.9186 },
+            { code: 'OSL', name: 'Oslo', lat: 60.1939, lon: 11.1004 },
+            { code: 'CPH', name: 'Copenhagen', lat: 55.6179, lon: 12.6560 },
+            { code: 'KEF', name: 'Reykjavik', lat: 63.9850, lon: -22.6056 },
             { code: 'GOH', name: 'Nuuk Greenland', lat: 64.1909, lon: -51.6781 },
             { code: 'ZRH', name: 'Zurich', lat: 47.4647, lon: 8.5492 },
-            { code: 'MXP', name: 'Milan Malpensa', lat: 45.6300, lon: 8.7281 },
+            { code: 'MXP', name: 'Milan', lat: 45.6300, lon: 8.7281 },
             { code: 'VIE', name: 'Vienna', lat: 48.1103, lon: 16.5697 },
-            { code: 'IAH', name: 'Houston Intercontinental', lat: 29.9844, lon: -95.3414 },
-            { code: 'MAD', name: 'Madrid Barajas', lat: 40.4983, lon: -3.5676 },
-            { code: 'FCO', name: 'Rome Fiumicino', lat: 41.7999, lon: 12.2462 },
+            { code: 'IAH', name: 'Houston', lat: 29.9844, lon: -95.3414 },
+            { code: 'MAD', name: 'Madrid', lat: 40.4983, lon: -3.5676 },
+            { code: 'FCO', name: 'Rome', lat: 41.7999, lon: 12.2462 },
             { code: 'IST', name: 'Istanbul', lat: 41.2753, lon: 28.7519 },
             { code: 'DXB', name: 'Dubai', lat: 25.2528, lon: 55.3644 },
-            { code: 'DOH', name: 'Doha Hamad', lat: 25.2731, lon: 51.6080 },
+            { code: 'DOH', name: 'Doha', lat: 25.2731, lon: 51.6080 },
             { code: 'JNB', name: 'Johannesburg', lat: -26.1367, lon: 28.2411 }
         ];
         
@@ -348,6 +348,62 @@
             if (diff > 180) return targetLon - 360; 
             else if (diff < -180) return targetLon + 360; 
             return targetLon;
+        }
+
+        function wrapLongitude(lon, prevLon = null) {
+            let wrapped = ((lon + 540) % 360) - 180;
+            if (prevLon !== null) {
+                let diff = wrapped - prevLon;
+                while (diff > 180) {
+                    wrapped -= 360;
+                    diff -= 360;
+                }
+                while (diff < -180) {
+                    wrapped += 360;
+                    diff += 360;
+                }
+            }
+            return wrapped;
+        }
+
+        function calculateGreatCirclePoints(lat1, lon1, lat2, lon2, steps = 80) {
+            const startLat = lat1 * Math.PI / 180;
+            const startLon = lon1 * Math.PI / 180;
+            const endLat = lat2 * Math.PI / 180;
+            const endLon = lon2 * Math.PI / 180;
+
+            const deltaLon = endLon - startLon;
+            const sinStartLat = Math.sin(startLat);
+            const cosStartLat = Math.cos(startLat);
+            const sinEndLat = Math.sin(endLat);
+            const cosEndLat = Math.cos(endLat);
+            const cosDeltaLon = Math.cos(deltaLon);
+
+            const angularDistance = Math.acos(Math.max(-1, Math.min(1, sinStartLat * sinEndLat + cosStartLat * cosEndLat * cosDeltaLon)));
+
+            const points = [];
+            if (angularDistance === 0) {
+                return [[lat1, lon1], [lat2, lon2]];
+            }
+
+            let prevLon = null;
+            for (let i = 0; i <= steps; i++) {
+                const fraction = i / steps;
+                const a = Math.sin((1 - fraction) * angularDistance) / Math.sin(angularDistance);
+                const b = Math.sin(fraction * angularDistance) / Math.sin(angularDistance);
+
+                const x = a * cosStartLat * Math.cos(startLon) + b * cosEndLat * Math.cos(endLon);
+                const y = a * cosStartLat * Math.sin(startLon) + b * cosEndLat * Math.sin(endLon);
+                const z = a * sinStartLat + b * sinEndLat;
+
+                const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI;
+                let lon = Math.atan2(y, x) * 180 / Math.PI;
+                lon = wrapLongitude(lon, prevLon);
+                prevLon = lon;
+                points.push([lat, lon]);
+            }
+
+            return points;
         }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -495,6 +551,14 @@
         }
         function getCurrentDate() { const d = new Date(); return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`; }
 
+        function formatAirportLabel(airport) {
+            const nameWords = airport.name.split(/\s+/).filter(Boolean);
+            const firstWord = nameWords[0] ? nameWords[0].toUpperCase() : airport.code;
+            const secondWord = nameWords[1] && !['AIRPORT', 'INTERNATIONAL', 'INTERNATIONAL'].includes(nameWords[1].toUpperCase()) ? nameWords[1].toUpperCase() : '';
+            const base = secondWord && secondWord !== 'JFK' && secondWord !== 'LAX' && secondWord !== 'LHR' && secondWord !== 'CDG' && secondWord !== 'FRA' && secondWord !== 'AMS' && secondWord !== 'HND' && secondWord !== 'NRT' && secondWord !== 'KIX' && secondWord !== 'CTS' ? `${firstWord} ${secondWord}` : firstWord;
+            return `${base}/${airport.code}`;
+        }
+
         function updateTicketData() {
             const currentFlightId = "NH" + Math.floor(Math.random() * 1100 + 100);
             const times = generateFlightTimes();
@@ -509,8 +573,9 @@
             document.getElementById('boarding-ticket-stub-content').style.borderRightColor = clsData.color;
             currentSeatColor = clsData.color; // 半券（裏面）生成用に保存
             
-            document.getElementById('bt-dest-code-main').textContent = selectedDest.code;
-            document.getElementById('bt-dest-code-stub').textContent = selectedDest.code;
+            const destLabel = formatAirportLabel(selectedDest);
+            document.getElementById('bt-dest-code-main').textContent = destLabel;
+            document.getElementById('bt-dest-code-stub').textContent = destLabel;
             document.getElementById('bt-flight-id').textContent = currentFlightId;
             document.getElementById('bt-flight-id-stub').textContent = currentFlightId;
             document.getElementById('bt-date').textContent = getCurrentDate();
@@ -536,6 +601,7 @@
             document.getElementById('flight-map-container').style.display = 'block';
             
             const adjustedDestLon = getAdjustedTargetLon(origin.lon, selectedDest.lon);
+            const greatCirclePoints = calculateGreatCirclePoints(origin.lat, origin.lon, selectedDest.lat, adjustedDestLon);
 
             if (!flightMap) {
                 flightMap = L.map('flight-map', {zoomControl: false}).setView([origin.lat, origin.lon], 7);
@@ -549,21 +615,30 @@
             }
             
             flightMap.invalidateSize();
-            flightPolyline.setLatLngs([[origin.lat, origin.lon], [selectedDest.lat, adjustedDestLon]]);
+            flightPolyline.setLatLngs(greatCirclePoints);
             flightMarker.setLatLng([origin.lat, origin.lon]);
-            flightMap.fitBounds([[origin.lat, origin.lon], [selectedDest.lat, adjustedDestLon]], { padding: [50, 50], animate: false });
+            flightMap.fitBounds(greatCirclePoints, { padding: [50, 50], animate: false });
             
-            updatePlaneIcon(adjustedDestLon);
+            updatePlaneIcon(greatCirclePoints, Math.floor(greatCirclePoints.length / 2));
         }
 
-        function updatePlaneIcon(adjustedDestLon) {
-            const p1 = flightMap.project([origin.lat, origin.lon], flightMap.getZoom());
-            const p2 = flightMap.project([selectedDest.lat, adjustedDestLon], flightMap.getZoom());
-            const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            const bearing = (angleRad * 180 / Math.PI) + 90;
+        function getGeographicBearing(fromPoint, toPoint) {
+            const lat1 = fromPoint[0] * Math.PI / 180;
+            const lat2 = toPoint[0] * Math.PI / 180;
+            const lonDiff = (toPoint[1] - fromPoint[1]) * Math.PI / 180;
+            const y = Math.sin(lonDiff) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lonDiff);
+            const angle = Math.atan2(y, x) * 180 / Math.PI;
+            return (angle + 360) % 360;
+        }
+
+        function updatePlaneIcon(routePoints, pointIndex) {
+            const point = routePoints[Math.max(0, Math.min(routePoints.length - 1, pointIndex))];
+            const nextPoint = routePoints[Math.min(routePoints.length - 1, pointIndex + 1)];
+            const bearing = (getGeographicBearing(point, nextPoint) - 0 + 360) % 360;
             
             const svgHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" stroke="#333" stroke-width="0.5" 
-                                style="width: 32px; height: 32px; display: block; transform: rotate(${bearing}deg); filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">
+                                style="width: 32px; height: 32px; display: block; transform: rotate(${bearing}deg); transform-origin: center center; transform-box: fill-box; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">
                                 <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
                             </svg>`;
 
@@ -686,21 +761,37 @@
             const durationMs = mins * 60 * 1000;
             const startTime = performance.now();
             const adjustedDestLon = getAdjustedTargetLon(origin.lon, selectedDest.lon);
+            const greatCirclePoints = calculateGreatCirclePoints(origin.lat, origin.lon, selectedDest.lat, adjustedDestLon);
+            const routeLength = greatCirclePoints.length - 1;
+            let lastViewUpdate = 0;
+            const viewUpdateInterval = 1000 / 60;
 
             function animateFrame(currentTime) {
                 const elapsed = currentTime - startTime;
                 const pct = Math.min(elapsed / durationMs, 1.0);
-                
-                const lat = origin.lat + (selectedDest.lat - origin.lat) * pct;
-                const lon = origin.lon + (adjustedDestLon - origin.lon) * pct;
+                const targetIndex = pct * routeLength;
+                const lowerIndex = Math.floor(targetIndex);
+                const upperIndex = Math.min(greatCirclePoints.length - 1, lowerIndex + 1);
+                const localT = targetIndex - lowerIndex;
+                const [lat1, lon1] = greatCirclePoints[lowerIndex];
+                const [lat2, lon2] = greatCirclePoints[upperIndex];
+                const lat = lat1 + (lat2 - lat1) * localT;
+                const lon = lon1 + (lon2 - lon1) * localT;
+                const pointIndex = Math.min(greatCirclePoints.length - 1, Math.max(0, Math.round(targetIndex)));
+
                 flightMarker.setLatLng([lat, lon]);
-                flightMap.setView([lat, lon], flightMap.getZoom(), { animate: false });
+                updatePlaneIcon(greatCirclePoints, pointIndex);
                 
                 progressBar.style.width = `${pct * 100}%`; 
                 planeIcon.style.left = `${pct * 100}%`;
                 
                 const remainingSeconds = Math.ceil((durationMs - elapsed) / 1000);
                 timeDisplay.textContent = formatTime(Math.max(0, remainingSeconds));
+
+                if (currentTime - lastViewUpdate >= viewUpdateInterval || pct >= 1) {
+                    flightMap.setView([lat, lon], flightMap.getZoom(), { animate: false });
+                    lastViewUpdate = currentTime;
+                }
 
                 if (pct < 1.0) {
                     animationFrameId = requestAnimationFrame(animateFrame);
