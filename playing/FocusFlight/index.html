@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FocusFlight - Web Edition (Interactive Boarding)</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
         :root {
             --bg-color: #f1f5f9;
@@ -19,24 +23,8 @@
             --font-mono: 'Courier New', Courier, monospace;
         }
         
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-main);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        body.overlay-active {
-            --hole-bg: rgba(15, 23, 42, 0.95);
-            touch-action: none;
-            overflow: hidden; 
-        }
+        body { margin: 0; padding: 20px; background-color: var(--bg-color); color: var(--text-main); font-family: var(--font-main); display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        body.overlay-active { --hole-bg: rgba(15, 23, 42, 0.95); touch-action: none; overflow: hidden; }
 
         /* --- Header & Mileage --- */
         .header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -45,16 +33,23 @@
 
         /* --- Main Dashboard --- */
         .dashboard { background: var(--panel-bg); padding: 2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); width: 100%; max-width: 600px; box-sizing: border-box; }
+        .map-wrapper { width: 100%; height: 280px; border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; border: 2px solid #e2e8f0; position: relative; z-index: 1;}
+        #map-selection, #flight-map { width: 100%; height: 100%; }
+        #flight-map-container { display: none; }
+
         .route-display { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 2px dashed #e2e8f0; }
-        .port { text-align: center; }
+        .port { text-align: center; flex: 1; }
         .port-code { font-size: 2.5rem; font-weight: 900; letter-spacing: 2px; }
-        .port-name { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; }
-        .flight-icon { font-size: 2rem; color: var(--accent-blue); transform: rotate(90deg); }
+        
+        .dest-select { appearance: none; -webkit-appearance: none; background: transparent; border: none; font-size: 2.5rem; font-weight: 900; letter-spacing: 2px; color: var(--accent-blue); text-align: center; text-align-last: center; font-family: inherit; cursor: pointer; outline: none; padding: 0; margin: 0; width: 100%; border-bottom: 2px solid var(--accent-blue); border-radius: 0; }
+        .dest-select option { font-size: 1rem; color: var(--text-main); }
+        .port-name { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-top: 5px; }
+        .flight-icon { font-size: 2rem; color: var(--accent-blue); transform: rotate(90deg); flex-shrink: 0; padding: 0 10px;}
+        
         .setup-panel { text-align: center; margin-bottom: 1.5rem; transition: opacity 0.3s; }
         .setup-panel input { width: 80px; padding: 10px; font-size: 1.5rem; text-align: center; border: 2px solid #e2e8f0; border-radius: 8px; margin-left: 10px; font-family: var(--font-mono); font-weight: bold; }
         .status-text { text-align: center; margin: 10px 0; color: var(--accent-orange); font-size: 0.85rem; letter-spacing: 2px; font-weight: bold; }
         .time-display { text-align: center; font-size: 5rem; font-family: var(--font-mono); font-weight: bold; margin: 1rem 0; letter-spacing: 2px; }
-        .audio-toggle { text-align: center; margin-bottom: 1.5rem; display: none; }
         .controls { display: flex; gap: 15px; justify-content: center; }
         button { border: none; padding: 14px 28px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
         button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -62,57 +57,23 @@
         #btn-takeoff { background: var(--accent-blue); color: white; flex-grow: 1; }
         #btn-abort { background: var(--danger); color: white; }
         .progress-container { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; position: relative; margin-top: 2rem; }
-        .progress-bar { height: 100%; background: var(--accent-blue); width: 0%; border-radius: 4px; transition: width 1s linear; }
-        .plane-progress-icon { position: absolute; top: -14px; left: 0%; transform: translateX(-50%); font-size: 1.5rem; transition: left 1s linear; }
+        .progress-bar { height: 100%; background: var(--accent-blue); width: 0%; border-radius: 4px; }
+        .plane-progress-icon { position: absolute; top: -14px; left: 0%; transform: translateX(-50%); font-size: 1.5rem; }
 
         /* --- Overlay Boarding Animation --- */
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
         .overlay.active { opacity: 1; pointer-events: auto; }
         .overlay-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
 
-        /* スマホレスポンシブ用のスケーリングラッパー */
-        .ticket-scale-wrapper {
-            width: 700px;
-            height: 260px;
-            transform-origin: center center;
-            transform: scale(var(--ticket-scale, 1));
-            display: flex;
-            justify-content: center;
-            position: relative;
-        }
-
-        /* --- Boarding Pass Base --- */
-        .ticket {
-            display: flex;
-            width: 100%;
-            height: 100%;
-            border-radius: 8px;
-            position: relative;
-            box-sizing: border-box;
-            color: #111;
-        }
-
-        .ticket-left {
-            flex-grow: 1;
-            position: relative;
-            background: #ffffff;
-            border: 1px solid #b0b0b0;
-            border-right: 2px dashed #a0a0a0;
-            border-radius: 8px 0 0 8px;
-            box-shadow: -5px 10px 25px rgba(0,0,0,0.15), 0 10px 25px rgba(0,0,0,0.1);
-            z-index: 2;
-            display: flex;
-            align-items: stretch;
-            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .ticket-edge { width: 25px; background: #f4f4f4; border-right: 1px solid #d0d0d0; border-left: 4px solid #009944; display: flex; justify-content: center; align-items: center; }
+        .ticket-scale-wrapper { width: 700px; height: 260px; transform-origin: center center; transform: scale(var(--ticket-scale, 1)); display: flex; justify-content: center; position: relative; overflow: visible; }
+        .ticket { display: flex; width: 100%; height: 100%; border-radius: 8px; position: relative; box-sizing: border-box; color: #111; overflow: visible; }
+        .ticket-left { flex-grow: 1; position: relative; background: #ffffff; border: 1px solid #b0b0b0; border-right: 2px dashed #a0a0a0; border-radius: 8px 0 0 8px; box-shadow: -5px 10px 25px rgba(0,0,0,0.15), 0 10px 25px rgba(0,0,0,0.1); z-index: 2; display: flex; align-items: stretch; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); overflow: visible; }
+        .ticket-edge { width: 25px; background: #f4f4f4; border-right: 1px solid #d0d0d0; border-left: 4px solid #009944; border-radius: 8px 0 0 8px; display: flex; justify-content: center; align-items: center; transition: border-left-color 0.3s; }
         .ticket-edge span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.65rem; color: #888; letter-spacing: 2px; white-space: nowrap; }
         .ticket-barcode-strip { display: flex; justify-content: center; align-items: center; background: #ffffff; border-right: 1px solid #d0d0d0; min-width: 45px; max-width: 45px; overflow: hidden; }
         .barcode-canvas-vertical { transform: rotate(-90deg); width: 220px !important; height: 35px !important; display: block; }
-
-        .ticket-main-content { flex-grow: 1; padding: 10px 20px; display: flex; flex-direction: column; justify-content: space-between; position: relative; background: #ffffff; border-radius: 0 0 0 8px; }
-        .ticket-bg-y { position: absolute; top: -5px; right: 25px; font-size: 160px; color: transparent; -webkit-text-stroke: 1px #555; font-weight: 700; opacity: 0.35; pointer-events: none; line-height: 1; z-index: 0; }
+        .ticket-main-content { flex-grow: 1; padding: 10px 20px; display: flex; flex-direction: column; justify-content: space-between; position: relative; background: #ffffff; border-radius: 0 0 0 8px; overflow: hidden;}
+        .ticket-bg-y { position: absolute; top: -10px; right: 15px; font-size: 140px; color: transparent; -webkit-text-stroke: 1px #555; font-weight: 700; opacity: 0.45; pointer-events: none; line-height: 1; z-index: 0; }
         
         .ana-header { display: flex; justify-content: flex-start; align-items: flex-end; gap: 15px; margin-bottom: 10px; z-index: 1; }
         .ana-logo { font-size: 1.5rem; color: #fff; font-weight: 1000; font-style: italic; letter-spacing: -1px; -webkit-text-stroke:0.5px #000;}
@@ -128,41 +89,10 @@
         .ana-box-val { font-size: 1.4rem; font-weight: bold; }
         .ana-footer-text { font-size: 0.5rem; text-align: center; color: #666; margin-top: 1px; z-index: 1; }
 
-        /* --- Ticket Stub (Original Layout Template) --- */
-        .ticket-right {
-            width: 200px;
-            height: 100%;
-            background: #ffffff;
-            border: 1px solid #b0b0b0;
-            border-left: none; /* 点線と噛み合う部分 */
-            border-right: 4px solid #009944;
-            border-radius: 0 8px 8px 0;
-            padding: 10px 15px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        /* --- 3D Slice Container --- */
-        .ticket-slice-container {
-            width: 200px;
-            height: 100%;
-            position: relative;
-            z-index: 10;
-            perspective: 1200px;
-        }
-
-        .tear-zone {
-            position: absolute;
-            top: -20px; bottom: -20px; right: -20px;
-            width: 260px;
-            z-index: 50;
-            cursor: grab;
-            touch-action: none; /* スマホスクロール防止 */
-        }
+        .ticket-right { width: 200px; height: 100%; background: #ffffff; border: 1px solid #b0b0b0; border-left: none; border-right: 4px solid #009944; border-radius: 0 8px 8px 0; padding: 10px 15px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; transition: border-right-color 0.3s;}
+        .ticket-slice-container { width: 200px; height: 100%; position: relative; z-index: 10; perspective: 1200px; }
+        .tear-zone { position: absolute; top: -20px; bottom: -20px; right: -20px; width: 260px; z-index: 50; cursor: grab; touch-action: none; }
         .tear-zone:active { cursor: grabbing; }
-
         .stub-top { font-size: 0.6rem; color: #888; margin-bottom: 5px; }
         .stub-flight { font-size: 1.3rem; font-weight: bold; margin-bottom: 5px; }
         .stub-date { font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; }
@@ -173,11 +103,49 @@
         .stub-seat-label { font-size: 0.7rem; line-height: 1.2; }
         .stub-seat-val { font-size: 1.3rem; font-weight: bold; }
 
-        /* Animations */
         .tap-hint { color: white; margin-top: 40px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; animation: pulseHint 1.5s infinite; transition: opacity 0.3s; }
         @keyframes pulseHint { 0% { opacity: 0.4; transform: translateY(0); } 50% { opacity: 1; transform: translateY(8px); } 100% { opacity: 0.4; transform: translateY(0); } }
-        .log-section { width: 100%; max-width: 600px; margin-top: 2rem; }
-        .log-section h2 { font-size: 1.1rem; color: var(--text-muted); border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+
+        /* --- 新・座席選択オーバーレイ (B787-9 規模) --- */
+        .seat-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9998; opacity: 0; pointer-events: none; transition: opacity 0.3s; color: white; }
+        .seat-overlay.active { opacity: 1; pointer-events: auto; }
+        .seat-overlay h2 { margin-bottom: 15px; font-weight: normal; letter-spacing: 1px; }
+        
+        .fuselage { 
+            background: #334155; border-radius: 80px 80px 20px 20px; 
+            padding: 30px 15px; border: 4px solid #1e293b; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); 
+            max-height: 65vh; overflow-y: auto; width: 380px; max-width: 95vw; box-sizing: border-box;
+        }
+        .fuselage::-webkit-scrollbar { width: 6px; }
+        .fuselage::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+        .cabin-divider { text-align: center; color: #94a3b8; font-size: 0.7rem; font-weight: bold; margin: 20px 0 10px; letter-spacing: 2px; border-bottom: 1px dashed #475569; padding-bottom: 5px; }
+        .cabin-divider:first-child { margin-top: 0; }
+
+        .seat-row { display: flex; justify-content: center; margin-bottom: 6px; gap: 0; }
+        .seat-group { display: flex; gap: 3px; justify-content: center; }
+        .aisle { width: 16px; flex-shrink: 0; }
+        
+        .seat { 
+            width: 30px; height: 32px; border-radius: 4px 4px 2px 2px; 
+            display: flex; justify-content: center; align-items: center; 
+            cursor: pointer; font-size: 0.55rem; font-weight: bold; 
+            transition: all 0.2s; border-bottom: 3px solid; box-sizing: border-box; color: white;
+        }
+        /* 座席クラスごとのカラー定義 */
+        .seat-F { background: #b40808; border-bottom-color: #8f0606; }
+        .seat-C { background: #0033a0; border-bottom-color: #00226b; }
+        .seat-PY { background: #007a87; border-bottom-color: #00545d; }
+        .seat-Y { background: #64748b; border-bottom-color: #475569; }
+        
+        .seat:hover { filter: brightness(1.2); transform: translateY(-2px); }
+        .seat.selected { 
+            background: var(--success) !important; border-bottom-color: #059669 !important; 
+            transform: translateY(-2px) scale(1.1); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); z-index: 2; 
+        }
+
+        .seat-controls { margin-top: 25px; display: flex; gap: 15px; }
+        #btn-cancel-seat { background: transparent; color: white; border: 1px solid white; }
     </style>
 </head>
 <body>
@@ -187,28 +155,37 @@
         <div class="mileage-badge">SKYMILES: <span id="total-miles">0</span></div>
     </div>
 
-    <!-- オーバーレイ -->
+    <div id="seat-overlay" class="seat-overlay">
+        <h2>Select Your Seat</h2>
+        <div class="fuselage" id="seat-map-container"></div>
+        <div class="seat-controls">
+            <button id="btn-cancel-seat">Cancel</button>
+            <button id="btn-confirm-seat" class="btn-primary" disabled>Proceed to Boarding</button>
+        </div>
+    </div>
+
     <div id="boarding-overlay" class="overlay">
         <div class="overlay-content-wrapper">
-            
             <div class="ticket-scale-wrapper">
                 <div class="ticket" id="boarding-ticket">
-                    <!-- 左側のメインチケット -->
                     <div class="ticket-left" id="boarding-ticket-main">
-                        <div class="ticket-edge"><span>A STAR ALLIANCE MEMBER</span></div>
+                        <div class="ticket-edge" id="ticket-edge"><span>A STAR ALLIANCE MEMBER</span></div>
                         <div class="ticket-barcode-strip"><canvas id="bt-barcode-left" class="barcode-canvas-vertical"></canvas></div>
                         <div class="ticket-main-content">
-                            <div class="ticket-bg-y">Y</div>
+                            <div class="ticket-bg-y" id="bt-bg-char">Y</div>
                             <div class="ana-header">
                                 <div class="ana-logo"><i>FOCUS</i> //</div>
-                                <div class="ana-class">ECONOMY CLASS<br><span id="bt-date" style="font-weight:normal;">---</span></div>
+                                <div class="ana-class">
+                                    <span id="bt-class-name">ECONOMY CLASS</span><br>
+                                    <span id="bt-date" style="font-weight:normal;">---</span>
+                                </div>
                             </div>
                             <div class="ana-grid">
                                 <div class="ana-label">便名 / FLIGHT</div><div class="ana-val-lg" id="bt-flight-id">---</div>
                                 <div class="ana-label">出発地 / FROM</div><div class="ana-val">TOKYO/HND</div>
                                 <div class="ana-label">到着地 / TO</div><div class="ana-val" id="bt-dest-code-main">---</div>
                                 <div class="ana-label">出発時刻 / DEP. TIME</div><div class="ana-val" id="bt-dep-time">---</div>
-                                <div class="ana-label">座席番号 / SEAT</div><div class="ana-val-lg">34D</div>
+                                <div class="ana-label">座席番号 / SEAT</div><div class="ana-val-lg" id="bt-seat-main">--</div>
                             </div>
                             <div class="ana-boxes">
                                 <div class="ana-box"><div class="ana-box-label">搭乗口<br>GATE</div><div class="ana-box-val" id="bt-gate">---</div></div>
@@ -217,11 +194,7 @@
                             <div class="ana-footer-text">API ETKT 205222327210602 &nbsp;&nbsp; 0083</div>
                         </div>
                     </div>
-                    
-                    <!-- JSが3Dスライスを注入するコンテナ -->
                     <div id="stub-slice-container" class="ticket-slice-container"></div>
-                    
-                    <!-- クローン用のオリジナル半券データ (非表示) -->
                     <div id="boarding-ticket-stub-content" class="ticket-right" style="display:none;">
                         <div>
                             <div class="stub-top">A STAR ALLIANCE MEMBER</div>
@@ -239,47 +212,48 @@
                         <div>
                             <div class="stub-seat-box">
                                 <div class="stub-seat-label">座席番号<br>SEAT</div>
-                                <div class="stub-seat-val">34D</div>
+                                <div class="stub-seat-val" id="bt-seat-stub">--</div>
                             </div>
                             <div class="ana-footer-text" style="text-align: right; margin-top: 10px;">0083</div>
                         </div>
                     </div>
-
-                    <!-- スマホ・PC共通のドラッグ検知ゾーン -->
                     <div class="tear-zone" id="tear-zone"></div>
                 </div>
             </div>
-            
             <div class="tap-hint" id="tap-hint">SWIPE DOWN TO TEAR</div>
         </div>
     </div>
 
-    <!-- メインダッシュボード -->
     <div class="dashboard">
+        <div id="map-selection-container" class="map-wrapper"><div id="map-selection"></div></div>
+        <div id="flight-map-container" class="map-wrapper"><div id="flight-map"></div></div>
+
         <div class="route-display">
             <div class="port"><div class="port-code">HND</div><div class="port-name">Tokyo Haneda</div></div>
             <div class="flight-icon">✈️</div>
-            <div class="port" id="dest-port"><div class="port-code" id="dest-code">---</div><div class="port-name" id="dest-name">Select Time</div></div>
+            <div class="port" id="dest-port">
+                <select id="dest-select" class="dest-select"></select>
+                <div class="port-name" id="dest-name">Select Destination</div>
+            </div>
         </div>
         <div class="setup-panel" id="setup-panel">
             <label>Flight Duration (min):</label>
-            <input type="number" id="flight-time" value="25" min="1" max="180">
+            <input type="number" id="flight-time" value="25" min="1" max="1440">
         </div>
-        <div class="status-text" id="flight-status">BOARDING</div>
+        <div class="status-text" id="flight-status">LOADING AIRPORTS...</div>
         <div class="time-display" id="time-display">25:00</div>
-        <div class="audio-toggle" id="audio-toggle"><label><input type="checkbox" id="noise-checkbox"> 🎧 In-Flight Sound (White Noise)</label></div>
+        
         <div class="controls">
-            <button id="btn-takeoff">TAKEOFF</button>
+            <button id="btn-takeoff" disabled>TAKEOFF</button>
             <button id="btn-abort" disabled>ABORT</button>
         </div>
         <div class="progress-container"><div class="progress-bar" id="progress-bar"></div><div class="plane-progress-icon" id="plane-icon">✈️</div></div>
     </div>
-    
-    <div class="log-section"><h2>Flight Log</h2><div id="ticket-list"></div></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bwip-js/dist/bwip-js-min.js"></script>
     <script>
-        // --- 画面幅に応じたチケットのレスポンシブ縮小処理 ---
+        const AVIATIONSTACK_API_KEY = ""; 
+
         function resizeTicket() {
             const ww = window.innerWidth;
             const scale = Math.min(1, (ww - 20) / 700);
@@ -288,7 +262,65 @@
         window.addEventListener('resize', resizeTicket);
         resizeTicket();
 
-        // --- 基本ロジック ---
+        // 厳選した世界の主要空港リスト
+        const majorAirportsList = [
+            { code: 'HND', name: 'Tokyo Haneda', lat: 35.5494, lon: 139.7798 },
+            { code: 'NRT', name: 'Tokyo Narita', lat: 35.7647, lon: 140.3863 },
+            { code: 'KIX', name: 'Osaka Kansai', lat: 34.4320, lon: 135.2304 },
+            { code: 'CTS', name: 'Sapporo New Chitose', lat: 42.7752, lon: 141.6923 },
+            { code: 'FUK', name: 'Fukuoka', lat: 33.5859, lon: 130.4507 },
+            { code: 'OKA', name: 'Okinawa Naha', lat: 26.1958, lon: 127.6459 },
+            { code: 'ICN', name: 'Seoul Incheon', lat: 37.4602, lon: 126.4407 },
+            { code: 'TPE', name: 'Taipei Taoyuan', lat: 25.0797, lon: 121.2342 },
+            { code: 'HKG', name: 'Hong Kong', lat: 22.3080, lon: 113.9185 },
+            { code: 'PVG', name: 'Shanghai Pudong', lat: 31.1443, lon: 121.8083 },
+            { code: 'PEK', name: 'Beijing Capital', lat: 40.0799, lon: 116.6031 },
+            { code: 'SIN', name: 'Singapore Changi', lat: 1.3644, lon: 103.9915 },
+            { code: 'BKK', name: 'Bangkok Suvarnabhumi', lat: 13.6900, lon: 100.7501 },
+            { code: 'KUL', name: 'Kuala Lumpur', lat: 2.7456, lon: 101.7099 },
+            { code: 'CGK', name: 'Jakarta Soekarno-Hatta', lat: -6.1256, lon: 106.6558 },
+            { code: 'MNL', name: 'Manila Ninoy Aquino', lat: 14.5090, lon: 121.0194 },
+            { code: 'DEL', name: 'Delhi Indira Gandhi', lat: 28.5562, lon: 77.1000 },
+            { code: 'SYD', name: 'Sydney Kingsford Smith', lat: -33.9399, lon: 151.1753 },
+            { code: 'MEL', name: 'Melbourne', lat: -37.6690, lon: 144.8410 },
+            { code: 'AKL', name: 'Auckland', lat: -37.0082, lon: 174.7925 },
+            { code: 'HNL', name: 'Honolulu', lat: 21.3206, lon: -157.9242 },
+            { code: 'JFK', name: 'New York JFK', lat: 40.6413, lon: -73.7781 },
+            { code: 'LAX', name: 'Los Angeles', lat: 33.9416, lon: -118.4085 },
+            { code: 'SFO', name: 'San Francisco', lat: 37.6213, lon: -122.3790 },
+            { code: 'ORD', name: 'Chicago O\'Hare', lat: 41.9742, lon: -87.9073 },
+            { code: 'ATL', name: 'Atlanta Hartsfield-Jackson', lat: 33.6407, lon: -84.4277 },
+            { code: 'YVR', name: 'Vancouver', lat: 49.1967, lon: -123.1815 },
+            { code: 'YYZ', name: 'Toronto Pearson', lat: 43.6777, lon: -79.6248 },
+            { code: 'MEX', name: 'Mexico City', lat: 19.4361, lon: -99.0719 },
+            { code: 'GRU', name: 'São Paulo Guarulhos', lat: -23.4356, lon: -46.4731 },
+            { code: 'LHR', name: 'London Heathrow', lat: 51.4700, lon: -0.4543 },
+            { code: 'CDG', name: 'Paris Charles de Gaulle', lat: 49.0097, lon: 2.5479 },
+            { code: 'FRA', name: 'Frankfurt', lat: 50.0333, lon: 8.5706 },
+            { code: 'AMS', name: 'Amsterdam Schiphol', lat: 52.3105, lon: 4.7683 },
+            { code: 'MAD', name: 'Madrid Barajas', lat: 40.4983, lon: -3.5676 },
+            { code: 'FCO', name: 'Rome Fiumicino', lat: 41.7999, lon: 12.2462 },
+            { code: 'IST', name: 'Istanbul', lat: 41.2753, lon: 28.7519 },
+            { code: 'DXB', name: 'Dubai', lat: 25.2528, lon: 55.3644 },
+            { code: 'DOH', name: 'Doha Hamad', lat: 25.2731, lon: 51.6080 },
+            { code: 'JNB', name: 'Johannesburg', lat: -26.1367, lon: 28.2411 }
+        ];
+        
+        let airports = [];
+        let origin = null;
+        let selectedDest = null;
+        let currentSeat = "25A"; // デフォルトをエコノミーに変更
+        let currentClassType = "Y";
+
+        // --- 座席クラス別のスタイル設定 ---
+        const flightClasses = {
+            'F': { name: 'FIRST CLASS', bg: 'F', color: '#b40808' }, // レッド
+            'C': { name: 'BUSINESS CLASS', bg: 'C', color: '#0033a0' }, // ブルー
+            'PY': { name: 'PREMIUM ECONOMY', bg: 'E', color: '#007a87' }, // ティール
+            'Y': { name: 'ECONOMY CLASS', bg: 'Y', color: '#009944' }  // グリーン
+        };
+        let currentSeatColor = flightClasses['Y'].color;
+
         const timeDisplay = document.getElementById('time-display');
         const flightTimeInput = document.getElementById('flight-time');
         const btnTakeoff = document.getElementById('btn-takeoff');
@@ -296,309 +328,407 @@
         const progressBar = document.getElementById('progress-bar');
         const planeIcon = document.getElementById('plane-icon');
         const flightStatus = document.getElementById('flight-status');
-        let timer = null, totalSeconds = 0, remainingSeconds = 0, isFlying = false, totalMiles = 0;
-        let pendingFlightMins = 0;
+        const destSelect = document.getElementById('dest-select');
+        const destName = document.getElementById('dest-name');
+        
+        let animationFrameId = null;
+        let selectionMap = null;
 
-        const destinations = [
-            { maxMin: 10, code: 'NGO', name: 'Nagoya Chubu' },
-            { maxMin: 30, code: 'CTS', name: 'Sapporo Chitose' },
-            { maxMin: 60, code: 'ICN', name: 'Seoul Incheon' },
-            { maxMin: 150, code: 'HNL', name: 'Honolulu' },
-            { maxMin: Infinity, code: 'JFK', name: 'New York' }
-        ];
-
-        // --- 搭乗口・時刻の自動生成用データと関数 ---
-        const gateList = [
-            "47", "48", "49", "50A", "50B", "51A", "51B",
-            ...Array.from({length: 15}, (_, i) => `${52 + i}`),
-            "67A", "67B",
-            ...Array.from({length: 6}, (_, i) => `${68 + i}`),
-            "105", "106A", "106B", "107A", "107B", "108A", "108B",
-            ...Array.from({length: 6}, (_, i) => `${109 + i}`),
-            ...Array.from({length: 19}, (_, i) => `${131 + i}`),
-            ...Array.from({length: 12}, (_, i) => `${500 + i}`)
-        ];
-
-        function getRandomGate() {
-            return gateList[Math.floor(Math.random() * gateList.length)];
+        function getAdjustedTargetLon(startLon, targetLon) {
+            let diff = targetLon - startLon;
+            if (diff > 180) return targetLon - 360; 
+            else if (diff < -180) return targetLon + 360; 
+            return targetLon;
         }
 
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+        }
+
+        function updateDestination(ap) {
+            selectedDest = ap;
+            destSelect.value = ap.code;
+            destName.textContent = ap.name;
+            
+            let dist = calculateDistance(origin.lat, origin.lon, ap.lat, ap.lon);
+            let mins = Math.max(1, Math.round((dist / 800) * 60));
+            
+            flightTimeInput.value = mins;
+            timeDisplay.textContent = formatTime(mins * 60);
+            flightStatus.textContent = "BOARDING READY";
+            btnTakeoff.disabled = false;
+            
+            if(selectionMap) {
+                let adjLon = getAdjustedTargetLon(origin.lon, ap.lon);
+                selectionMap.flyTo([ap.lat, adjLon], 4, {duration: 0.5});
+            }
+        }
+
+        function initSelectionMap() {
+            selectionMap = L.map('map-selection').setView([origin.lat, origin.lon], 2);
+            L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                subdomains: ['mt0','mt1','mt2','mt3'],
+                attribution: "Google Map",
+            }).addTo(selectionMap);
+
+            L.marker([origin.lat, origin.lon]).addTo(selectionMap).bindPopup(`<b>${origin.name} (${origin.code})</b><br>Origin`);
+
+            destSelect.innerHTML = '';
+            airports.forEach(ap => {
+                if(ap.code === origin.code) return;
+                let option = document.createElement('option');
+                option.value = ap.code;
+                option.textContent = ap.code;
+                destSelect.appendChild(option);
+
+                let adjLon = getAdjustedTargetLon(origin.lon, ap.lon);
+                let marker = L.marker([ap.lat, adjLon]).addTo(selectionMap);
+                
+                marker.bindPopup(`<b>${ap.name} (${ap.code})</b><br>Click to select`);
+                marker.on('click', () => updateDestination(ap));
+            });
+
+            destSelect.addEventListener('change', (e) => {
+                const ap = airports.find(a => a.code === e.target.value);
+                if(ap) updateDestination(ap);
+            });
+        }
+
+        function initializeApp() {
+            airports = majorAirportsList;
+            origin = airports.find(a => a.code === 'HND') || airports[0];
+            airports = [origin, ...airports.filter(a => a.code !== 'HND')];
+            selectedDest = airports.find(a => a.code === 'NRT') || airports[1];
+
+            initSelectionMap();
+            updateDestination(selectedDest);
+        }
+
+        // --- B787-9規模の座席マップ生成 ---
+        const seatMapContainer = document.getElementById('seat-map-container');
+        let seatHTML = '';
+
+        function getSeatDiv(row, letter, cls) {
+            return `<div class="seat seat-${cls}" data-seat="${row}${letter}" data-class="${cls}">${row}${letter}</div>`;
+        }
+
+        function createRow(rowNum, layout, cls) {
+            let html = '<div class="seat-row">';
+            let rn = rowNum.toString().padStart(2, '0');
+            if (layout === '1-2-1') {
+                html += `<div class="seat-group">${getSeatDiv(rn, 'A', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'D', cls)}${getSeatDiv(rn, 'G', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'K', cls)}</div>`;
+            } else if (layout === '2-3-2') {
+                html += `<div class="seat-group">${getSeatDiv(rn, 'A', cls)}${getSeatDiv(rn, 'C', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'D', cls)}${getSeatDiv(rn, 'F', cls)}${getSeatDiv(rn, 'G', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'H', cls)}${getSeatDiv(rn, 'K', cls)}</div>`;
+            } else if (layout === '3-3-3') {
+                html += `<div class="seat-group">${getSeatDiv(rn, 'A', cls)}${getSeatDiv(rn, 'B', cls)}${getSeatDiv(rn, 'C', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'D', cls)}${getSeatDiv(rn, 'E', cls)}${getSeatDiv(rn, 'F', cls)}</div><div class="aisle"></div>`;
+                html += `<div class="seat-group">${getSeatDiv(rn, 'H', cls)}${getSeatDiv(rn, 'J', cls)}${getSeatDiv(rn, 'K', cls)}</div>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        // F: First Class (Rows 1-2, 1-2-1 layout, 8 seats)
+        seatHTML += '<div class="cabin-divider">FIRST CLASS</div>';
+        for(let r=1; r<=2; r++) seatHTML += createRow(r, '1-2-1', 'F');
+        
+        // C: Business Class (Rows 5-14, 1-2-1 layout, 40 seats)
+        seatHTML += '<div class="cabin-divider">BUSINESS CLASS</div>';
+        for(let r=5; r<=14; r++) seatHTML += createRow(r, '1-2-1', 'C');
+        
+        // PY: Premium Economy (Rows 20-22, 2-3-2 layout, 21 seats)
+        seatHTML += '<div class="cabin-divider">PREMIUM ECONOMY</div>';
+        for(let r=20; r<=22; r++) seatHTML += createRow(r, '2-3-2', 'PY');
+        
+        // Y: Economy Class (Rows 25-40, 3-3-3 layout, 144 seats)
+        seatHTML += '<div class="cabin-divider">ECONOMY CLASS</div>';
+        for(let r=25; r<=40; r++) seatHTML += createRow(r, '3-3-3', 'Y');
+        
+        // Total: 213 seats (近しいB787-9 215席仕様を想定)
+        seatMapContainer.innerHTML = seatHTML;
+
+        document.querySelectorAll('.seat').forEach(s => {
+            s.addEventListener('click', function() {
+                document.querySelectorAll('.seat').forEach(el => el.classList.remove('selected'));
+                this.classList.add('selected');
+                currentSeat = this.dataset.seat;
+                currentClassType = this.dataset.class;
+                document.getElementById('btn-confirm-seat').disabled = false;
+                document.getElementById('btn-confirm-seat').style.background = 'var(--accent-blue)';
+            });
+        });
+
+        // --- チケット情報更新 ---
+        const gateList = ["47", "50A", "51B", "52", "68", "105", "131", "500"];
         function generateFlightTimes() {
             const now = new Date();
-            let minutes = now.getMinutes();
-            let roundedMinutes = Math.ceil(minutes / 5) * 5;
-            
-            const depTime = new Date(now);
-            depTime.setMinutes(roundedMinutes);
-            depTime.setSeconds(0);
-            
-            const boardingTime = new Date(depTime);
-            boardingTime.setMinutes(depTime.getMinutes() - 20); // 搭乗時刻は出発の20分前
-            
-            const format = (date) => `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-            
-            return {
-                dep: format(depTime),
-                boarding: format(boardingTime)
-            };
+            let depTime = new Date(now);
+            depTime.setMinutes(Math.ceil(now.getMinutes() / 5) * 5);
+            let boardingTime = new Date(depTime);
+            boardingTime.setMinutes(depTime.getMinutes() - 20);
+            const format = (d) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            return { dep: format(depTime), boarding: format(boardingTime) };
         }
+        function getCurrentDate() { const d = new Date(); return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`; }
 
-        function updateDestinationPreview() {
-            const mins = parseInt(flightTimeInput.value) || 0;
-            const dest = destinations.find(d => mins <= d.maxMin) || destinations[destinations.length-1];
-            document.getElementById('dest-code').textContent = dest.code;
-            document.getElementById('dest-name').textContent = dest.name;
-        }
-
-        // --- チケット情報の更新 ---
-        function updateTicketData(mins) {
-            const dest = destinations.find(d => mins <= d.maxMin) || destinations[destinations.length-1];
+        function updateTicketData() {
             const currentFlightId = "NH" + Math.floor(Math.random() * 1100 + 100);
             const times = generateFlightTimes();
-            const gate = getRandomGate();
+            const gate = gateList[Math.floor(Math.random() * gateList.length)];
             
-            document.getElementById('bt-dest-code-main').textContent = dest.code;
-            document.getElementById('bt-dest-code-stub').textContent = dest.code;
+            // クラスに応じたカラーとテキストの更新
+            const clsData = flightClasses[currentClassType];
+            document.getElementById('bt-class-name').textContent = clsData.name;
+            document.getElementById('bt-bg-char').textContent = clsData.bg;
+            
+            document.getElementById('ticket-edge').style.borderLeftColor = clsData.color;
+            document.getElementById('boarding-ticket-stub-content').style.borderRightColor = clsData.color;
+            currentSeatColor = clsData.color; // 半券（裏面）生成用に保存
+            
+            document.getElementById('bt-dest-code-main').textContent = selectedDest.code;
+            document.getElementById('bt-dest-code-stub').textContent = selectedDest.code;
             document.getElementById('bt-flight-id').textContent = currentFlightId;
             document.getElementById('bt-flight-id-stub').textContent = currentFlightId;
             document.getElementById('bt-date').textContent = getCurrentDate();
             document.getElementById('bt-date-stub').textContent = getCurrentDate();
-            
             document.getElementById('bt-dep-time').textContent = times.dep;
             document.getElementById('bt-boarding-time').textContent = times.boarding;
             document.getElementById('bt-gate').textContent = gate;
+            document.getElementById('bt-seat-main').textContent = currentSeat;
+            document.getElementById('bt-seat-stub').textContent = currentSeat;
             
-            drawBarcode('bt-barcode-left', currentFlightId + "-" + dest.code);
-        }
-
-        function formatTime(seconds) {
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toString().padStart(2, '0');
-            return `${m}:${s}`;
-        }
-        function getCurrentDate() { const d = new Date(); return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`; }
-
-        function drawBarcode(canvasId, text) {
-            const canvas = document.getElementById(canvasId);
-            if (!canvas) return;
+            const canvas = document.getElementById('bt-barcode-left');
             const ctx = canvas.getContext('2d');
             canvas.width = 220; canvas.height = 100;
             ctx.clearRect(0, 0, 220, 100);
-            try { bwipjs.toCanvas(canvas, { bcid: 'pdf417', text, scale: 2, includetext: false }); } catch (err) {}
+            const barcodeText = `${getCurrentDate()}-${times.dep}-${currentFlightId}-${selectedDest.code}-${currentClassType}-${currentSeat}`;
+            try { bwipjs.toCanvas(canvas, { bcid: 'pdf417', text: barcodeText, scale: 2, includetext: false }); } catch (err) {}
         }
 
-        // --- 3D カール（曲げ）アニメーションを生成するコアロジック ---
-        let sliceSegments = [];
-        const NUM_SLICES = 36;
-        const TOTAL_CURL_ANGLE = 198;
-        
-        function initSlicedStub() {
-            const original = document.getElementById('boarding-ticket-stub-content');
-            const container = document.getElementById('stub-slice-container');
+        // --- フライトマップ ---
+        let flightMap, flightMarker, flightPolyline;
+        function initFlightMap() {
+            document.getElementById('map-selection-container').style.display = 'none';
+            document.getElementById('flight-map-container').style.display = 'block';
             
-            original.style.display = 'flex';
-            const w = original.offsetWidth;
-            const h = original.offsetHeight;
-            original.style.display = 'none';
-            
-            container.innerHTML = '';
-            
-            const sliceH = h / NUM_SLICES;
-            
-            let currentParent = container;
-            sliceSegments = [];
-            
-            for(let i = NUM_SLICES - 1; i >= 0; i--) {
-                const slice = document.createElement('div');
-                slice.style.position = 'absolute';
-                slice.style.top = (i === NUM_SLICES - 1) ? (i * sliceH) + 'px' : (-sliceH) + 'px';
-                slice.style.left = '0';
-                slice.style.width = '100%';
-                slice.style.height = sliceH + 'px';
-                slice.style.transformOrigin = 'bottom center';
-                slice.style.transformStyle = 'preserve-3d';
-                
-                // 表面コンテナ (backface-visibility で裏からは見えないようにする)
-                const front = document.createElement('div');
-                front.style.position = 'absolute';
-                front.style.top = '0';
-                front.style.left = '0';
-                front.style.width = '100%';
-                front.style.height = (sliceH + 0.5) + 'px'; // 隙間防止
-                front.style.backfaceVisibility = 'hidden';
+            const adjustedDestLon = getAdjustedTargetLon(origin.lon, selectedDest.lon);
 
-                const mask = document.createElement('div');
-                mask.style.position = 'absolute';
-                mask.style.top = '0';
-                mask.style.left = '0';
-                mask.style.width = '100%';
-                mask.style.height = '100%';
-                mask.style.overflow = 'hidden';
+            if (!flightMap) {
+                flightMap = L.map('flight-map', {zoomControl: false}).setView([origin.lat, origin.lon], 7);
+                L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                    subdomains: ['mt0','mt1','mt2','mt3'],
+                    attribution: "Google Map",
+                }).addTo(flightMap);
                 
-                const clone = original.cloneNode(true);
-                clone.style.display = 'flex';
-                clone.style.position = 'absolute';
-                clone.style.top = -(i * sliceH) + 'px';
-                clone.style.left = '0';
-                clone.style.width = w + 'px';
-                clone.style.height = h + 'px';
-                clone.removeAttribute('id');
-                
-                mask.appendChild(clone);
-                front.appendChild(mask);
-                
-                // 裏面コンテナ (白紙)
-                const back = document.createElement('div');
-                back.style.position = 'absolute';
-                back.style.top = '0';
-                back.style.left = '0';
-                back.style.width = '100%';
-                back.style.height = (sliceH + 0.5) + 'px';
-                back.style.backfaceVisibility = 'hidden';
-                back.style.transform = 'rotateX(180deg)'; // 裏面に向ける
-                back.style.backgroundColor = '#ffffff';
-                back.style.boxSizing = 'border-box';
-                back.style.borderRight = '4px solid #009944'; // 右端の緑線
-                
-                slice.appendChild(front);
-                slice.appendChild(back);
-                
-                currentParent.appendChild(slice);
-                sliceSegments.unshift({ element: slice });
-                currentParent = slice;
+                flightMarker = L.marker([origin.lat, origin.lon]).addTo(flightMap);
+                flightPolyline = L.polyline([], {color: '#facc15', weight: 3, dashArray: '5, 10'}).addTo(flightMap);
             }
+            
+            flightMap.invalidateSize();
+            flightPolyline.setLatLngs([[origin.lat, origin.lon], [selectedDest.lat, adjustedDestLon]]);
+            flightMarker.setLatLng([origin.lat, origin.lon]);
+            flightMap.fitBounds([[origin.lat, origin.lon], [selectedDest.lat, adjustedDestLon]], { padding: [50, 50], animate: false });
+            
+            updatePlaneIcon(adjustedDestLon);
         }
 
-        // --- ドラッグ検知と3Dアニメーション ---
-        const tearZone = document.getElementById('tear-zone');
-        const container = document.getElementById('stub-slice-container');
-        let isDragging = false, isTorn = false, startY = 0;
+        function updatePlaneIcon(adjustedDestLon) {
+            const p1 = flightMap.project([origin.lat, origin.lon], flightMap.getZoom());
+            const p2 = flightMap.project([selectedDest.lat, adjustedDestLon], flightMap.getZoom());
+            const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            const bearing = (angleRad * 180 / Math.PI) + 90;
+            
+            const svgHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" stroke="#333" stroke-width="0.5" 
+                                style="width: 32px; height: 32px; display: block; transform: rotate(${bearing}deg); filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">
+                                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                            </svg>`;
 
-        tearZone.addEventListener('pointerdown', (e) => {
-            if(isTorn) return;
-            isDragging = true;
-            startY = e.clientY;
-            
-            container.style.transition = 'none';
-            sliceSegments.forEach(seg => {
-                seg.element.style.transition = 'none';
-            });
-            document.getElementById('tap-hint').style.opacity = '0';
-            e.currentTarget.setPointerCapture(e.pointerId);
-        });
-
-        tearZone.addEventListener('pointermove', (e) => {
-            if (!isDragging || isTorn) return;
-            e.preventDefault(); 
-            
-            const deltaY = e.clientY - startY;
-            if(deltaY < 0) return; // 下方向のみ許可
-            
-            const progress = Math.max(0, Math.min(1, deltaY / 250));
-            
-            container.style.transform = `rotateZ(${progress * 1}deg)`;
-            
-            sliceSegments.forEach(seg => {
-                const angle = progress * (TOTAL_CURL_ANGLE / NUM_SLICES); 
-                seg.element.style.transform = `rotateX(-${angle}deg)`;
-            });
-            
-            if (progress >= 0.9) completeTear(deltaY);
-        });
-
-        tearZone.addEventListener('pointerup', (e) => {
-            if (!isDragging || isTorn) return;
-            isDragging = false;
-            e.currentTarget.releasePointerCapture(e.pointerId);
-            
-            // パチンと元に戻る
-            container.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-            container.style.transform = `translateY(0) translateX(0) rotateZ(0)`;
-            sliceSegments.forEach(seg => {
-                seg.element.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                seg.element.style.transform = `rotateX(0deg)`;
-            });
-            document.getElementById('tap-hint').style.opacity = '1';
-        });
-
-        function completeTear(currentDeltaY) {
-            isDragging = false;
-            isTorn = true;
-            
-            // 半券だけが丸まったまま落下（メインチケットは消さない）
-            container.style.transition = 'transform 0.8s cubic-bezier(0.6, -0.2, 1, 1)';
-            container.style.transform = `translateY(${currentDeltaY + 600}px) translateX(${currentDeltaY * 0.2 + 150}px) rotateZ(45deg) rotateY(20deg)`;
-            sliceSegments.forEach(seg => {
-                seg.element.style.transition = 'transform 0.8s';
-                const finalAngle = (TOTAL_CURL_ANGLE / NUM_SLICES) * 0.9; 
-                seg.element.style.transform = `rotateX(-${finalAngle}deg)`;
-            });
-            
-            setTimeout(() => {
-                document.getElementById('boarding-overlay').classList.remove('active');
-                document.body.classList.remove('overlay-active');
-                startFlightTimer(pendingFlightMins);
-            }, 1200);
+            flightMarker.setIcon(L.divIcon({ html: svgHTML, className: '', iconSize: [32, 32], iconAnchor: [16, 16] }));
         }
 
-        // --- TAKEOFF ---
-        btnTakeoff.addEventListener('click', () => {
-            const mins = parseInt(flightTimeInput.value) || 25;
-            pendingFlightMins = mins;
-            
-            updateTicketData(mins);
+        // --- アニメーション関連 ---
+        btnTakeoff.addEventListener('click', () => { document.getElementById('seat-overlay').classList.add('active'); });
+        document.getElementById('btn-cancel-seat').addEventListener('click', () => { document.getElementById('seat-overlay').classList.remove('active'); });
+
+        document.getElementById('btn-confirm-seat').addEventListener('click', () => {
+            document.getElementById('seat-overlay').classList.remove('active');
+            updateTicketData();
             initSlicedStub();
 
-            // 状態リセット
-            container.style.transition = 'none';
-            container.style.transform = 'none';
+            container.style.transition = 'none'; container.style.transform = 'none';
             document.getElementById('tap-hint').style.opacity = '1';
             isTorn = false;
             
             document.body.classList.add('overlay-active');
             document.getElementById('boarding-overlay').classList.add('active');
-            resizeTicket(); // サイズ再計算
+            resizeTicket();
         });
 
-        // --- Flight Timer Logic ---
-        function startFlightTimer(mins) {
-            btnTakeoff.disabled = true; btnAbort.disabled = false; flightTimeInput.disabled = true;
-            document.getElementById('setup-panel').style.opacity = '0.4';
-            totalSeconds = mins * 60; remainingSeconds = totalSeconds;
+        let sliceSegments = [];
+        const NUM_SLICES = 36, TOTAL_CURL_ANGLE = 198;
+        const container = document.getElementById('stub-slice-container');
+        
+        function initSlicedStub() {
+            const original = document.getElementById('boarding-ticket-stub-content');
+            original.style.display = 'flex';
+            const w = original.offsetWidth, h = original.offsetHeight;
+            original.style.display = 'none';
+            container.innerHTML = '';
             
-            timer = setInterval(() => {
-                remainingSeconds--;
-                const pct = (totalSeconds - remainingSeconds) / totalSeconds * 100;
-                progressBar.style.width = `${pct}%`; planeIcon.style.left = `${pct}%`;
-                timeDisplay.textContent = formatTime(remainingSeconds);
-                if (remainingSeconds <= 0) {
-                    clearInterval(timer);
+            const sliceH = h / NUM_SLICES;
+            let currentParent = container;
+            sliceSegments = [];
+            
+            for(let i = NUM_SLICES - 1; i >= 0; i--) {
+                const slice = document.createElement('div');
+                slice.style.position = 'absolute'; slice.style.width = '100%'; slice.style.height = sliceH + 'px';
+                slice.style.top = (i === NUM_SLICES - 1) ? (i * sliceH) + 'px' : (-sliceH) + 'px';
+                slice.style.left = '0'; slice.style.transformOrigin = 'bottom center'; slice.style.transformStyle = 'preserve-3d';
+                
+                const front = document.createElement('div');
+                front.style.position = 'absolute'; front.style.width = '100%'; front.style.height = (sliceH + 0.5) + 'px';
+                front.style.top = '0'; front.style.left = '0'; front.style.backfaceVisibility = 'hidden';
+
+                const mask = document.createElement('div');
+                mask.style.position = 'absolute'; mask.style.width = '100%'; mask.style.height = '100%'; mask.style.top = '0'; mask.style.left = '0'; mask.style.overflow = 'hidden';
+                
+                const clone = original.cloneNode(true);
+                clone.style.display = 'flex'; clone.style.position = 'absolute'; clone.style.width = w + 'px'; clone.style.height = h + 'px';
+                clone.style.top = -(i * sliceH) + 'px'; clone.style.left = '0'; clone.removeAttribute('id');
+                
+                mask.appendChild(clone); front.appendChild(mask);
+                
+                const back = document.createElement('div');
+                back.style.position = 'absolute'; back.style.width = '100%'; back.style.height = (sliceH + 0.5) + 'px';
+                back.style.top = '0'; back.style.left = '0'; back.style.backfaceVisibility = 'hidden'; back.style.transform = 'rotateX(180deg)';
+                back.style.backgroundColor = '#ffffff'; back.style.boxSizing = 'border-box'; 
+                // 切り離されたスタブ裏面のカラーラインも動的に適用
+                back.style.borderRight = `4px solid ${currentSeatColor}`;
+                
+                slice.appendChild(front); slice.appendChild(back);
+                currentParent.appendChild(slice); sliceSegments.unshift({ element: slice }); currentParent = slice;
+            }
+        }
+
+        const tearZone = document.getElementById('tear-zone');
+        let isDragging = false, isTorn = false, startY = 0;
+
+        tearZone.addEventListener('pointerdown', (e) => {
+            if(isTorn) return;
+            isDragging = true; startY = e.clientY;
+            container.style.transition = 'none'; sliceSegments.forEach(seg => seg.element.style.transition = 'none');
+            document.getElementById('tap-hint').style.opacity = '0'; e.currentTarget.setPointerCapture(e.pointerId);
+        });
+
+        tearZone.addEventListener('pointermove', (e) => {
+            if (!isDragging || isTorn) return;
+            e.preventDefault(); 
+            const deltaY = e.clientY - startY;
+            if(deltaY < 0) return;
+            const progress = Math.max(0, Math.min(1, deltaY / 250));
+            container.style.transform = `rotateZ(${progress * 1}deg)`;
+            sliceSegments.forEach(seg => seg.element.style.transform = `rotateX(-${progress * (TOTAL_CURL_ANGLE / NUM_SLICES)}deg)`);
+            if (progress >= 0.9) completeTear(deltaY);
+        });
+
+        tearZone.addEventListener('pointerup', (e) => {
+            if (!isDragging || isTorn) return;
+            isDragging = false; e.currentTarget.releasePointerCapture(e.pointerId);
+            container.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'; container.style.transform = `translateY(0) translateX(0) rotateZ(0)`;
+            sliceSegments.forEach(seg => { seg.element.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'; seg.element.style.transform = `rotateX(0deg)`; });
+            document.getElementById('tap-hint').style.opacity = '1';
+        });
+
+        function completeTear(currentDeltaY) {
+            isDragging = false; isTorn = true;
+            container.style.transition = 'transform 0.8s cubic-bezier(0.6, -0.2, 1, 1)';
+            container.style.transform = `translateY(${currentDeltaY + 600}px) translateX(${currentDeltaY * 0.2 + 150}px) rotateZ(45deg) rotateY(20deg)`;
+            sliceSegments.forEach(seg => { seg.element.style.transition = 'transform 0.8s'; seg.element.style.transform = `rotateX(-${(TOTAL_CURL_ANGLE / NUM_SLICES) * 0.9}deg)`; });
+            
+            setTimeout(() => {
+                document.getElementById('boarding-overlay').classList.remove('active');
+                document.body.classList.remove('overlay-active');
+                
+                initFlightMap();
+                startFlightTimer(parseInt(flightTimeInput.value) || 25);
+            }, 1200);
+        }
+
+        function startFlightTimer(mins) {
+            btnTakeoff.disabled = true; btnAbort.disabled = false; flightTimeInput.disabled = true; destSelect.disabled = true;
+            document.getElementById('setup-panel').style.opacity = '0.4';
+            flightStatus.textContent = "IN FLIGHT";
+            
+            const durationMs = mins * 60 * 1000;
+            const startTime = performance.now();
+            const adjustedDestLon = getAdjustedTargetLon(origin.lon, selectedDest.lon);
+
+            function animateFrame(currentTime) {
+                const elapsed = currentTime - startTime;
+                const pct = Math.min(elapsed / durationMs, 1.0);
+                
+                const lat = origin.lat + (selectedDest.lat - origin.lat) * pct;
+                const lon = origin.lon + (adjustedDestLon - origin.lon) * pct;
+                flightMarker.setLatLng([lat, lon]);
+                flightMap.setView([lat, lon], flightMap.getZoom(), { animate: false });
+                
+                progressBar.style.width = `${pct * 100}%`; 
+                planeIcon.style.left = `${pct * 100}%`;
+                
+                const remainingSeconds = Math.ceil((durationMs - elapsed) / 1000);
+                timeDisplay.textContent = formatTime(Math.max(0, remainingSeconds));
+
+                if (pct < 1.0) {
+                    animationFrameId = requestAnimationFrame(animateFrame);
+                } else {
                     flightStatus.textContent = "ARRIVED";
                     flightStatus.style.color = "var(--success)";
-                    btnTakeoff.disabled = false; btnAbort.disabled = true; flightTimeInput.disabled = false;
-                    document.getElementById('setup-panel').style.opacity = '1';
+                    resetUI();
                 }
-            }, 1000);
+            }
+            animationFrameId = requestAnimationFrame(animateFrame);
         }
 
         btnAbort.addEventListener('click', () => {
             if (confirm("フライトを中断しますか？")) {
-                clearInterval(timer);
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
                 progressBar.style.width = '0%'; planeIcon.style.left = '0%';
-                btnTakeoff.disabled = false; btnAbort.disabled = true; flightTimeInput.disabled = false;
-                document.getElementById('setup-panel').style.opacity = '1';
                 timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value)||25)*60);
+                flightStatus.textContent = "ABORTED";
+                flightStatus.style.color = "var(--danger)";
+                resetUI();
             }
         });
         
-        flightTimeInput.addEventListener('input', () => { 
-            timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value) || 0) * 60); 
-            updateDestinationPreview();
-        });
+        function resetUI() {
+            btnTakeoff.disabled = false; btnAbort.disabled = true; flightTimeInput.disabled = false; destSelect.disabled = false;
+            document.getElementById('setup-panel').style.opacity = '1';
+            setTimeout(() => {
+                document.getElementById('flight-map-container').style.display = 'none';
+                document.getElementById('map-selection-container').style.display = 'block';
+                flightStatus.style.color = "var(--accent-orange)";
+                flightStatus.textContent = "BOARDING READY";
+            }, 3000);
+        }
         
-        // 初期化処理
-        updateDestinationPreview();
-        updateTicketData(parseInt(flightTimeInput.value) || 25);
+        flightTimeInput.addEventListener('input', () => { timeDisplay.textContent = formatTime((parseInt(flightTimeInput.value) || 0) * 60); });
+
+        initializeApp();
         
     </script>
 </body>
