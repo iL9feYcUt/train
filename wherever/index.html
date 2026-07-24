@@ -1048,7 +1048,7 @@
             });
 
                 // COSMOSが選択されている場合は通常の音楽をループ再生し、
-                // 7秒後に放送を開始する
+                // 6.5秒後に放送を開始する
                 const trackNum = trackSelect.value;
                 if (peopleSelect.value === 'cosmos') {
                     onSound.loop = true;
@@ -1060,7 +1060,7 @@
                     // 放送を7秒後に開始
                     cosmosBroadcastTimeoutId = setTimeout(() => {
                         startCosmosBroadcast(trackNum);
-                    }, 7000);
+                    }, 6500);
                 } else {
                     onSound.loop = true;
                 }
