@@ -197,6 +197,13 @@
       text-align: right;
     }
 
+    .delay-text {
+      font-size: 60px;
+      text-align: right;
+      color: #fffd94;
+      line-height: 100%;
+    }
+
     .platform {
       font-size: 52px;
       text-align: left;
@@ -316,6 +323,166 @@
     const rowsEl2 = document.getElementById('rows2');
     let trains1 = [];
     let trains2 = [];
+    const realtimeTrainInfo = new Map();
+
+    const odptConsumerKey = 'dys5jrrro1p7kk9096v1sg6ej43xfpghhqtag9dspl3lhxlyhu11y5y12ogoov9w';
+    const odptApiBase = 'https://api-challenge.odpt.org/api/v4';
+    const stationTimetableUrl = `${odptApiBase}/odpt:StationTimetable?odpt:operator=odpt.Operator:JR-East&odpt:station=odpt.Station:JR-East.Tokaido.Yokohama&acl:consumerKey=${odptConsumerKey}`;
+    const trainInfoUrl = `${odptApiBase}/odpt:Train?odpt:operator=odpt.Operator:JR-East&odpt:railway=odpt.Railway:JR-East.Tokaido&acl:consumerKey=${odptConsumerKey}`;
+    const trainTypeName = {
+      'odpt.TrainType:JR-East.Local': '普　通',
+      'odpt.TrainType:JR-East.Rapid': '快　速',
+      'odpt.TrainType:JR-East.CommutersRapid': '通勤快速',
+      'odpt.TrainType:JR-East.SpecialRapid': '特別快速',
+      'odpt.TrainType:JR-East.LimitedExpress': '特　急',
+      'odpt.TrainType:JR-East.Odoriko': '踊り子',
+      'odpt.TrainType:JR-East.SaphirOdoriko': 'サフィール踊り子',
+      'odpt.TrainType:JR-East.SunriseIzumo': 'サンライズ出雲',
+      'odpt.TrainType:JR-East.SunriseSeto': 'サンライズ瀬戸',
+      'odpt.TrainType:JR-East.Acty': 'アクティー',
+      'odpt.TrainType:JR-East.Urban': 'アーバン',
+      'odpt.TrainType:JR-East.Rabbit': 'ラビット',
+      'odpt.TrainType:JR-East.Express': '快速'
+    };
+    const stationNameMap = {
+      'Tokyo': '東京',
+      'Ueno': '上野',
+      'Omiya': '大宮',
+      'Takasaki': '高崎',
+      'Utsunomiya': '宇都宮',
+      'Odawara': '小田原',
+      'Atami': '熱海',
+      'Numazu': '沼津',
+      'Ito': '伊東',
+      'Shuzenji': '修善寺',
+      'IzuKyū-Shimoda': '伊豆急下田',
+      'Kozu': '国府津',
+      'Hiratsuka': '平塚',
+      'Fujisawa': '藤沢',
+      'Ofuna': '大船',
+      'Totsuka': '戸塚',
+      'Chigasaki': '茅ヶ崎',
+      'Ninomiya': '二宮',
+      'Kawasaki': '川崎',
+      'Kamonomiya': '鴨宮',
+      'Kagohara': '籠原',
+      'Shin-Maebashi': '新前橋',
+      'Maebashi': '前橋',
+      'Koga': '古河',
+      'Koganei': '小金井',
+      'Shinagawa': '品川',
+      'Matsumoto': '松本',
+      'Kobuchizawa': '小淵沢',
+      'Nagano': '長野',
+      'Yokohama': '横浜',
+      'Takamatsu': '高松',
+      'Kotohira': '琴平',
+      'Izumo-shi': '出雲市'
+    };
+    const trainCarMap = new Map();
+
+    async function fetchOdptJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`ODPT API ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+
+    function normalizeOdptTerm(value) {
+      if (!value || typeof value !== 'string') return value;
+      const idx = value.lastIndexOf('.');
+      return idx >= 0 ? value.slice(idx + 1) : value;
+    }
+
+    async function loadTrainCarComposition() {
+      if (trainCarMap.size > 0) return trainCarMap;
+      await loadRealtimeTrainInfo();
+      realtimeTrainInfo.forEach((info, number) => {
+        if (Number.isFinite(info.cars)) {
+          trainCarMap.set(number, info.cars);
+        }
+      });
+      return trainCarMap;
+    }
+
+    async function loadRealtimeTrainInfo() {
+      if (realtimeTrainInfo.size > 0) return realtimeTrainInfo;
+      const data = await fetchOdptJson(trainInfoUrl);
+      if (!Array.isArray(data)) return realtimeTrainInfo;
+      data.forEach(item => {
+        const number = item['odpt:trainNumber'] || normalizeOdptTerm(item['odpt:train']) || normalizeOdptTerm(item['owl:sameAs']);
+        if (!number) return;
+        const delay = Number(item['odpt:delay'] || 0);
+        const cars = Number.isFinite(Number(item['odpt:carComposition'])) ? Number(item['odpt:carComposition']) : null;
+        realtimeTrainInfo.set(number, { delay: Number.isFinite(delay) ? delay : 0, cars });
+        if (item['odpt:train']) {
+          realtimeTrainInfo.set(normalizeOdptTerm(item['odpt:train']), { delay: Number.isFinite(delay) ? delay : 0, cars });
+        }
+        if (item['owl:sameAs']) {
+          realtimeTrainInfo.set(normalizeOdptTerm(item['owl:sameAs']), { delay: Number.isFinite(delay) ? delay : 0, cars });
+        }
+      });
+      return realtimeTrainInfo;
+    }
+
+    function getTrainTypeName(typeUri) {
+      if (!typeUri) return '普　通';
+      return trainTypeName[typeUri] || normalizeOdptTerm(typeUri).replace(/([A-Z])/g, ' $1').trim();
+    }
+
+    function getStationName(uri) {
+      const code = normalizeOdptTerm(uri);
+      return stationNameMap[code] || code;
+    }
+
+    function getDestinationText(destStations) {
+      if (!Array.isArray(destStations)) return '';
+      return destStations
+        .map(getStationName)
+        .filter(Boolean)
+        .join(',');
+    }
+
+    function selectTimetableObjects(data, direction) {
+      const now = getNowDate();
+      const calendar = isHoliday(now) ? 'odpt.Calendar:SaturdayHoliday' : 'odpt.Calendar:Weekday';
+      let candidates = data.filter(item => item['odpt:calendar'] === calendar && item['odpt:railDirection'] === direction);
+      if (!candidates.length) {
+        candidates = data.filter(item => item['odpt:railDirection'] === direction);
+      }
+      if (!candidates.length) {
+        candidates = data;
+      }
+      return candidates.flatMap(item => item['odpt:stationTimetableObject'] || []);
+    }
+
+    function buildTimetableEntries(objects, carMap) {
+      return objects
+        .map(item => {
+          const trainNumber = item['odpt:trainNumber'] || normalizeOdptTerm(item['odpt:train']);
+          const type = getTrainTypeName(item['odpt:trainType']);
+          const dest = getDestinationText(item['odpt:destinationStation']);
+          const cars = trainNumber ? (carMap.get(trainNumber) ?? null) : null;
+          const info = trainNumber ? (realtimeTrainInfo.get(trainNumber) || realtimeTrainInfo.get(normalizeOdptTerm(item['odpt:train'])) || null) : null;
+          const delay = info ? info.delay : 0;
+          const [h, m] = String(item['odpt:departureTime'] || '00:00').split(':').map(Number);
+          const baseSec = (h < 4 ? h + 24 : h) * 3600 + (m || 0) * 60;
+          const estimatedSec = baseSec + delay;
+          return { type, time: item['odpt:departureTime'] || '', dest, cars, delay, baseSec, estimatedSec, trainNo: trainNumber };
+        })
+        .sort((a, b) => {
+          if (!a.time) return 1;
+          if (!b.time) return -1;
+          return a.time.localeCompare(b.time);
+        });
+    }
+
+    async function loadStationTimetable(direction) {
+      const stationData = await fetchOdptJson(stationTimetableUrl);
+      if (!Array.isArray(stationData)) return [];
+      const objects = selectTimetableObjects(stationData, direction);
+      const carMap = await loadTrainCarComposition();
+      return buildTimetableEntries(objects, carMap);
+    }
 
     function buildTable(data) {
       const table = document.createElement('table');
@@ -487,7 +654,12 @@
         // 時刻
         const timeTd = document.createElement('td');
         timeTd.style.textAlign = 'right';
-        if (datum.time) {
+        const delayMin = Math.floor((datum.delay || 0) / 60);
+        const cycle = langTimer % 180;
+        const shouldShowDelay = (delayMin > 0) && ((cycle >= 60 && cycle < 120) || (cycle >= 150 && cycle < 180));
+        if (datum.time && shouldShowDelay) {
+          timeTd.innerHTML = `<div class="delay-text" style="min-width:110px;">${delayMin}${showEnglish ? '<span style="font-size:0.7em;padding-left:5px;">min delay</span>' : '<span style="font-size:0.7em;padding-left:5px;">分遅れ</span>'}</div>`;
+        } else if (datum.time) {
           const [h, m] = datum.time.split(':');
           const hour = String(Number(h));
           const minute = String(m).padStart(2, '0');
@@ -587,33 +759,32 @@
 
     function getUpcomingTrains(data, count = 5) {
       const now = getNowDate();
-      let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      if (now.getHours() < 4) nowMinutes += 1440;
+      const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const nowNormalizedSeconds = now.getHours() < 4 ? nowSeconds + 24 * 3600 : nowSeconds;
 
-      // 各列車の分数を計算
-      let trainsWithMinutes = data.map(d => {
-        if (!d.time) return { ...d, minutes: null };
+      // 各列車の秒数を計算
+      let trainsWithSeconds = data.map(d => {
+        if (!d.time) return { ...d, estimatedSec: null };
         const [h, m] = d.time.split(':').map(Number);
-        let minutes = h * 60 + m;
-        // 4:00未満は+1440分（翌日分）
-        if (h < 4) minutes += 1440;
-        return { ...d, minutes };
+        let baseSec = (h < 4 ? h + 24 : h) * 3600 + (m || 0) * 60;
+        let estimatedSec = baseSec + (d.delay || 0);
+        return { ...d, baseSec, estimatedSec };
       });
 
       // 時刻順にソート
-      const sorted = trainsWithMinutes
-        .filter(d => d.minutes !== null)
-        .sort((a, b) => a.minutes - b.minutes);
+      const sorted = trainsWithSeconds
+        .filter(d => d.estimatedSec !== null)
+        .sort((a, b) => a.estimatedSec - b.estimatedSec);
 
       // 現在時刻以降の電車を抽出
-      const upcoming = sorted.filter(d => d.minutes >= nowMinutes);
+      const upcoming = sorted.filter(d => d.estimatedSec >= nowNormalizedSeconds);
 
       // 必要数だけ取得
-      const result = upcoming.slice(0, count).map(d => ({ type: d.type, time: d.time, dest: d.dest, cars: d.cars }));
+      const result = upcoming.slice(0, count).map(d => ({ type: d.type, time: d.time, dest: d.dest, cars: d.cars, delay: d.delay, delay: d.delay }));
 
       // 足りない場合は空行で埋める
       while (result.length < count) {
-        result.push({ type: '', time: '', dest: '', cars: '' });
+        result.push({ type: '', time: '', dest: '', cars: '', delay: 0 });
       }
       return result;
     }
@@ -811,136 +982,23 @@
 
     // 1番線のデータ取得（2番線と同様、URLのみ変更）
     async function loadTimetable1() {
-      const now = new Date();
-      // ローカルHTMLファイルから取得
-      const targetUrl = isHoliday(now)
-        ? 'yokohama/5h.html'
-        : 'yokohama/5.html';
       try {
-        const res = await fetch(targetUrl);
-        if (!res.ok) throw new Error('ファイル取得失敗');
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        // 公式HTMLと同じ構造を仮定
-        const rows = doc.querySelectorAll('table.result_03 tr');
-        const tempTrains = [];
-        // legend_dest対応
-        let legend_dest = undefined;
-        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
-        if (legendScript) {
-          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-          if (legendMatch) {
-            try {
-              eval('legend_dest = ' + legendMatch[1]);
-            } catch (e) {
-              legend_dest = undefined;
-            }
-          }
-        }
-        rows.forEach(tr => {
-          const hourTd = tr.querySelector('td');
-          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
-          const timesTd = tr.querySelectorAll('td')[1];
-          if (!timesTd) return;
-          timesTd.querySelectorAll('.timetable_time').forEach(div => {
-            const minute = div.querySelector('.minute')?.textContent.trim();
-            if (!minute) return;
-            const time = `${hour}:${minute.padStart(2, '0')}`;
-            let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
-            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
-              dest = legend_dest[dest].text;
-            }
-            // 種別取得（data-train属性から）
-            let type = div.getAttribute('data-train') || '普　通';
-            // 省略記号や空文字対応
-            if (!type || type === '無印') type = '普　通';
-            // 両数判定
-            if (type === '特,S踊') {
-              cars = 8;
-            } else if (dest === '伊豆急下田' || dest === '修善寺' || dest === '中山' || dest === '逗子') {
-              cars = 9;
-            } else if (dest === '下,修' || dest === '松本' || dest === '小淵沢' || dest === '甲府') {
-              cars = 14;
-            } else {
-              cars = 15; // その他は15両
-            }
-            tempTrains.push({ type, time, dest, cars });
-          });
-        });
-        trains1 = tempTrains;
+        trains1 = await loadStationTimetable('odpt.RailDirection:Outbound');
         render();
       } catch (e) {
+        console.error('loadTimetable1 error', e);
         trains1 = [];
         render();
       }
     }
 
-    // 2番線のデータ取得（従来通り）
+    // 2番線のデータ取得
     async function loadTimetable2() {
-      const now = new Date();
-      // ローカルHTMLファイルから取得
-      const targetUrl = isHoliday(now)
-        ? 'yokohama/7h.html'
-        : 'yokohama/7.html';
       try {
-        const res = await fetch(targetUrl);
-        if (!res.ok) throw new Error('ファイル取得失敗');
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        // 公式HTMLと同じ構造を仮定
-        const rows = doc.querySelectorAll('table.result_03 tr');
-        const tempTrains = [];
-        // legend_dest対応
-        let legend_dest = undefined;
-        const legendScript = Array.from(doc.querySelectorAll('script')).find(s => s.textContent.includes('var legend_dest'));
-        if (legendScript) {
-          const legendMatch = legendScript.textContent.match(/var\s+legend_dest\s*=\s*({[\s\S]*?});/);
-          if (legendMatch) {
-            try {
-              eval('legend_dest = ' + legendMatch[1]);
-            } catch (e) {
-              legend_dest = undefined;
-            }
-          }
-        }
-        rows.forEach(tr => {
-          const hourTd = tr.querySelector('td');
-          const hour = hourTd ? hourTd.textContent.replace('時', '').trim().padStart(2, '0') : '';
-          const timesTd = tr.querySelectorAll('td')[1];
-          if (!timesTd) return;
-          timesTd.querySelectorAll('.timetable_time').forEach(div => {
-            const minute = div.querySelector('.minute')?.textContent.trim();
-            if (!minute) return;
-            const time = `${hour}:${minute.padStart(2, '0')}`;
-            let dest = div.getAttribute('data-dest') || '';
-            // legend_destによる省略記号変換
-            if (typeof legend_dest !== 'undefined' && legend_dest[dest]) {
-              dest = legend_dest[dest].text;
-            }
-            // 種別取得（data-train属性から）
-            let type = div.getAttribute('data-train') || '普　通';
-            if (!type || type === '無印') type = '普　通';
-            // 両数判定
-            if (type === '特,S踊') {
-              cars = 8;
-            } else if (type === '特,踊') {
-              cars = 14;
-            } else if (dest === '八王子' || dest === '橋本' || dest === '中山' || dest === '町田') {
-              cars = 8;
-            } else if (dest === '松本' || dest === '長野' || dest === '小淵沢' || dest === '甲府') {
-              cars = 6;
-            } else {
-              cars = 15; // その他は10両
-            }
-            tempTrains.push({ type, time, dest, cars });
-          });
-        });
-        trains2 = tempTrains;
+        trains2 = await loadStationTimetable('odpt.RailDirection:Inbound');
         render();
       } catch (e) {
+        console.error('loadTimetable2 error', e);
         trains2 = [];
         render();
       }
