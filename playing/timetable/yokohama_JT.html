@@ -198,10 +198,11 @@
     }
 
     .delay-text {
-      font-size: 60px;
+      color: #ff0000;
+      font-size: 40px;
       text-align: right;
-      color: #fffd94;
-      line-height: 100%;
+      width: 190px;
+      margin-left: 0px;
     }
 
     .platform {
@@ -298,20 +299,25 @@
   </div>
   <button id="enable-audio-btn"
     style="position:fixed;top:30px;right:30px;z-index:1000;font-size:15px;padding:6px 12px;">ATOS放送</button>
+  <button id="debug-toggle" type="button" aria-controls="debug-panel" aria-expanded="false"
+    style="position:fixed;right:30px;bottom:30px;z-index:1000;padding:6px 10px;">Debug</button>
+  <section id="debug-panel" hidden aria-label="Debug controls"
+    style="position:fixed;right:30px;bottom:72px;z-index:1000;width:280px;padding:12px;background:#fff;color:#111;border:1px solid #555;font:14px sans-serif;">
+    <div style="display:grid;gap:8px;">
+      <label>番線 <select id="debug-direction"><option value="1">6番線</option><option value="2">7番線</option></select></label>
+      <label>発車時刻 <input id="debug-departure" type="time" required></label>
+      <label>種別 <input id="debug-type" value="&#26222;&#36890;" required></label>
+      <label>行先 <input id="debug-destination" value="&#26481;&#20140;" required></label>
+      <label>両数 <input id="debug-cars" type="number" min="1" max="20" value="10"></label>
+      <button id="debug-add-train" type="button">テスト列車を追加</button>
+      <button id="debug-play-announcement" type="button">放送を試聴</button>
+      <button id="debug-clear-trains" type="button">テスト列車を削除</button>
+    </div>
+  </section>
   <script>
     let debugTime = null; // 例: "23:58" など。nullなら通常の現在時刻
     function getNowDate() {
-      if (debugTime) {
-        const now = new Date();
-        const [h, m] = debugTime.split(':').map(Number);
-        now.setHours(h);
-        now.setMinutes(m);
-        now.setSeconds(0);
-        now.setMilliseconds(0);
-        return now;
-      } else {
-        return new Date();
-      }
+      return new Date();
     }
 
     const stationNumbers = {
@@ -323,7 +329,75 @@
     const rowsEl2 = document.getElementById('rows2');
     let trains1 = [];
     let trains2 = [];
+    const debugTrains1 = [];
+    const debugTrains2 = [];
     const realtimeTrainInfo = new Map();
+
+    function resolveAudioUrl(src) {
+      if (!src) return src;
+      if (/^(https?:)?\/\//i.test(src)) return src;
+      const normalized = String(src).replace(/^\.\//, '').replace(/^\//, '');
+      if (window.location.protocol === 'file:') {
+        return `http://127.0.0.1:8000/${normalized}`;
+      }
+      const basePath = window.location.pathname.replace(/[^/]*$/, '');
+      return `${window.location.origin}${basePath}${normalized}`;
+    }
+
+    const NativeAudio = window.Audio;
+    class ResolvedAudio extends NativeAudio {
+      constructor(src) {
+        super(src ? resolveAudioUrl(src) : src);
+      }
+    }
+    window.Audio = ResolvedAudio;
+
+    window.audioEnabled = false;
+    window.audioPlaying = false;
+    window.audioPlaying2 = false;
+
+    const debugPanel = document.getElementById('debug-panel');
+    const debugToggle = document.getElementById('debug-toggle');
+    debugToggle.addEventListener('click', () => {
+      const isOpen = !debugPanel.hidden;
+      debugPanel.hidden = isOpen;
+      debugToggle.setAttribute('aria-expanded', String(!isOpen));
+    });
+    document.getElementById('debug-add-train').addEventListener('click', () => {
+      const time = document.getElementById('debug-departure').value;
+      const type = document.getElementById('debug-type').value.trim();
+      const dest = document.getElementById('debug-destination').value.trim();
+      const cars = Number(document.getElementById('debug-cars').value);
+      const direction = document.getElementById('debug-direction').value;
+      if (!time || !type || !dest || !Number.isFinite(cars)) return;
+      const train = { type, time, dest, cars, delay: 0, isDebug: true };
+      (direction === '1' ? debugTrains1 : debugTrains2).push(train);
+      render();
+    });
+    document.getElementById('debug-play-announcement').addEventListener('click', () => {
+      const time = document.getElementById('debug-departure').value || getCurrentTimeStr();
+      const type = document.getElementById('debug-type').value.trim();
+      const dest = document.getElementById('debug-destination').value.trim();
+      const cars = Number(document.getElementById('debug-cars').value);
+      const direction = document.getElementById('debug-direction').value;
+      if (!type || !dest || !Number.isFinite(cars)) return;
+      audioEnabled = true;
+      unlockAudioPlayback();
+      document.getElementById('enable-audio-btn').style.display = 'none';
+      const train = { type, time, dest, cars, delay: 0, isDebug: true };
+      if (direction === '1') {
+        playAudioSequence1(train);
+      } else {
+        playAudioSequence2(train);
+      }
+    });
+    document.getElementById('debug-clear-trains').addEventListener('click', () => {
+      debugTrains1.length = 0;
+      debugTrains2.length = 0;
+      lastAnnouncedTime1 = null;
+      lastAnnouncedTime2 = null;
+      render();
+    });
 
     const odptConsumerKey = 'dys5jrrro1p7kk9096v1sg6ej43xfpghhqtag9dspl3lhxlyhu11y5y12ogoov9w';
     const odptApiBase = 'https://api-challenge.odpt.org/api/v4';
@@ -377,7 +451,7 @@
       'Yokohama': '横浜',
       'Takamatsu': '高松',
       'Kotohira': '琴平',
-      'Izumoshi': '出雲市'
+      'Izumo-shi': '出雲市'
     };
     const trainCarMap = new Map();
 
@@ -658,7 +732,7 @@
         const cycle = langTimer % 180;
         const shouldShowDelay = (delayMin > 0) && ((cycle >= 60 && cycle < 120) || (cycle >= 150 && cycle < 180));
         if (datum.time && shouldShowDelay) {
-          timeTd.innerHTML = `<div class="delay-text" style="min-width:110px;">${delayMin}${showEnglish ? '<span style="font-size:0.7em;padding-left:5px;">min delay</span>' : '<span style="font-size:0.7em;padding-left:5px;">分遅れ</span>'}</div>`;
+          timeTd.innerHTML = `<div class="delay-text" style="width:201px;">${delayMin}${showEnglish ? '<span style="font-size:0.9em;">min delay</span>' : '<span style="font-size:0.9em;">分遅れ</span>'}</div>`;
         } else if (datum.time) {
           const [h, m] = datum.time.split(':');
           const hour = String(Number(h));
@@ -777,7 +851,7 @@
         .sort((a, b) => a.estimatedSec - b.estimatedSec);
 
       // 現在時刻以降の電車を抽出
-      const upcoming = sorted.filter(d => d.estimatedSec >= nowNormalizedSeconds);
+      const upcoming = sorted.filter(d => d.estimatedSec >= nowNormalizedSeconds - 60);
 
       // 必要数だけ取得
       const result = upcoming.slice(0, count).map(d => ({ type: d.type, time: d.time, dest: d.dest, cars: d.cars, delay: d.delay, delay: d.delay }));
@@ -789,14 +863,22 @@
       return result;
     }
 
+    function getAllTrains1() {
+      return [...trains1, ...debugTrains1].sort((a, b) => a.time.localeCompare(b.time));
+    }
+
+    function getAllTrains2() {
+      return [...trains2, ...debugTrains2].sort((a, b) => a.time.localeCompare(b.time));
+    }
+
     function render() {
       // 1番線
       rowsEl1.innerHTML = '';
-      const trainsToShow1 = getUpcomingTrains(trains1, 2);
+      const trainsToShow1 = getUpcomingTrains(getAllTrains1(), 2);
       rowsEl1.appendChild(buildTable(trainsToShow1));
       // 2番線
       rowsEl2.innerHTML = '';
-      const trainsToShow2 = getUpcomingTrains(trains2, 2);
+      const trainsToShow2 = getUpcomingTrains(getAllTrains2(), 2);
       rowsEl2.appendChild(buildTable(trainsToShow2));
     }
 
@@ -839,7 +921,7 @@
       '吉川美南': 'Yoshikawaminami',
       '高松': 'Takamatsu',
       '琴平': 'Kotohira',
-      '出雲市': 'Izumoshi',
+      '出雲市': 'Izumo-shi',
       '大宮': 'Ōmiya',
       '松本': 'Matsumoto',
       '南小谷': 'Minami-Otari',
@@ -1007,11 +1089,29 @@
     // --- 音声案内機能 1番線 ---
     let lastAnnouncedTime1 = null;
     let audioEnabled = false;
+    function unlockAudioPlayback() {
+      const audio = new Audio('atos/ATOS接近音.mp3');
+      audio.volume = 0.001;
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch(() => {});
+    }
     // ユーザー操作で有効化
-    document.getElementById('enable-audio-btn').addEventListener('click', function () {
+    function enableAudioPlayback() {
+      if (audioEnabled) return;
       audioEnabled = true;
-      this.style.display = 'none';
-    });
+      window.audioEnabled = true;
+      unlockAudioPlayback();
+      const btn = document.getElementById('enable-audio-btn');
+      if (btn) btn.style.display = 'none';
+      checkAndAnnounce1();
+      checkAndAnnounce2();
+    }
+
+    document.getElementById('enable-audio-btn').addEventListener('click', enableAudioPlayback);
+    document.addEventListener('click', enableAudioPlayback, { once: true });
+    document.addEventListener('keydown', enableAudioPlayback, { once: true });
 
     // 音声連続再生: 各音声ごとに新しいAudioインスタンスを生成し、endedイベントのみで制御
     // --- 音声プリロード機能 ---
@@ -1046,7 +1146,7 @@
     async function preloadDestArrivals() {
       const checkAndPush = async (src) => {
         try {
-          const res = await fetch(src, { method: 'HEAD' });
+          const res = await fetch(resolveAudioUrl(src), { method: 'HEAD' });
           if (res.ok) preloadFiles.push(src);
         } catch (e) { }
       };
@@ -1069,7 +1169,19 @@
       preloadFiles.push(`atos/w/${dest}.mp3`);
     });
 
-    const audioCache = {};
+    const audioCache = new Proxy({}, {
+      get(target, prop) {
+        const key = String(prop);
+        const resolvedKey = resolveAudioUrl(key);
+        return target[resolvedKey] ?? target[key];
+      },
+      set(target, prop, value) {
+        const key = String(prop);
+        const resolvedKey = resolveAudioUrl(key);
+        target[resolvedKey] = value;
+        return true;
+      }
+    });
     function preloadAudios() {
       preloadFiles.forEach(src => {
         const audio = new Audio(src);
@@ -1089,8 +1201,7 @@
     // --- playAudioSequence1 ---
     function playAudioSequence1(train) {
       // デバッグ用: files配列の中身を出力
-      setTimeout(() => { console.log('playAudioSequence1 files:', files); }, 0);
-      if (!audioEnabled || audioPlaying) return;
+      if (!audioEnabled || audioPlaying) return false;
 
 
       // 種別・行先取得
@@ -1403,6 +1514,7 @@
         });
       }
       playNext();
+      return true;
     }
 
     // --- playAudioSequence2 ---
@@ -1446,14 +1558,8 @@
         playNextGreen();
       }
       // デバッグ用: destSingleFile, destArr, files配列の中身を出力
-      setTimeout(() => {
-        console.log('playAudioSequence2 destSingleFile:', destSingleFile);
-        console.log('playAudioSequence2 destArr:', destArr);
-        console.log('playAudioSequence2 files:', files);
-      }, 0);
       // デバッグ用: files配列の中身を出力
-      setTimeout(() => { console.log('playAudioSequence2 files:', files); }, 0);
-      if (!audioEnabled || audioPlaying2) return;
+      if (!audioEnabled || audioPlaying2) return false;
 
 
       let typeArr = train.type ? train.type.split(',') : [];
@@ -1797,30 +1903,35 @@
         });
       }
       playNext();
+      return true;
     }
 
     function checkAndAnnounce1() {
-      if (!trains1 || trains1.length === 0) return;
+      const allTrains = getAllTrains1();
+      if (allTrains.length === 0) return;
       const now = getNowDate();
       let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      if (now.getHours() < 4) nowMinutes += 1440; // ← 追加
-      const nextTrain = trains1.find(t => t.time && (() => {
+      if (now.getHours() < 4) nowMinutes += 1440;
+      const nowTimeSec = nowMinutes * 60 + now.getSeconds();
+      const nextTrain = allTrains.find(t => t.time && (() => {
         const [h, m] = t.time.split(':').map(Number);
         let min = h * 60 + m;
         if (h < 4) min += 1440;
-        return min >= nowMinutes;
+        return min * 60 >= nowTimeSec - 60;
       })());
       if (!nextTrain || !nextTrain.time) return;
       const [h, m] = nextTrain.time.split(':').map(Number);
       let trainMin = h * 60 + m;
       if (h < 4) trainMin += 1440;
-      // 1分前
-      if (trainMin - nowMinutes === 1) {
-        if (lastAnnouncedTime1 !== nextTrain.time) {
-          playAudioSequence1(nextTrain);
-          lastAnnouncedTime1 = nextTrain.time;
+      const remainingSeconds = trainMin * 60 - nowTimeSec;
+      if (remainingSeconds <= 180 && remainingSeconds >= 0) {
+        const announcementKey = `${nextTrain.time}|${nextTrain.type}|${nextTrain.dest}`;
+        if (lastAnnouncedTime1 !== announcementKey) {
+          if (playAudioSequence1(nextTrain)) {
+            lastAnnouncedTime1 = announcementKey;
+          }
         }
-      } else if (trainMin - nowMinutes > 1) {
+      } else if (remainingSeconds > 180) {
         lastAnnouncedTime1 = null;
       }
     }
@@ -1831,30 +1942,32 @@
 
 
     function checkAndAnnounce2() {
-      if (!trains2 || trains2.length === 0) return;
+      const allTrains = getAllTrains2();
+      if (allTrains.length === 0) return;
       const now = getNowDate();
       let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      if (now.getHours() < 4) nowMinutes += 1440; // ← 追加
+      if (now.getHours() < 4) nowMinutes += 1440;
       const nowSeconds = now.getSeconds();
-      const nextTrain = trains2.find(t => t.time && (() => {
+      const nowTimeSec = nowMinutes * 60 + nowSeconds;
+      const nextTrain = allTrains.find(t => t.time && (() => {
         const [h, m] = t.time.split(':').map(Number);
         let min = h * 60 + m;
         if (h < 4) min += 1440;
-        return min >= nowMinutes;
+        return min * 60 >= nowTimeSec - 60;
       })());
       if (!nextTrain || !nextTrain.time) return;
       const [h, m] = nextTrain.time.split(':').map(Number);
       let trainMin = h * 60 + m;
       if (h < 4) trainMin += 1440;
       const trainTimeSec = trainMin * 60;
-      const nowTimeSec = nowMinutes * 60 + nowSeconds;
-      // 30秒前
-      if (trainTimeSec - nowTimeSec <= 30 && trainTimeSec - nowTimeSec > 0) {
-        if (lastAnnouncedTime2 !== nextTrain.time) {
-          playAudioSequence2(nextTrain);
-          lastAnnouncedTime2 = nextTrain.time;
+      if (trainTimeSec - nowTimeSec <= 180 && trainTimeSec - nowTimeSec >= 0) {
+        const announcementKey = `${nextTrain.time}|${nextTrain.type}|${nextTrain.dest}`;
+        if (lastAnnouncedTime2 !== announcementKey) {
+          if (playAudioSequence2(nextTrain)) {
+            lastAnnouncedTime2 = announcementKey;
+          }
         }
-      } else if (trainTimeSec - nowTimeSec > 30) {
+      } else if (trainTimeSec - nowTimeSec > 180) {
         lastAnnouncedTime2 = null;
       }
     }
@@ -1894,5 +2007,4 @@
     setInterval(checkAndAnnounce1, 100);
     setInterval(checkAndAnnounce2, 100);
 
-  </script>
   </script>
