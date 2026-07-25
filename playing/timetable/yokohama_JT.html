@@ -333,29 +333,6 @@
     const debugTrains2 = [];
     const realtimeTrainInfo = new Map();
 
-    function resolveAudioUrl(src) {
-      if (!src) return src;
-      if (/^(https?:)?\/\//i.test(src)) return src;
-      const normalized = String(src).replace(/^\.\//, '').replace(/^\//, '');
-      if (window.location.protocol === 'file:') {
-        return `http://127.0.0.1:8000/${normalized}`;
-      }
-      const basePath = window.location.pathname.replace(/[^/]*$/, '');
-      return `${window.location.origin}${basePath}${normalized}`;
-    }
-
-    const NativeAudio = window.Audio;
-    class ResolvedAudio extends NativeAudio {
-      constructor(src) {
-        super(src ? resolveAudioUrl(src) : src);
-      }
-    }
-    window.Audio = ResolvedAudio;
-
-    window.audioEnabled = false;
-    window.audioPlaying = false;
-    window.audioPlaying2 = false;
-
     const debugPanel = document.getElementById('debug-panel');
     const debugToggle = document.getElementById('debug-toggle');
     debugToggle.addEventListener('click', () => {
@@ -1101,7 +1078,6 @@
     function enableAudioPlayback() {
       if (audioEnabled) return;
       audioEnabled = true;
-      window.audioEnabled = true;
       unlockAudioPlayback();
       const btn = document.getElementById('enable-audio-btn');
       if (btn) btn.style.display = 'none';
@@ -1146,7 +1122,7 @@
     async function preloadDestArrivals() {
       const checkAndPush = async (src) => {
         try {
-          const res = await fetch(resolveAudioUrl(src), { method: 'HEAD' });
+          const res = await fetch(src, { method: 'HEAD' });
           if (res.ok) preloadFiles.push(src);
         } catch (e) { }
       };
@@ -1169,19 +1145,7 @@
       preloadFiles.push(`atos/w/${dest}.mp3`);
     });
 
-    const audioCache = new Proxy({}, {
-      get(target, prop) {
-        const key = String(prop);
-        const resolvedKey = resolveAudioUrl(key);
-        return target[resolvedKey] ?? target[key];
-      },
-      set(target, prop, value) {
-        const key = String(prop);
-        const resolvedKey = resolveAudioUrl(key);
-        target[resolvedKey] = value;
-        return true;
-      }
-    });
+    const audioCache = {};
     function preloadAudios() {
       preloadFiles.forEach(src => {
         const audio = new Audio(src);
@@ -1906,32 +1870,28 @@
       return true;
     }
 
+    function normalizeAnnouncementTrain(train) {
+      if (!train || !train.time) return train;
+      const [h, m] = String(train.time).split(':').map(Number);
+      const baseSec = (h < 4 ? h + 24 : h) * 3600 + (m || 0) * 60;
+      const estimatedSec = Number.isFinite(train.estimatedSec) ? train.estimatedSec : baseSec + (Number(train.delay) || 0);
+      return { ...train, baseSec, estimatedSec };
+    }
+
     function checkAndAnnounce1() {
-      const allTrains = getAllTrains1();
-      if (allTrains.length === 0) return;
-      const now = getNowDate();
-      let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      if (now.getHours() < 4) nowMinutes += 1440;
-      const nowTimeSec = nowMinutes * 60 + now.getSeconds();
-      const nextTrain = allTrains.find(t => t.time && (() => {
-        const [h, m] = t.time.split(':').map(Number);
-        let min = h * 60 + m;
-        if (h < 4) min += 1440;
-        return min * 60 >= nowTimeSec - 60;
-      })());
-      if (!nextTrain || !nextTrain.time) return;
-      const [h, m] = nextTrain.time.split(':').map(Number);
-      let trainMin = h * 60 + m;
-      if (h < 4) trainMin += 1440;
-      const remainingSeconds = trainMin * 60 - nowTimeSec;
-      if (remainingSeconds <= 180 && remainingSeconds >= 0) {
-        const announcementKey = `${nextTrain.time}|${nextTrain.type}|${nextTrain.dest}`;
-        if (lastAnnouncedTime1 !== announcementKey) {
-          if (playAudioSequence1(nextTrain)) {
-            lastAnnouncedTime1 = announcementKey;
-          }
+      if (!audioEnabled) return;
+      const combined1 = getAllTrains1().map(normalizeAnnouncementTrain);
+      if (!combined1.length) return;
+      const now = new Date();
+      const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const next = combined1.filter(t => t && t.estimatedSec >= nowSec).sort((a, b) => a.estimatedSec - b.estimatedSec)[0];
+      if (next && next.estimatedSec - nowSec <= 60 && next.estimatedSec - nowSec > 0) {
+        const key = `${next.time || ''}${next.trainNo || ''}`;
+        if (lastAnnouncedTime1 !== key) {
+          playAudioSequence1(next);
+          lastAnnouncedTime1 = key;
         }
-      } else if (remainingSeconds > 180) {
+      } else if (next && next.estimatedSec - nowSec > 60) {
         lastAnnouncedTime1 = null;
       }
     }
@@ -1940,34 +1900,20 @@
     let lastAnnouncedTime2 = null;
     let audioPlaying2 = false;
 
-
     function checkAndAnnounce2() {
-      const allTrains = getAllTrains2();
-      if (allTrains.length === 0) return;
-      const now = getNowDate();
-      let nowMinutes = now.getHours() * 60 + now.getMinutes();
-      if (now.getHours() < 4) nowMinutes += 1440;
-      const nowSeconds = now.getSeconds();
-      const nowTimeSec = nowMinutes * 60 + nowSeconds;
-      const nextTrain = allTrains.find(t => t.time && (() => {
-        const [h, m] = t.time.split(':').map(Number);
-        let min = h * 60 + m;
-        if (h < 4) min += 1440;
-        return min * 60 >= nowTimeSec - 60;
-      })());
-      if (!nextTrain || !nextTrain.time) return;
-      const [h, m] = nextTrain.time.split(':').map(Number);
-      let trainMin = h * 60 + m;
-      if (h < 4) trainMin += 1440;
-      const trainTimeSec = trainMin * 60;
-      if (trainTimeSec - nowTimeSec <= 180 && trainTimeSec - nowTimeSec >= 0) {
-        const announcementKey = `${nextTrain.time}|${nextTrain.type}|${nextTrain.dest}`;
-        if (lastAnnouncedTime2 !== announcementKey) {
-          if (playAudioSequence2(nextTrain)) {
-            lastAnnouncedTime2 = announcementKey;
-          }
+      if (!audioEnabled) return;
+      const combined2 = getAllTrains2().map(normalizeAnnouncementTrain);
+      if (!combined2.length) return;
+      const now = new Date();
+      const nowSec = (now.getHours() < 4 ? now.getHours() + 24 : now.getHours()) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const next = combined2.filter(t => t && t.estimatedSec >= nowSec).sort((a, b) => a.estimatedSec - b.estimatedSec)[0];
+      if (next && next.estimatedSec - nowSec <= 30 && next.estimatedSec - nowSec > 0) {
+        const key = `${next.time || ''}${next.trainNo || ''}`;
+        if (lastAnnouncedTime2 !== key) {
+          playAudioSequence2(next);
+          lastAnnouncedTime2 = key;
         }
-      } else if (trainTimeSec - nowTimeSec > 180) {
+      } else if (next && next.estimatedSec - nowSec > 30) {
         lastAnnouncedTime2 = null;
       }
     }
