@@ -40,7 +40,6 @@
 
 body {
   margin: 0;
-  overflow-x: auto;
   color: white;
   background: #fff;
   font-family: "Frutiger", "ShinGo-M", sans-serif;
@@ -55,8 +54,6 @@ html {
   grid-template-columns: repeat(2, minmax(1500px, 1500px));
   gap: 24px;
   padding: 30px;
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 
 .scene {

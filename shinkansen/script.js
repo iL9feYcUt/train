@@ -415,18 +415,22 @@ function fitTextToContainer() {
 fitTextToContainer();
 startRemarkCycler();
 
-function scaleSignToViewport() {
-  const scale = Math.min(1, window.innerWidth / 1500);
-  document.querySelectorAll('.scene').forEach((scene) => {
-    const sign = scene.querySelector('.sign');
-    if (!sign) return;
-    scene.style.setProperty('--sign-scale', scale);
-    scene.style.height = `${Math.ceil((sign.offsetHeight + 60) * scale)}px`;
-  });
+function fitBoardsToViewport() {
+  const boards = document.getElementById('boards');
+  if (!boards) return;
+
+  const designWidth = boards.scrollWidth || 3200;
+  const scale = Math.min(1, window.innerWidth / designWidth);
+
+  boards.style.transformOrigin = 'top left';
+  boards.style.transform = scale < 1 ? `scale(${scale})` : '';
+  document.body.style.height = scale < 1
+    ? `${Math.ceil(boards.offsetHeight * scale)}px`
+    : '';
 }
 
-scaleSignToViewport();
+fitBoardsToViewport();
 window.addEventListener('resize', () => {
   fitTextToContainer();
-  scaleSignToViewport();
+  fitBoardsToViewport();
 });
