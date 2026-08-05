@@ -468,7 +468,7 @@ ${visibleDepartures.map((train, trainIndex) => {
             <div class="led main-line">
               <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
               <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
-              <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
+<span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.displayNumber || train.number)}</span></span>
               <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
 <span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${train._realIndex ?? trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
             </div>
@@ -854,6 +854,22 @@ function parseTimeToMs(timeStr, baseDate) {
   return date.getTime();
 }
 
+// unban を正規化する。例) "変U118-7+Z702" -> "U118+Z702"
+// 複合unban（+で連結された複数編成）は編成ID（英字+数字）を抽出し、
+// ソートして結合する。これにより併結順が変わっても同一列車として比較できる。
+function normalizeUnban(unban) {
+  if (!unban) return '';
+  const cores = String(unban)
+    .split('+')
+    .map((p) => {
+      const m = p.match(/[A-Za-z]\d+/);
+      return m ? m[0] : null;
+    })
+    .filter(Boolean)
+    .sort();
+  return cores.join('+');
+}
+
 async function fetchStTimetable(hour, dateStr) {
   const url = `${BASE_ST_API}?rosen_code=${ROSEN_CODE}&station=${encodeURIComponent(STATION)}&select_hour=${hour}&day_id=1580&select_date=${dateStr}&route_id=${ROUTE_ID}`;
   const res = await fetch(url);
@@ -866,6 +882,34 @@ async function fetchRetsubanTime(retsubanId, dateStr) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`API2 HTTP ${res.status}`);
   return res.json();
+}
+
+// デバッグ用に追加された列車を train 形式に変換する
+function buildDebugTrains() {
+  const list = window.DEBUG_TRAINS || [];
+  return list
+    .map((d) => {
+      const platform = Number(d.platform);
+      if (!PLATFORMS.includes(platform)) return null;
+      const departureMs = parseTimeToMs(d.time, new Date());
+      if (departureMs == null) return null;
+
+return {
+        platform,
+        departureMs,
+        time: d.time,
+        service: d.service || '',
+        number: d.number || '',               // unban（編成番号）
+        displayNumber: d.displayNumber || '', // 発車標に表示する号数
+        destination: d.destination || '',
+        remarks: d.remarks || '',
+        remarks2: d.remarks2 || null,
+        carCount: d.carCount || '',
+        stops: d.stops || '',
+        stopsByService: d.stopsByService || {},
+      };
+    })
+    .filter(Boolean);
 }
 
 // 表示する列車データを構築する
@@ -887,20 +931,19 @@ async function buildTrainData() {
     const nobori = data.nobori_timetable || [];
     const kudari = data.kudari_timetable || [];
 
-    // 番線が null の列車でも、同じ unban を持つ列車から番線を推測できる。
+// 番線が null の列車でも、同じ unban を持つ列車から番線を推測できる。
     // unban -> 番線 のマップを発列車(nobori)から構築する。
+    // 複合unban（例: "変U118-7+Z702"）は normalizeUnban で正規化して一致させる。
     const unbanToPlatform = {};
     nobori.forEach((t) => {
-      if (t.unban && t.bansen) {
-        const key = String(t.unban).trim();
-        if (!(key in unbanToPlatform)) {
-          unbanToPlatform[key] = Number(t.bansen);
-        }
+      const key = normalizeUnban(t.unban);
+      if (key && t.bansen && !(key in unbanToPlatform)) {
+        unbanToPlatform[key] = Number(t.bansen);
       }
     });
     kudari.forEach((t) => {
-      if (t.unban && t.bansen) {
-        const key = String(t.unban).trim();
+      const key = normalizeUnban(t.unban);
+      if (key && t.bansen) {
         unbanToPlatform[key] = Number(t.bansen);
       }
     });
@@ -911,8 +954,8 @@ async function buildTrainData() {
     kudari.forEach((t) => {
       if (isHiddenTrain(t.retsuban)) return;
       let platform = Number(t.bansen);
-      if (!PLATFORMS.includes(platform) && t.unban) {
-        platform = unbanToPlatform[String(t.unban).trim()] || platform;
+if (!PLATFORMS.includes(platform) && t.unban) {
+        platform = unbanToPlatform[normalizeUnban(t.unban)] || platform;
       }
       if (!PLATFORMS.includes(platform)) return;
       const arrivalMs = parseTimeToMs(t.train_time, now);
@@ -926,9 +969,9 @@ async function buildTrainData() {
       const retsuban = t.retsuban || '';
       if (isHiddenTrain(retsuban)) continue;
 
-      let platform = Number(t.bansen);
+let platform = Number(t.bansen);
       if (!PLATFORMS.includes(platform) && t.unban) {
-        platform = unbanToPlatform[String(t.unban).trim()] || platform;
+        platform = unbanToPlatform[normalizeUnban(t.unban)] || platform;
       }
       if (!PLATFORMS.includes(platform)) continue;
 
@@ -972,7 +1015,12 @@ const serviceText = normalizeService(t.shubetsu);
     });
   }
 
-// 各番線で発車時刻順に並べる（全列車を保持。表示は先頭の MAX_PER_PLATFORM 本のみ）
+// デバッグ用の追加列車を各番線にマージする
+  buildDebugTrains().forEach((dbg) => {
+    trainsByPlatform[dbg.platform].push(dbg);
+  });
+
+  // 各番線で発車時刻順に並べる（全列車を保持。表示は先頭の MAX_PER_PLATFORM 本のみ）
   const boards = PLATFORMS.map((platform) => {
     const platformArr = trainsByPlatform[platform];
     const departures = [...platformArr].sort((a, b) => (a.departureMs || 0) - (b.departureMs || 0));

@@ -162,13 +162,13 @@ html {
   letter-spacing: 0.5em;
   text-indent: 0.5em;
   white-space: nowrap;
-  /* 0.5秒点灯・0.3秒消灯（合計0.8秒サイクル） */
-  animation: arrival-blink 0.8s step-end infinite;
+/* 0.8秒点灯・0.4秒消灯（合計1.2秒サイクル） */
+  animation: arrival-blink 1.2s step-end infinite;
 }
 
 @keyframes arrival-blink {
-  0%, 62.5% { opacity: 1; }
-  62.6%, 100% { opacity: 0; }
+  0%, 66.6% { opacity: 1; }
+  66.7%, 100% { opacity: 0; }
 }
 
 .train {
@@ -179,6 +179,20 @@ html {
   background: linear-gradient(90deg, #4b5658, #2a3234 14%, #293133 89%, #4c5759);
   border-top: 2px solid #788183;
   border-bottom: 3px solid #151a1b;
+}
+
+/* 空白行（列車なし）ではアクセント色の帯と白い三角を「消灯」した暗い色にする */
+.train.is-empty::before {
+  border-right-color: #5a5a5a;
+}
+
+.train.is-empty.is-reversed::before {
+  border-left-color: #5a5a5a;
+}
+
+.train.is-empty::after {
+  background: linear-gradient(180deg, #3a3a3a 0%, #3a3a3a 50%, #3a3a3a 50%, #3a3a3a 100%);
+  box-shadow: none;
 }
 
 .train::before {
