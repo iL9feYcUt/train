@@ -1,112 +1,69 @@
-const boards = [
-  {
-    platform: 20,
-    departures: [
-      {
-        time: '9:56', service: 'はやて', number: '115号',
-        destination: '仙台', remarks: '全車指定席', remarks2: 'E5系運行', carCount: '10両編成',
-        stops: '上野・大宮・仙台'
-      },
-      {
-        time: '10:20', service: 'やまびこ', number: '235号',
-        destination: '盛岡', remarks: '自由席1~4号車', remarks2: 'E2系運行', carCount: '16両編成',
-        stops: '上野・大宮・宇都宮・福島・郡山・仙台・古川・水沢江刺・北上・盛岡'
-      },
-      {
-        time: '10:36', service: 'なすの', number: '252号',
-        destination: '仙台', remarks: '全車指定席', remarks2: 'E2系', carCount: '8両編成',
-        stops: '上野・大宮・小山・栃木・郡山・福島・仙台'
-      }
-    ]
-  },
-  {
-    platform: 21,
-    departures: [
-      {
-        time: '10:04', service: 'はやぶさ·こまち', number: '93号',
-        destination: '新函館北斗·秋田', remarks: 'はやぶさ全車指定席', remarks2: 'こまち全車指定席', carCount: '17両編成',
-        stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-        stopsByService: {
-          はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-          こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
-        }
-      },
-      {
-        time: '11:10', service: 'つばさ', number: '131号',
-        destination: '新庄', remarks: '全車指定席', remarks2: 'E3系運行', carCount: '7両編成',
-        stops: '上野・大宮・福島・米沢・山形・新庄'
-      },
-      {
-        time: '11:50', service: 'やまびこ', number: '343号',
-        destination: '新潟', remarks: '一部自由席', remarks2: '12両編成', carCount: '12両編成',
-        stops: '上野・大宮・福島・郡山・新潟'
-      }
-    ]
-  },
-  {
-    platform: 22,
-    departures: [
-      {
-        time: '10:12', service: 'とき', number: '445号',
-        destination: '新潟', remarks: '全車指定席', remarks2: 'E4系', carCount: '8両編成',
-        stops: '上野・大宮・高崎・越後湯沢・浦佐・長岡・燕三条・新潟'
-      },
-      {
-        time: '10:38', service: 'たにがわ', number: '565号',
-        destination: '越後湯沢', remarks: '全車指定席', remarks2: '2階建てE4系', carCount: '12両編成',
-        stops: '上野・大宮・熊谷・本庄早稲田・高崎・上毛高原・越後湯沢'
-      },
-      {
-        time: '11:05', service: 'Maxたにがわ', number: '8号',
-        destination: '越後湯沢', remarks: '全車指定席', remarks2: '2階建て', carCount: '12両編成',
-        stops: '上野・大宮・熊谷・本庄早稲田・高崎・上毛高原・越後湯沢'
-      }
-    ]
-  },
-  {
-    platform: 23,
-    departures: [
-      {
-        time: '10:06', service: 'あさま', number: '505号',
-        destination: '軽井沢', remarks: '全車指定席', remarks2: 'E7系運行', carCount: '12両編成',
-        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢'
-      },
-      {
-        time: '10:28', service: 'かがやき', number: '603号',
-        destination: '金沢', remarks: '全車指定席', remarks2: 'E7/W7系', carCount: '12両編成',
-        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢・長野・富山・金沢'
-      },
-      {
-        time: '10:52', service: 'はくたか', number: '652号',
-        destination: '金沢', remarks: '全車指定席', remarks2: 'W7系', carCount: '12両編成',
-        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢・長野・富山・金沢'
-      }
-    ]
-  }
-];
+// ============================================================
+// 新幹線発車案内板 - 実データ連携版
+// ============================================================
 
-const display = document.querySelector('#boards');
+// ---- 設定 ----
+const STATION = '東京';
+const ROSEN_CODE = 'jr_tohoku_shin';
+const ROUTE_ID = 397;
+const BASE_ST_API = 'https://www.elesite-next.com/fastapi/get_st_timetable';
+const BASE_RETSU_API = 'https://www.elesite-next.com/fastapi/get_retsuban_time_by_id';
+const PLATFORMS = [20, 21, 22, 23];
+const MAX_PER_PLATFORM = 3;
+
+// ---- デフォルトの表示順（プラットフォーム番号ごとの発車標順） ----
+// 実際の表示板では、各番線の「今度の電車」欄は到着時刻ではなく発車時刻順に並ぶ。
+// ここでは API の nobori_timetable（上り=東京基準で「発」）を番線ごとに発車時刻順で並べる。
+
+// ============================================================
+// ヘルパー関数
+// ============================================================
 
 function enlargeAlnum(text) {
   return text.replace(/[A-Za-z0-9]+/g, '<span class="alnum">$&</span>');
 }
 
 function formatTrainNumber(number) {
-  const match = number.match(/^([0-9]+)([^0-9A-Za-z]+)$/);
-  if (!match) {
-    return enlargeAlnum(number);
-  }
-
-  return `<span class="alnum">${match[1]}</span><span class="number-suffix">${match[2]}</span>`;
+  // 列車番号は数字の後ろ3桁部分だけ使用する。
+  // 例) 617E -> 617, 2045B -> 45, 1327C -> 327, 8541E -> 541
+  // 併結列車(17B/9017M など)は最後の数字を使う。
+  const matches = (number || '').match(/[0-9]+/g) || [];
+  if (!matches.length) return '';
+  const last = matches[matches.length - 1];
+  const digits = last.slice(-3).replace(/^0+/, '');
+  return `<span class="alnum">${digits}</span>号`;
 }
 
 function formatCarCount(numberText) {
   return enlargeAlnum(numberText);
 }
 
+// ---- 種別・行先の整形 ----
+
+// API の shubetsu は「やまびこ/つばさ」「臨時はやぶさ/こまち」のようにスラッシュ区切り。
+// 「臨時」を除去し、「・」で連結する。
+function normalizeService(shubetsu) {
+  return (shubetsu || '')
+    .split('/')
+    .map((s) => s.replace(/^臨時/, ''))
+    .filter(Boolean)
+    .join('·');
+}
+
+// 行先。新庄は「山形・新庄」に置き換え、複数は「・」で連結。
+function normalizeDestination(ikisaki) {
+  return (ikisaki || '')
+    .split('/')
+    .map((d) => d.trim())
+    .filter(Boolean)
+    .map((d) => (d === '新庄' ? '山形·新庄' : d))
+    .join('·');
+}
+
+// ---- 種別色 ----
 function getServiceColor(serviceName, destination) {
   const yellowGreenDestinations = new Set(['新函館北斗', '木古内', '奥津軽いまべつ', '札幌']);
-  const greenServices = new Set(['やまびこ', 'なすの', 'はやて', 'Maxやまびこ', 'Maxなすの',]);
+  const greenServices = new Set(['やまびこ', 'なすの', 'はやて', 'Maxやまびこ', 'Maxなすの']);
   const purpleServices = new Set(['はくたか', 'かがやき', 'あさま']);
   const pinkServices = new Set(['こまち']);
   const vermillionServices = new Set(['とき', 'たにがわ', 'Maxとき', 'Maxたにがわ']);
@@ -169,6 +126,199 @@ function getServiceNames(serviceText) {
   return serviceText.split(/[・·]/).filter(Boolean);
 }
 
+// ============================================================
+// 両数・remarks・remarks2 の計算
+// ============================================================
+
+// 両数の計算。shotei 例: "E5系+E6系", "E2系", "E7系 新潟車"
+function computeCarCount(serviceText, shotei) {
+  const serviceNames = getServiceNames(serviceText);
+
+  // 併結の主要ペアは必ず17両
+  if (serviceNames.includes('はやぶさ') && serviceNames.includes('こまち')) return 17;
+  if (serviceNames.includes('やまびこ') && serviceNames.includes('つばさ')) return 17;
+
+  const formationCarCount = {
+    'E2系': 10,
+    'E5系': 10,
+    'H5系': 10,
+    'E6系': 7,
+    'E8系': 7,
+    'E7系': 12,
+    'W7系': 12,
+  };
+
+  // shotei から系式を抽出して合算
+  const shoteiText = (shotei || '').replace(/[ 　].*$/, '');
+  const formations = shoteiText.split('+').filter(Boolean);
+
+  let total = 0;
+  let found = false;
+  for (const f of formations) {
+    const key = Object.keys(formationCarCount).find((k) => f.includes(k));
+    if (key) {
+      total += formationCarCount[key];
+      found = true;
+    }
+  }
+
+  if (found) return total;
+  return 0;
+}
+
+// remarks の計算。train は API の nobori 要素。
+function computeRemarks(train, serviceText, carCount) {
+  const serviceNames = getServiceNames(serviceText);
+
+  // はやぶさ、こまち、つばさ、かがやきは全車指定席
+  if (serviceNames.some((s) => ['はやぶさ', 'こまち', 'つばさ', 'かがやき'].includes(s))) {
+    return '全車指定席';
+  }
+
+  // 「臨時」のとき（臨時ときなど）は全車指定席
+  if (train.shubetsu && train.shubetsu.includes('臨時')) {
+    return '全車指定席';
+  }
+
+  // なすの (E2系/E5系/17両/7両)
+  if (serviceNames.includes('なすの')) {
+    if (carCount === 17) return '自由席1~8,12~17号車';
+    if (carCount === 7) return '自由席12~17号車';
+    const shoteiText = (train.shotei || '').replace(/[ 　].*$/, '');
+    if (shoteiText.includes('E2系')) return '自由席1~8,10号車';
+    return '自由席1~8号車'; // E5系
+  }
+
+  // やまびこ (10両/17両)
+  if (serviceNames.includes('やまびこ')) {
+    if (carCount === 17) return '自由席1~7,12~17号車';
+    return '自由席1~7号車'; // 10両
+  }
+
+  // とき: 指定席1~8号車
+  if (serviceNames.includes('とき')) {
+    return '指定席1~8号車';
+  }
+
+  // たにがわ: 自由席1~10号車
+  if (serviceNames.includes('たにがわ')) {
+    return '自由席1~10号車';
+  }
+
+  // はくたか: 自由席1~4号車
+  if (serviceNames.includes('はくたか')) {
+    return '自由席1~4号車';
+  }
+
+  // あさま: 自由席1~5号車
+  if (serviceNames.includes('あさま')) {
+    return '自由席1~5号車';
+  }
+
+  return '';
+}
+
+// remarks2。併結列車（複数種別）の場合のみ、最後の種別の remarks を表示。
+function computeRemarks2(serviceText) {
+  const serviceNames = getServiceNames(serviceText);
+  if (serviceNames.length <= 1) {
+    return null;
+  }
+
+  // 併結列車の remarks2 は「後ろの種別の全車指定席」などを表示
+  const lastService = serviceNames.at(-1);
+  if (['こまち', 'つばさ', 'かがやき', 'はやぶさ'].includes(lastService)) {
+    return `${lastService}全車指定席`;
+  }
+
+  return null;
+}
+
+// 停車駅データの組み立て（API2 の timetable_list から）
+//
+// ・東京駅は発車駅なので停車駅には含めない。
+// ・併結列車では timetable_list が切り離し駅で複数に分かれる。
+//   例) やまびこ/つばさ（135B）:
+//       [0] 東京〜福島 (やまびこ/つばさ共通)
+//       [1] 福島〜山形 (つばさ)
+//       [2] 福島〜仙台 (やまびこ、retsuban が "135B#h")
+//   ここでは各サービスごとに該当セグメントの停車駅を連結して結合する。
+function buildStops(timetableList, serviceText) {
+  const serviceNames = getServiceNames(serviceText);
+
+  if (!timetableList || timetableList.length === 0) {
+    return { stops: '', stopsByService: {} };
+  }
+
+  const collectStops = (seg) => {
+    const arr = (seg.timetable || [])
+      .map((t) => t.station)
+      .filter(Boolean)
+      // 東京駅（発車駅）は含めない
+      .filter((s) => s !== '東京');
+    return arr;
+  };
+
+  // 単一種別の場合は、全セグメントの停車駅を順に連結（重複駅で重複しない）
+  if (serviceNames.length <= 1) {
+    const stops = [];
+    timetableList.forEach((seg) => {
+      const segStops = collectStops(seg);
+      segStops.forEach((s) => {
+        // 直前の駅と重複していたらスキップ（切り離し駅の重複を避ける）
+        if (stops[stops.length - 1] !== s) {
+          stops.push(s);
+        }
+      });
+    });
+    return { stops: stops.join('・'), stopsByService: {} };
+  }
+
+// 複数種別の場合
+  // 各セグメントの shubetsu フィールドに含まれる種別名で、どのサービスに属するかを判定する。
+  // 例) やまびこ/つばさ（135B）:
+  //       [0] shubetsu="やまびこ/つばさ" 東京〜福島 (共通)
+  //       [1] shubetsu="つばさ"          福島〜山形
+  //       [2] shubetsu="やまびこ"        福島〜仙台
+  // 各サービスは、shubetsu に自分の名前を含む全セグメントを配列順に結合する。
+  const stopsByService = {};
+
+  serviceNames.forEach((name) => {
+    const stops = [];
+    timetableList.forEach((seg) => {
+      const segShubetsu = seg.shubetsu || '';
+      // セグメントの shubetsu にこのサービス名が含まれていれば該当
+      if (!segShubetsu.split('/').map((s) => s.replace(/^臨時/, '').trim()).includes(name)) {
+        return;
+      }
+      const segStops = collectStops(seg);
+      segStops.forEach((s) => {
+        // 直前の駅と重複していたらスキップ（切り離し駅の重複を避ける）
+        if (stops[stops.length - 1] !== s) stops.push(s);
+      });
+    });
+    stopsByService[name] = stops.join('・');
+  });
+
+  // 全体の停車駅 = 各サービスの停車駅の順序的結合（重複禁止）
+  const allStops = [];
+  serviceNames.forEach((name) => {
+    const segStops = (stopsByService[name] || '').split('・').filter(Boolean);
+    segStops.forEach((s) => {
+      if (allStops[allStops.length - 1] !== s) allStops.push(s);
+    });
+  });
+
+  return { stops: allStops.join('・'), stopsByService };
+}
+
+// ============================================================
+// 表示データ構築
+// ============================================================
+
+const display = document.querySelector('#boards');
+let boards = [];
+
 function getStopsSequence(train) {
   const serviceNames = getServiceNames(train.service);
   const stopsByService = train.stopsByService ?? {};
@@ -202,6 +352,13 @@ function renderStopsLine(train) {
 
 function renderBoard(board, boardIndex) {
   const reversed = board.platform === 21 || board.platform === 23;
+
+  // 発車時刻1分以上経過した列車は表示せず、次の列車に更新する。
+  // 表示は「まだ発車していない列車」のうち先頭の MAX_PER_PLATFORM 本のみ。
+  const now = Date.now();
+  const visibleDepartures = (board.departures || [])
+    .filter((t) => !((t.departureMs || 0) && now > t.departureMs + 60000))
+    .slice(0, MAX_PER_PLATFORM);
   const arrowPath = reversed
     ? 'M13 43H66M39 17 66 43 39 68'
     : 'M73 43H20M47 17 20 43 47 68';
@@ -225,8 +382,8 @@ function renderBoard(board, boardIndex) {
         <span class="english">Next Departure</span>
         <i class="status-light" aria-hidden="true"></i>`;
 
-  return `
-  <section class="scene" aria-label="${board.platform}番線の新幹線発車案内">
+return `
+  <section class="scene" data-platform="${board.platform}" data-arrivals='${JSON.stringify(board.arrivals || [])}' aria-label="${board.platform}番線の新幹線発車案内">
     <section class="sign${reversed ? ' is-reversed' : ''}">
       <header class="sign-title">
         ${titleOrder}
@@ -240,29 +397,113 @@ function renderBoard(board, boardIndex) {
         <span>記事 <small>Remarks</small></span>
       </div>
 
-      <div class="departures">${board.departures.map((train, trainIndex) => {
-        const serviceParts = train.service.split(/[・·]/).filter(Boolean);
-        const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
-        const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
-        return `
-        <article class="train${reversed ? ' is-reversed' : ''}" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
-          <div class="led main-line">
-            <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
-            <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
-            <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
-            <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
-            <span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
-          </div>
-          ${renderStopsLine(train)}
-        </article>
-      `;
-      }).join('')}</div>
+<div class="departures">
+        ${visibleDepartures.map((train, trainIndex) => {
+          const serviceParts = train.service.split(/[・·]/).filter(Boolean);
+          const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
+          const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
+          return `
+          <article class="train${reversed ? ' is-reversed' : ''}" data-departure="${train.departureMs || ''}" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
+            <div class="led main-line">
+              <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
+              <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
+              <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
+              <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
+              <span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
+            </div>
+            ${renderStopsLine(train)}
+</article>
+        `;
+}).join('')}
+      </div>
     </section>
   </section>
 `;
 }
 
-display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
+// ============================================================
+// 到着判定（列車がまいります）
+// ============================================================
+
+// 各 scene の停車駅表示（最下段）を制御。
+// 列車が到着する117秒前〜30秒前の間、該当列車の停車駅表示を消し、
+// その部分に赤の点滅「列車がまいります」を中央揃えで表示する。
+// 到着時刻は kudari_timetable（着列車）の train_time を使用する。
+function startArrivalMonitor() {
+  setInterval(() => {
+    const now = Date.now();
+    document.querySelectorAll('.scene').forEach((scene) => {
+      const arrivals = scene.dataset.arrivals
+        ? JSON.parse(scene.dataset.arrivals)
+        : [];
+      const isArriving = arrivals.some((arrivalMs) =>
+        now >= arrivalMs - 117000 && now <= arrivalMs - 30000
+      );
+
+const stopsLines = scene.querySelectorAll('.stops-line');
+      stopsLines.forEach((stopsLine) => {
+        if (isArriving) {
+          const stopsEl = stopsLine.querySelector('.stops');
+          if (stopsEl && !stopsLine.dataset.arrivalActive) {
+            stopsLine.dataset.arrivalActive = '1';
+            // 停車駅表示と「停車駅」ラベル、サービスラベルを全て消す
+            const stopLabel = stopsLine.querySelector('.stop-label');
+            const serviceList = stopsLine.querySelector('.stop-service-list');
+            if (stopLabel) stopLabel.style.display = 'none';
+            if (serviceList) serviceList.style.display = 'none';
+            stopsEl.style.display = 'none';
+            const msg = document.createElement('span');
+            msg.className = 'arrival-message';
+            msg.textContent = '列車がまいります';
+            stopsLine.appendChild(msg);
+          }
+        } else if (stopsLine.dataset.arrivalActive) {
+          delete stopsLine.dataset.arrivalActive;
+          const msg = stopsLine.querySelector('.arrival-message');
+          if (msg) msg.remove();
+          const stopLabel = stopsLine.querySelector('.stop-label');
+          const serviceList = stopsLine.querySelector('.stop-service-list');
+          const stopsEl = stopsLine.querySelector('.stops');
+          if (stopsEl) stopsEl.style.display = '';
+          if (stopLabel) stopLabel.style.display = '';
+          if (serviceList) serviceList.style.display = '';
+        }
+      });
+    });
+  }, 100);
+}
+
+// 発車時刻1分後に次の発車へ更新する。
+// 発車が1分以上経過した列車が表示行に含まれていたら、全体を再描画して次の列車へ進める。
+function startDepartureAdvanceMonitor() {
+  setInterval(() => {
+    const now = Date.now();
+    let needsRedraw = false;
+
+    document.querySelectorAll('.scene .train').forEach((trainEl) => {
+      const departureMs = Number(trainEl.getAttribute('data-departure'));
+      if (!departureMs) return;
+      // 今日のデータのみ対象（departureMs が今日のローカル時刻）
+      if (now > departureMs + 60000) { // 発車時刻 + 1分
+        needsRedraw = true;
+      }
+    });
+
+    if (needsRedraw) {
+      rerenderBoards();
+    }
+  }, 1000);
+}
+
+// 全ボードを再描画する（発車済み列車を除外して次の列車へ更新）
+function rerenderBoards() {
+  display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
+  fitTextToContainer();
+}
+
+// ============================================================
+// 表示の構築・再描画
+// ============================================================
 
 function fitRemarksText() {
   document.querySelectorAll('.remarks-current').forEach((text) => {
@@ -429,25 +670,263 @@ function fitTextToContainer() {
   });
 }
 
-fitTextToContainer();
-startRemarkCycler();
-
 function fitBoardsToViewport() {
-  const boards = document.getElementById('boards');
-  if (!boards) return;
+  const boardsEl = document.getElementById('boards');
+  if (!boardsEl) return;
 
-  const designWidth = boards.scrollWidth || 3200;
+  const designWidth = boardsEl.scrollWidth || 3200;
   const scale = Math.min(1, window.innerWidth / designWidth);
 
-  boards.style.transformOrigin = 'top left';
-  boards.style.transform = scale < 1 ? `scale(${scale})` : '';
+  boardsEl.style.transformOrigin = 'top left';
+  boardsEl.style.transform = scale < 1 ? `scale(${scale})` : '';
   document.body.style.height = scale < 1
-    ? `${Math.ceil(boards.offsetHeight * scale)}px`
+    ? `${Math.ceil(boardsEl.offsetHeight * scale)}px`
     : '';
 }
 
-fitBoardsToViewport();
+// ============================================================
+// 初期データ（フォールバック用）
+// ============================================================
+
+function getHardcodedBoards() {
+  return [
+    {
+      platform: 20,
+      departures: [
+        {
+          time: '9:56', service: 'はやて', number: '115', destination: '仙台',
+          remarks: '全車指定席', remarks2: 'E5系運行', carCount: '10両編成',
+          stops: '上野・大宮・仙台', arrivalMs: 0
+        },
+        {
+          time: '10:20', service: 'やまびこ', number: '235', destination: '盛岡',
+          remarks: '自由席1~4号車', remarks2: 'E2系運行', carCount: '16両編成',
+          stops: '上野・大宮・宇都宮・福島・郡山・仙台・古川・水沢江刺・北上・盛岡', arrivalMs: 0
+        }
+      ]
+    },
+    {
+      platform: 21,
+      departures: [
+        {
+          time: '10:04', service: 'はやぶさ・こまち', number: '93', destination: '新函館北斗·秋田',
+          remarks: 'はやぶさ全車指定席', remarks2: 'こまち全車指定席', carCount: '17両編成',
+          stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
+          stopsByService: {
+            はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
+            こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
+          },
+          arrivalMs: 0
+        }
+      ]
+    },
+    {
+      platform: 22,
+      departures: [
+        {
+          time: '10:12', service: 'とき', number: '445', destination: '新潟',
+          remarks: '全車指定席', remarks2: 'E4系', carCount: '8両編成',
+          stops: '上野・大宮・高崎・越後湯沢・浦佐・長岡・燕三条・新潟', arrivalMs: 0
+        }
+      ]
+    },
+    {
+      platform: 23,
+      departures: [
+        {
+          time: '10:06', service: 'あさま', number: '505', destination: '軽井沢',
+          remarks: '全車指定席', remarks2: 'E7系運行', carCount: '12両編成',
+          stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢', arrivalMs: 0
+        }
+      ]
+    }
+  ];
+}
+
+// ============================================================
+// API 連携
+// ============================================================
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+// 4時を日付境界として日付文字列(YYYY-MM-DD)を返す
+function computeDateFor(d) {
+  const date = new Date(d);
+  const hour = date.getHours();
+  if (hour < 4) {
+    date.setDate(date.getDate() - 1);
+  }
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function computeHourFor(d) {
+  return d.getHours();
+}
+
+function parseTimeToMs(timeStr, baseDate) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const date = new Date(baseDate);
+  date.setHours(h, m, 0, 0);
+  return date.getTime();
+}
+
+async function fetchStTimetable(hour, dateStr) {
+  const url = `${BASE_ST_API}?rosen_code=${ROSEN_CODE}&station=${encodeURIComponent(STATION)}&select_hour=${hour}&day_id=1580&select_date=${dateStr}&route_id=${ROUTE_ID}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API1 HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchRetsubanTime(retsubanId, dateStr) {
+  const url = `${BASE_RETSU_API}?retsuban_id=${retsubanId}&select_date=${dateStr}&route_id=${ROUTE_ID}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API2 HTTP ${res.status}`);
+  return res.json();
+}
+
+// 表示する列車データを構築する
+async function buildTrainData() {
+  const now = new Date();
+  const dateStr = computeDateFor(now);
+  const currentHour = computeHourFor(now);
+
+  // 現在時刻と次の1時間を取得
+  const hours = [currentHour, (currentHour + 1) % 24];
+  const trainsByPlatform = {};
+  PLATFORMS.forEach((p) => { trainsByPlatform[p] = []; });
+
+  // #h付きの列車は非表示にする
+  const isHiddenTrain = (retsuban) => /#h/i.test(retsuban || '');
+
+  for (const hour of hours) {
+    const data = await fetchStTimetable(hour, dateStr);
+    const nobori = data.nobori_timetable || [];
+    const kudari = data.kudari_timetable || [];
+
+    // 番線が null の列車でも、同じ unban を持つ列車から番線を推測できる。
+    // unban -> 番線 のマップを発列車(nobori)から構築する。
+    const unbanToPlatform = {};
+    nobori.forEach((t) => {
+      if (t.unban && t.bansen) {
+        const key = String(t.unban).trim();
+        if (!(key in unbanToPlatform)) {
+          unbanToPlatform[key] = Number(t.bansen);
+        }
+      }
+    });
+    kudari.forEach((t) => {
+      if (t.unban && t.bansen) {
+        const key = String(t.unban).trim();
+        unbanToPlatform[key] = Number(t.bansen);
+      }
+    });
+
+    // 着列車(kudari)から、各番線の到着時刻を収集（「列車がまいります」用）
+    const arrivalsByPlatform = {};
+    PLATFORMS.forEach((p) => { arrivalsByPlatform[p] = []; });
+    kudari.forEach((t) => {
+      if (isHiddenTrain(t.retsuban)) return;
+      let platform = Number(t.bansen);
+      if (!PLATFORMS.includes(platform) && t.unban) {
+        platform = unbanToPlatform[String(t.unban).trim()] || platform;
+      }
+      if (!PLATFORMS.includes(platform)) return;
+      const arrivalMs = parseTimeToMs(t.train_time, now);
+      if (arrivalMs != null) {
+        arrivalsByPlatform[platform].push(arrivalMs);
+      }
+    });
+
+    // 発列車(nobori)
+    for (const t of nobori) {
+      const retsuban = t.retsuban || '';
+      if (isHiddenTrain(retsuban)) continue;
+
+      let platform = Number(t.bansen);
+      if (!PLATFORMS.includes(platform) && t.unban) {
+        platform = unbanToPlatform[String(t.unban).trim()] || platform;
+      }
+      if (!PLATFORMS.includes(platform)) continue;
+
+      const serviceText = normalizeService(t.shubetsu);
+      const destText = normalizeDestination(t.ikisaki);
+      const carCount = computeCarCount(serviceText, t.shotei);
+
+      const train = {
+        retsuban_id: t.retsuban_id,
+        time: t.train_time,
+        departureMs: parseTimeToMs(t.train_time, now),
+        service: serviceText,
+        number: retsuban,
+        destination: destText,
+        remarks: computeRemarks(t, serviceText, carCount),
+        remarks2: computeRemarks2(serviceText),
+        carCount: carCount ? `${carCount}両編成` : '',
+        stops: '',
+        stopsByService: {},
+      };
+
+      // 停車駅データを取得
+      try {
+        const retsu = await fetchRetsubanTime(t.retsuban_id, dateStr);
+        const { stops, stopsByService } = buildStops(retsu.timetable_list, serviceText);
+        train.stops = stops;
+        train.stopsByService = stopsByService;
+      } catch (e) {
+        // 停車駅取得失敗時は空のまま
+      }
+
+      trainsByPlatform[platform].push(train);
+    }
+
+    // 各番線の到着時刻を保存（scene の data-arrivals に使う）
+    PLATFORMS.forEach((p) => {
+      if (!trainsByPlatform[p].__arrivals) {
+        trainsByPlatform[p].__arrivals = [];
+      }
+      trainsByPlatform[p].__arrivals.push(...arrivalsByPlatform[p]);
+    });
+  }
+
+// 各番線で発車時刻順に並べる（全列車を保持。表示は先頭の MAX_PER_PLATFORM 本のみ）
+  const boards = PLATFORMS.map((platform) => {
+    const platformArr = trainsByPlatform[platform];
+    const departures = [...platformArr].sort((a, b) => (a.departureMs || 0) - (b.departureMs || 0));
+    const arrivals = [...(platformArr.__arrivals || [])].sort((a, b) => a - b);
+    return { platform, departures, arrivals };
+  });
+
+  return boards;
+}
+
+// ============================================================
+// 起動
+// ============================================================
+
+async function init() {
+  try {
+    boards = await buildTrainData();
+  } catch (e) {
+    console.error('API取得に失敗しました。フォールバックデータを使用します:', e);
+    boards = getHardcodedBoards();
+  }
+
+display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
+
+fitTextToContainer();
+  startRemarkCycler();
+  startArrivalMonitor();
+  startDepartureAdvanceMonitor();
+  fitBoardsToViewport();
+}
+
 window.addEventListener('resize', () => {
   fitTextToContainer();
   fitBoardsToViewport();
 });
+
+init();

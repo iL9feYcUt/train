@@ -42,7 +42,7 @@ body {
   margin: 0;
   color: white;
   background: #fff;
-  font-family: "Frutiger", "ShinGo-M", sans-serif;
+  font-family: "Frutiger", "ShinGo-M";
   line-height: 100%;
 }
 html {
@@ -140,7 +140,29 @@ html {
 }
 
 .departures {
+  position: relative;
   padding: 0 4px 4px;
+}
+
+/* 「列車がまいります」：停車駅表示（最下段）の位置に中央揃えで赤く点滅表示する */
+.arrival-message {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff0000;
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  white-space: nowrap;
+  /* 0.5秒点灯・0.3秒消灯（合計0.8秒サイクル） */
+  animation: arrival-blink 0.8s step-end infinite;
+}
+
+@keyframes arrival-blink {
+  0%, 62.5% { opacity: 1; }
+  62.6%, 100% { opacity: 0; }
 }
 
 .train {
