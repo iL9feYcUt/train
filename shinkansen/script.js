@@ -1,26 +1,91 @@
-const departures = [
+const boards = [
   {
-    time: '10:04', service: 'はやぶさ·こまち', number: '93号',
-    destination: '新函館北斗·秋田', remarks: 'はやぶさ全車指定席', remarks2: 'こまち全車指定席', carCount: '17両編成',
-    stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-    stopsByService: {
-      はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-      こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
-    }
+    platform: 20,
+    departures: [
+      {
+        time: '9:56', service: 'はやて', number: '115号',
+        destination: '仙台', remarks: '全車指定席', remarks2: 'E5系運行', carCount: '10両編成',
+        stops: '上野・大宮・仙台'
+      },
+      {
+        time: '10:20', service: 'やまびこ', number: '235号',
+        destination: '盛岡', remarks: '自由席1~4号車', remarks2: 'E2系運行', carCount: '16両編成',
+        stops: '上野・大宮・宇都宮・福島・郡山・仙台・古川・水沢江刺・北上・盛岡'
+      },
+      {
+        time: '10:36', service: 'なすの', number: '252号',
+        destination: '仙台', remarks: '全車指定席', remarks2: 'E2系', carCount: '8両編成',
+        stops: '上野・大宮・小山・栃木・郡山・福島・仙台'
+      }
+    ]
   },
   {
-    time: '8:20', service: 'とき', number: '425号',
-    destination: '新潟', remarks: '自由席1~4,9~12号車', remarks2: '', carCount: '12両編成',
-    stops: '上野・大宮・高崎・越後湯沢・浦佐・長岡・燕三条・新潟'
+    platform: 21,
+    departures: [
+      {
+        time: '10:04', service: 'はやぶさ·こまち', number: '93号',
+        destination: '新函館北斗·秋田', remarks: 'はやぶさ全車指定席', remarks2: 'こまち全車指定席', carCount: '17両編成',
+        stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
+        stopsByService: {
+          はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
+          こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
+        }
+      },
+      {
+        time: '11:10', service: 'つばさ', number: '131号',
+        destination: '新庄', remarks: '全車指定席', remarks2: 'E3系運行', carCount: '7両編成',
+        stops: '上野・大宮・福島・米沢・山形・新庄'
+      },
+      {
+        time: '11:50', service: 'やまびこ', number: '343号',
+        destination: '新潟', remarks: '一部自由席', remarks2: '12両編成', carCount: '12両編成',
+        stops: '上野・大宮・福島・郡山・新潟'
+      }
+    ]
   },
   {
-    time: '8:36', service: 'あさま', number: '505号',
-    destination: '黒部宇奈月温泉', remarks: '全車指定席', remarks2: '', carCount: '12両編成',
-    stops: '上野・大宮・熊谷・本庄早稲田・高崎・安中榛名・軽井沢・佐久平・上田・長野・飯山・上越妙高・糸魚川・黒部宇奈月温泉'
+    platform: 22,
+    departures: [
+      {
+        time: '10:12', service: 'とき', number: '445号',
+        destination: '新潟', remarks: '全車指定席', remarks2: 'E4系', carCount: '8両編成',
+        stops: '上野・大宮・高崎・越後湯沢・浦佐・長岡・燕三条・新潟'
+      },
+      {
+        time: '10:38', service: 'たにがわ', number: '565号',
+        destination: '越後湯沢', remarks: '全車指定席', remarks2: '2階建てE4系', carCount: '12両編成',
+        stops: '上野・大宮・熊谷・本庄早稲田・高崎・上毛高原・越後湯沢'
+      },
+      {
+        time: '11:05', service: 'Maxたにがわ', number: '8号',
+        destination: '越後湯沢', remarks: '全車指定席', remarks2: '2階建て', carCount: '12両編成',
+        stops: '上野・大宮・熊谷・本庄早稲田・高崎・上毛高原・越後湯沢'
+      }
+    ]
+  },
+  {
+    platform: 23,
+    departures: [
+      {
+        time: '10:06', service: 'あさま', number: '505号',
+        destination: '軽井沢', remarks: '全車指定席', remarks2: 'E7系運行', carCount: '12両編成',
+        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢'
+      },
+      {
+        time: '10:28', service: 'かがやき', number: '603号',
+        destination: '金沢', remarks: '全車指定席', remarks2: 'E7/W7系', carCount: '12両編成',
+        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢・長野・富山・金沢'
+      },
+      {
+        time: '10:52', service: 'はくたか', number: '652号',
+        destination: '金沢', remarks: '全車指定席', remarks2: 'W7系', carCount: '12両編成',
+        stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢・長野・富山・金沢'
+      }
+    ]
   }
 ];
 
-const display = document.querySelector('#departures');
+const display = document.querySelector('#boards');
 
 function enlargeAlnum(text) {
   return text.replace(/[A-Za-z0-9]+/g, '<span class="alnum">$&</span>');
@@ -135,24 +200,52 @@ function renderStopsLine(train) {
 `;
 }
 
-display.innerHTML = departures.map((train, trainIndex) => {
-  const serviceParts = train.service.split(/[・·]/).filter(Boolean);
-  const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
-  const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
-
+function renderBoard(board, boardIndex) {
   return `
-  <article class="train" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
-    <div class="led main-line">
-      <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
-      <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
-      <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
-      <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
-      <span class="remarks"><span class="fit-text remarks-current" data-train-index="${trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
-    </div>
-    ${renderStopsLine(train)}
-  </article>
+  <section class="scene" aria-label="${board.platform}番線の新幹線発車案内">
+    <section class="sign">
+      <header class="sign-title">
+        <svg class="direction" viewBox="0 0 86 86" aria-hidden="true" focusable="false">
+          <rect x="0" y="0" width="86" height="86" fill="#fff"/>
+          <path d="M73 43H20M47 17 20 43 47 68" fill="none" stroke="#343d40" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter"/>
+        </svg>
+        <span class="platform"><span style="font-size:1.3em;">${board.platform}</span>番線</span>
+        <span class="heading">今度の電車</span>
+        <span class="english">Next Departure</span>
+        <i class="status-light" aria-hidden="true"></i>
+      </header>
+
+      <div class="column-headings" aria-hidden="true">
+        <span>時刻 <small>Time</small></span>
+        <span>列車名 <small>Train</small></span>
+        <span>番号 <small>Train No.</small></span>
+        <span>行先 <small>Destination</small></span>
+        <span>記事 <small>Remarks</small></span>
+      </div>
+
+      <div class="departures">${board.departures.map((train, trainIndex) => {
+        const serviceParts = train.service.split(/[・·]/).filter(Boolean);
+        const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
+        const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
+        return `
+        <article class="train" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
+          <div class="led main-line">
+            <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
+            <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
+            <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
+            <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
+            <span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
+          </div>
+          ${renderStopsLine(train)}
+        </article>
+      `;
+      }).join('')}</div>
+    </section>
+  </section>
 `;
-}).join('');
+}
+
+display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
 
 function fitRemarksText() {
   document.querySelectorAll('.remarks-current').forEach((text) => {
@@ -193,8 +286,9 @@ function getRemarkText(train, mode) {
 function startRemarkCycler() {
   setInterval(() => {
     document.querySelectorAll('.remarks-current').forEach((remarksNode) => {
+      const boardIndex = Number(remarksNode.dataset.boardIndex);
       const trainIndex = Number(remarksNode.dataset.trainIndex);
-      const train = departures[trainIndex];
+      const train = boards[boardIndex].departures[trainIndex];
       const nextMode = getNextRemarkMode(remarksNode.dataset.mode, train);
       const remarksWrapper = remarksNode.parentElement;
 
@@ -322,12 +416,13 @@ fitTextToContainer();
 startRemarkCycler();
 
 function scaleSignToViewport() {
-  const scene = document.querySelector('.scene');
-  const sign = document.querySelector('.sign');
   const scale = Math.min(1, window.innerWidth / 1500);
-
-  scene.style.setProperty('--sign-scale', scale);
-  scene.style.height = `${Math.ceil((sign.offsetHeight + 60) * scale)}px`;
+  document.querySelectorAll('.scene').forEach((scene) => {
+    const sign = scene.querySelector('.sign');
+    if (!sign) return;
+    scene.style.setProperty('--sign-scale', scale);
+    scene.style.height = `${Math.ceil((sign.offsetHeight + 60) * scale)}px`;
+  });
 }
 
 scaleSignToViewport();
