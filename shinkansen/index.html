@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1500, initial-scale=1">
+  <title>21番線 今度の電車</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="scene">
+    <section class="sign" aria-label="21番線の新幹線発車案内">
+      <header class="sign-title">
+        <svg class="direction" viewBox="0 0 86 86" aria-hidden="true" focusable="false">
+          <rect x="0" y="0" width="86" height="86" fill="#fff"/>
+          <path d="M73 43H20M47 17 20 43 47 68" fill="none" stroke="#343d40" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter"/>
+        </svg>
+        <span class="platform"><span style="font-size:1.3em;">21</span>番線</span>
+        <span class="heading">今度の電車</span>
+        <span class="english">Next Departure</span>
+        <i class="status-light" aria-hidden="true"></i>
+      </header>
+
+      <div class="column-headings" aria-hidden="true">
+        <span>時刻 <small>Time</small></span>
+        <span>列車名<small>Train</small></span>
+        <span>番号 <small>Train No.</small></span>
+        <span>行先 <small>Destination</small></span>
+        <span>記事 <small>Remarks</small></span>
+      </div>
+
+      <div id="departures" class="departures"></div>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
