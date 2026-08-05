@@ -52,8 +52,8 @@ html {
 .boards {
   display: grid;
   grid-template-columns: repeat(2, minmax(1500px, 1500px));
-  gap: 24px;
-  padding: 30px;
+  gap: 50px 24px;
+  padding: 30px 60px 30px 30px;
 }
 
 .scene {
@@ -168,6 +168,19 @@ html {
 
 .train:not(:first-child)::before {
   opacity: 0;
+}
+
+/* 21番線・23番線: 逆向き設置（ホームの反対側） */
+.train.is-reversed::before {
+  left: auto;
+  right: 18px;
+  border-right: none;
+  border-left: 42px solid #fff;
+}
+
+.train.is-reversed::after {
+  right: auto;
+  left: 35px;
 }
 
 .train::after {

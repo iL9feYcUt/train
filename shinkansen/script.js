@@ -201,18 +201,35 @@ function renderStopsLine(train) {
 }
 
 function renderBoard(board, boardIndex) {
-  return `
-  <section class="scene" aria-label="${board.platform}番線の新幹線発車案内">
-    <section class="sign">
-      <header class="sign-title">
+  const reversed = board.platform === 21 || board.platform === 23;
+  const arrowPath = reversed
+    ? 'M13 43H66M39 17 66 43 39 68'
+    : 'M73 43H20M47 17 20 43 47 68';
+  const titleOrder = reversed
+    ? `
+        <i class="status-light" aria-hidden="true"></i>
+        <span class="english">Next Departure</span>
+        <span class="heading">今度の電車</span>
+        <span class="platform"><span style="font-size:1.3em;">${board.platform}</span>番線</span>
         <svg class="direction" viewBox="0 0 86 86" aria-hidden="true" focusable="false">
           <rect x="0" y="0" width="86" height="86" fill="#fff"/>
-          <path d="M73 43H20M47 17 20 43 47 68" fill="none" stroke="#343d40" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter"/>
+          <path d="${arrowPath}" fill="none" stroke="#343d40" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter"/>
+        </svg>`
+    : `
+        <svg class="direction" viewBox="0 0 86 86" aria-hidden="true" focusable="false">
+          <rect x="0" y="0" width="86" height="86" fill="#fff"/>
+          <path d="${arrowPath}" fill="none" stroke="#343d40" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter"/>
         </svg>
         <span class="platform"><span style="font-size:1.3em;">${board.platform}</span>番線</span>
         <span class="heading">今度の電車</span>
         <span class="english">Next Departure</span>
-        <i class="status-light" aria-hidden="true"></i>
+        <i class="status-light" aria-hidden="true"></i>`;
+
+  return `
+  <section class="scene" aria-label="${board.platform}番線の新幹線発車案内">
+    <section class="sign${reversed ? ' is-reversed' : ''}">
+      <header class="sign-title">
+        ${titleOrder}
       </header>
 
       <div class="column-headings" aria-hidden="true">
@@ -228,7 +245,7 @@ function renderBoard(board, boardIndex) {
         const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
         const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
         return `
-        <article class="train" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
+        <article class="train${reversed ? ' is-reversed' : ''}" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
           <div class="led main-line">
             <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
             <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
