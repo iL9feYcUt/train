@@ -51,11 +51,52 @@ function normalizeService(shubetsu) {
 }
 
 // 行先。新庄は「山形・新庄」に置き換え、複数は「・」で連結。
-function normalizeDestination(ikisaki) {
-  return (ikisaki || '')
+// 併結列車では、行先を種別(service)の順番に合わせて並べ替える。
+// 例) やまびこ/つばさ の ikisaki「山形/仙台」→ 種別順で「仙台·山形」
+function getServiceTerminals(serviceName) {
+  const terminals = {
+    やまびこ: ['仙台', '盛岡'],
+    つばさ: ['山形', '新庄'],
+    はやぶさ: ['新函館北斗', '新青森', '札幌', '木古内', '奥津軽いまべつ'],
+    こまち: ['秋田'],
+    なすの: ['那須塩原', '郡山'],
+    はやて: ['八戸', '盛岡'],
+    とき: ['新潟'],
+    たにがわ: ['越後湯沢'],
+    はくたか: ['金沢', '敦賀'],
+    かがやき: ['金沢', '敦賀'],
+    あさま: ['長野', '軽井沢'],
+  };
+  return new Set(terminals[serviceName] || []);
+}
+
+function normalizeDestination(ikisaki, shubetsu) {
+  const dests = (ikisaki || '')
     .split('/')
     .map((d) => d.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+
+  const services = getServiceNames(normalizeService(shubetsu));
+
+  // 各発駅を、対応する種別に割り当てる
+  const destToService = {};
+  dests.forEach((d) => {
+    const matched = services.find((s) => getServiceTerminals(s).has(d));
+    destToService[d] = matched || '';
+  });
+
+  // 種別順に行先を並べ替える
+  const ordered = [];
+  services.forEach((s) => {
+    const found = dests.find((d) => destToService[d] === s);
+    if (found && !ordered.includes(found)) ordered.push(found);
+  });
+  // 種別に対応しない行先は末尾に追加
+  dests.forEach((d) => {
+    if (!ordered.includes(d)) ordered.push(d);
+  });
+
+  return ordered
     .map((d) => (d === '新庄' ? '山形·新庄' : d))
     .join('·');
 }
@@ -197,7 +238,7 @@ function computeRemarks(train, serviceText, carCount) {
 
   // とき: 指定席1~8号車
   if (serviceNames.includes('とき')) {
-    return '指定席1~8号車';
+    return '自由席1~8号車';
   }
 
   // たにがわ: 自由席1~10号車
@@ -355,10 +396,16 @@ function renderBoard(board, boardIndex) {
 
   // 発車時刻1分以上経過した列車は表示せず、次の列車に更新する。
   // 表示は「まだ発車していない列車」のうち先頭の MAX_PER_PLATFORM 本のみ。
-  const now = Date.now();
+const now = Date.now();
   const visibleDepartures = (board.departures || [])
+    .map((t, i) => ({ ...t, _realIndex: i }))
     .filter((t) => !((t.departureMs || 0) && now > t.departureMs + 60000))
     .slice(0, MAX_PER_PLATFORM);
+
+  // 発車列車が MAX_PER_PLATFORM(3) 未満でも、空白行として3段表示を維持する。
+  while (visibleDepartures.length < MAX_PER_PLATFORM) {
+    visibleDepartures.push({ empty: true });
+  }
   const arrowPath = reversed
     ? 'M13 43H66M39 17 66 43 39 68'
     : 'M73 43H20M47 17 20 43 47 68';
@@ -398,7 +445,21 @@ return `
       </div>
 
 <div class="departures">
-        ${visibleDepartures.map((train, trainIndex) => {
+${visibleDepartures.map((train, trainIndex) => {
+          if (train.empty) {
+            return `
+          <article class="train${reversed ? ' is-reversed' : ''} is-empty">
+            <div class="led main-line">
+              <span class="time"><span class="fit-text"></span></span>
+              <span class="service"><span class="fit-text"></span></span>
+              <span class="number"><span class="fit-text"></span></span>
+              <span class="destination"><span class="fit-text"></span></span>
+              <span class="remarks"><span class="fit-text"></span></span>
+            </div>
+            <div class="led stops-line"></div>
+          </article>
+        `;
+          }
           const serviceParts = train.service.split(/[・·]/).filter(Boolean);
           const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
           const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
@@ -409,7 +470,7 @@ return `
               <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
               <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.number)}</span></span>
               <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>
-              <span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
+<span class="remarks"><span class="fit-text remarks-current" data-board-index="${boardIndex}" data-train-index="${train._realIndex ?? trainIndex}" data-mode="seat">${enlargeAlnum(train.remarks)}</span></span>
             </div>
             ${renderStopsLine(train)}
 </article>
@@ -440,24 +501,15 @@ function startArrivalMonitor() {
         now >= arrivalMs - 117000 && now <= arrivalMs - 30000
       );
 
-const stopsLines = scene.querySelectorAll('.stops-line');
+// 「列車がまいります」は最下段（最後の .stops-line）にのみ表示する。
+      // それ以外の段には表示しない。
+      const stopsLines = scene.querySelectorAll('.stops-line');
+      const bottomStopsLine = stopsLines[stopsLines.length - 1];
+
+      // 最下段以外の .stops-line に付いている「列車がまいります」を除去して復元する
       stopsLines.forEach((stopsLine) => {
-        if (isArriving) {
-          const stopsEl = stopsLine.querySelector('.stops');
-          if (stopsEl && !stopsLine.dataset.arrivalActive) {
-            stopsLine.dataset.arrivalActive = '1';
-            // 停車駅表示と「停車駅」ラベル、サービスラベルを全て消す
-            const stopLabel = stopsLine.querySelector('.stop-label');
-            const serviceList = stopsLine.querySelector('.stop-service-list');
-            if (stopLabel) stopLabel.style.display = 'none';
-            if (serviceList) serviceList.style.display = 'none';
-            stopsEl.style.display = 'none';
-            const msg = document.createElement('span');
-            msg.className = 'arrival-message';
-            msg.textContent = '列車がまいります';
-            stopsLine.appendChild(msg);
-          }
-        } else if (stopsLine.dataset.arrivalActive) {
+        if (stopsLine === bottomStopsLine) return;
+        if (stopsLine.dataset.arrivalActive) {
           delete stopsLine.dataset.arrivalActive;
           const msg = stopsLine.querySelector('.arrival-message');
           if (msg) msg.remove();
@@ -469,6 +521,34 @@ const stopsLines = scene.querySelectorAll('.stops-line');
           if (serviceList) serviceList.style.display = '';
         }
       });
+
+if (!bottomStopsLine) return;
+      if (isArriving) {
+        if (!bottomStopsLine.dataset.arrivalActive) {
+          bottomStopsLine.dataset.arrivalActive = '1';
+          // 停車駅表示と「停車駅」ラベル、サービスラベルを全て消す
+          const stopLabel = bottomStopsLine.querySelector('.stop-label');
+          const serviceList = bottomStopsLine.querySelector('.stop-service-list');
+          const stopsEl = bottomStopsLine.querySelector('.stops');
+          if (stopLabel) stopLabel.style.display = 'none';
+          if (serviceList) serviceList.style.display = 'none';
+          if (stopsEl) stopsEl.style.display = 'none';
+          const msg = document.createElement('span');
+          msg.className = 'arrival-message';
+          msg.textContent = '列車がまいります';
+          bottomStopsLine.appendChild(msg);
+        }
+      } else if (bottomStopsLine.dataset.arrivalActive) {
+        delete bottomStopsLine.dataset.arrivalActive;
+        const msg = bottomStopsLine.querySelector('.arrival-message');
+        if (msg) msg.remove();
+        const stopLabel = bottomStopsLine.querySelector('.stop-label');
+        const serviceList = bottomStopsLine.querySelector('.stop-service-list');
+        const stopsEl = bottomStopsLine.querySelector('.stops');
+        if (stopsEl) stopsEl.style.display = '';
+        if (stopLabel) stopLabel.style.display = '';
+        if (serviceList) serviceList.style.display = '';
+      }
     });
   }, 100);
 }
@@ -794,8 +874,8 @@ async function buildTrainData() {
   const dateStr = computeDateFor(now);
   const currentHour = computeHourFor(now);
 
-  // 現在時刻と次の1時間を取得
-  const hours = [currentHour, (currentHour + 1) % 24];
+// 現在時刻と次の2時間を取得
+  const hours = [currentHour, (currentHour + 1) % 24, (currentHour + 2) % 24];
   const trainsByPlatform = {};
   PLATFORMS.forEach((p) => { trainsByPlatform[p] = []; });
 
@@ -852,8 +932,8 @@ async function buildTrainData() {
       }
       if (!PLATFORMS.includes(platform)) continue;
 
-      const serviceText = normalizeService(t.shubetsu);
-      const destText = normalizeDestination(t.ikisaki);
+const serviceText = normalizeService(t.shubetsu);
+      const destText = normalizeDestination(t.ikisaki, t.shubetsu);
       const carCount = computeCarCount(serviceText, t.shotei);
 
       const train = {
