@@ -38,6 +38,14 @@ function formatCarCount(numberText) {
   return enlargeAlnum(numberText);
 }
 
+// 時刻表示を整形する。時が1桁の場合は先頭0を付けない（09:00 -> 9:00）。
+function formatTime(timeStr) {
+  if (!timeStr) return '';
+  const [h, m] = String(timeStr).split(':');
+  if (h == null || m == null) return String(timeStr);
+  return `${Number(h)}:${m}`;
+}
+
 // ---- 種別・行先の整形 ----
 
 // API の shubetsu は「やまびこ/つばさ」「臨時はやぶさ/こまち」のようにスラッシュ区切り。
@@ -465,8 +473,8 @@ ${visibleDepartures.map((train, trainIndex) => {
           const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
           return `
           <article class="train${reversed ? ' is-reversed' : ''}" data-departure="${train.departureMs || ''}" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
-            <div class="led main-line">
-              <span class="time"><span class="fit-text">${enlargeAlnum(train.time)}</span></span>
+<div class="led main-line">
+              <span class="time"><span class="fit-text">${enlargeAlnum(formatTime(train.time))}</span></span>
               <span class="service"><span class="fit-text">${renderService(train.service, train.destination)}</span></span>
 <span class="number" data-train-color="${numberColor}"><span class="fit-text">${formatTrainNumber(train.displayNumber || train.number)}</span></span>
               <span class="destination"><span class="fit-text">${enlargeAlnum(train.destination)}</span></span>

@@ -16,22 +16,22 @@
 
 @font-face {
   font-family: "ShinGo-M";
-  src: url("/fonts/AOTFShinGoProMedium.otf") format("opentype");
+  src: url("fonts/AOTFShinGoProMedium.otf") format("opentype");
 }
 
 @font-face {
   font-family: "ShinGo-R";
-  src: url("/fonts/AOTFSHINGOPROREGULAR.OTF") format("opentype");
+  src: url("fonts/AOTFSHINGOPROREGULAR.OTF") format("opentype");
 }
 
 @font-face {
   font-family: "Frutiger";
-  src: url("/fonts/Frutiger.ttf") format("truetype");
+  src: url("fonts/Frutiger.ttf") format("truetype");
 }
 
 @font-face {
   font-family: "Frutiger-B";
-  src: url("/fonts/Frutiger_bold.ttf") format("truetype");
+  src: url("fonts/Frutiger_bold.ttf") format("truetype");
 }
 
 * {
