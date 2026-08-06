@@ -40,6 +40,16 @@ window.DEBUG_TRAINS = [
     // },
     {
         platform: 23,
+        time: '14:30',
+        service: '回送',
+        number: '8530E',
+        displayNumber: ' ',
+        destination: '',
+        remarks: '',
+        carCount: '12両編成',
+        stops: ''
+    },{
+        platform: 23,
         time: '21:00',
         service: '回送',
         number: 'U131',

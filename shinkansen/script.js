@@ -146,7 +146,7 @@ function getServiceColor(serviceName, destination) {
 
 function getTrainAccentColors(serviceText, destination) {
   const parts = serviceText.split(/[・·]/).filter(Boolean);
-  const colors = parts.map((serviceName) => getServiceColor(serviceName, destination));
+  const colors = parts.map((serviceName, index) => getServiceColor(serviceName, getServiceDestination(serviceText, destination, index)));
 
   if (colors.length <= 1) {
     return [colors[0] ?? 'white', colors[0] ?? 'white'];
@@ -160,11 +160,11 @@ function renderService(serviceText, destination) {
   const separators = serviceText.match(/[・·]/g) ?? [];
 
   if (parts.length === 1) {
-    return `<span class="service-part" data-train-color="${getServiceColor(parts[0], destination)}">${enlargeAlnum(parts[0])}</span>`;
+    return `<span class="service-part" data-train-color="${getServiceColor(parts[0], getServiceDestination(serviceText, destination, 0))}">${enlargeAlnum(parts[0])}</span>`;
   }
 
   return parts.map((serviceName, index) => {
-    const color = getServiceColor(serviceName, destination);
+    const color = getServiceColor(serviceName, getServiceDestination(serviceText, destination, index));
     const part = `<span class="service-part" data-train-color="${color}">${enlargeAlnum(serviceName)}</span>`;
     const separator = index < separators.length ? `<span class="service-separator">${separators[index]}</span>` : '';
     return `${part}${separator}`;
@@ -175,9 +175,31 @@ function getServiceNames(serviceText) {
   return serviceText.split(/[・·]/).filter(Boolean);
 }
 
+// 併結列車の各サービスに対応する行先を取得する。
+// normalizeDestination は行先を種別順に並べるため、インデックスが一致する。
+// 例) はやぶさ・こまち / 新函館北斗·秋田 -> index 0: 新函館北斗, index 1: 秋田
+function getServiceDestination(serviceText, destination, serviceIndex) {
+  const serviceNames = getServiceNames(serviceText);
+  if (serviceNames.length <= 1) return destination;
+
+  const dests = (destination || '').split(/[・·]/).filter(Boolean);
+  return dests[serviceIndex] || destination;
+}
+
 // ============================================================
 // 両数・remarks・remarks2 の計算
 // ============================================================
+
+// 編成ごとの両数
+const FORMATION_CAR_COUNT = {
+  'E2系': 10,
+  'E5系': 10,
+  'H5系': 10,
+  'E6系': 7,
+  'E8系': 7,
+  'E7系': 12,
+  'W7系': 12,
+};
 
 // 両数の計算。shotei 例: "E5系+E6系", "E2系", "E7系 新潟車"
 function computeCarCount(serviceText, shotei) {
@@ -187,16 +209,6 @@ function computeCarCount(serviceText, shotei) {
   if (serviceNames.includes('はやぶさ') && serviceNames.includes('こまち')) return 17;
   if (serviceNames.includes('やまびこ') && serviceNames.includes('つばさ')) return 17;
 
-  const formationCarCount = {
-    'E2系': 10,
-    'E5系': 10,
-    'H5系': 10,
-    'E6系': 7,
-    'E8系': 7,
-    'E7系': 12,
-    'W7系': 12,
-  };
-
   // shotei から系式を抽出して合算
   const shoteiText = (shotei || '').replace(/[ 　].*$/, '');
   const formations = shoteiText.split('+').filter(Boolean);
@@ -204,9 +216,9 @@ function computeCarCount(serviceText, shotei) {
   let total = 0;
   let found = false;
   for (const f of formations) {
-    const key = Object.keys(formationCarCount).find((k) => f.includes(k));
+    const key = Object.keys(FORMATION_CAR_COUNT).find((k) => f.includes(k));
     if (key) {
-      total += formationCarCount[key];
+      total += FORMATION_CAR_COUNT[key];
       found = true;
     }
   }
@@ -215,22 +227,37 @@ function computeCarCount(serviceText, shotei) {
   return 0;
 }
 
-// remarks の計算。train は API の nobori 要素。
-function computeRemarks(train, serviceText, carCount) {
+// 併結列車の先頭種別の両数を計算する。
+// shotei 例: "E5系+E6系" の先頭編成 E5系 -> 10両
+function computeFirstServiceCarCount(serviceText, shotei) {
   const serviceNames = getServiceNames(serviceText);
+  if (serviceNames.length <= 1) return computeCarCount(serviceText, shotei);
 
-  // はやぶさ、こまち、つばさ、かがやきは全車指定席
-  if (serviceNames.some((s) => ['はやぶさ', 'こまち', 'つばさ', 'かがやき'].includes(s))) {
-    return '全車指定席';
+  // shotei の先頭編成の両数
+  const shoteiText = (shotei || '').replace(/[ 　].*$/, '');
+  const formations = shoteiText.split('+').filter(Boolean);
+  if (formations.length > 0) {
+    const key = Object.keys(FORMATION_CAR_COUNT).find((k) => formations[0].includes(k));
+    if (key) return FORMATION_CAR_COUNT[key];
   }
 
-  // 「臨時」のとき（臨時ときなど）は全車指定席
-  if (train.shubetsu && train.shubetsu.includes('臨時')) {
+  // 既知の併結ペアの先頭種別は10両
+  if (serviceNames[0] === 'はやぶさ' || serviceNames[0] === 'やまびこ') {
+    return 10;
+  }
+
+  return 0;
+}
+
+// 単一種別の remarks を計算する。
+function computeServiceRemark(serviceName, train, carCount) {
+  // はやぶさ、こまち、つばさ、かがやきは全車指定席
+  if (['はやぶさ', 'こまち', 'つばさ', 'かがやき'].includes(serviceName)) {
     return '全車指定席';
   }
 
   // なすの (E2系/E5系/17両/7両)
-  if (serviceNames.includes('なすの')) {
+  if (serviceName === 'なすの') {
     if (carCount === 17) return '自由席1~8,12~17号車';
     if (carCount === 7) return '自由席12~17号車';
     const shoteiText = (train.shotei || '').replace(/[ 　].*$/, '');
@@ -239,32 +266,54 @@ function computeRemarks(train, serviceText, carCount) {
   }
 
   // やまびこ (10両/17両)
-  if (serviceNames.includes('やまびこ')) {
+  if (serviceName === 'やまびこ') {
     if (carCount === 17) return '自由席1~7,12~17号車';
-    return '自由席1~7号車'; // 10両
+    return '自由席1~5号車'; // 10両
   }
 
   // とき: 指定席1~8号車
-  if (serviceNames.includes('とき')) {
+  if (serviceName === 'とき') {
     return '自由席1~8号車';
   }
 
   // たにがわ: 自由席1~10号車
-  if (serviceNames.includes('たにがわ')) {
+  if (serviceName === 'たにがわ') {
     return '自由席1~10号車';
   }
 
   // はくたか: 自由席1~4号車
-  if (serviceNames.includes('はくたか')) {
+  if (serviceName === 'はくたか') {
     return '自由席1~4号車';
   }
 
   // あさま: 自由席1~5号車
-  if (serviceNames.includes('あさま')) {
+  if (serviceName === 'あさま') {
     return '自由席1~5号車';
   }
 
   return '';
+}
+
+// remarks の計算。train は API の nobori 要素。
+function computeRemarks(train, serviceText, carCount) {
+  const serviceNames = getServiceNames(serviceText);
+
+  // 「臨時」のとき（臨時ときなど）は全車指定席
+  if (train.shubetsu && train.shubetsu.includes('臨時')) {
+    return '全車指定席';
+  }
+
+  // 併結列車の場合は先頭の種別の remarks を表示
+  // 例) はやぶさ・こまち -> はやぶさ全車指定席
+  //     やまびこ・つばさ -> やまびこ自由席1~7号車
+  if (serviceNames.length > 1) {
+    const firstServiceCarCount = computeFirstServiceCarCount(serviceText, train.shotei);
+    const firstServiceRemark = computeServiceRemark(serviceNames[0], train, firstServiceCarCount);
+    return firstServiceRemark ? `${serviceNames[0]}${firstServiceRemark}` : '';
+  }
+
+  // 単独列車
+  return computeServiceRemark(serviceNames[0], train, carCount);
 }
 
 // remarks2。併結列車（複数種別）の場合のみ、最後の種別の remarks を表示。
@@ -383,7 +432,7 @@ function renderStopsLine(train) {
   const serviceNames = getServiceNames(train.service);
   const stopSequence = getStopsSequence(train);
   const firstServiceName = serviceNames[0] ?? '';
-  const firstServiceColor = getServiceColor(firstServiceName, train.destination);
+  const firstServiceColor = getServiceColor(firstServiceName, getServiceDestination(train.service, train.destination, 0));
   const serviceLabelMarkup = serviceNames.length > 1
     ? `<span class="stop-service-list"><span class="stop-service-name" data-train-color="${firstServiceColor}">${enlargeAlnum(firstServiceName)}</span></span>`
     : '';
@@ -469,7 +518,7 @@ ${visibleDepartures.map((train, trainIndex) => {
         `;
           }
           const serviceParts = train.service.split(/[・·]/).filter(Boolean);
-          const numberColor = getServiceColor(serviceParts.at(-1), train.destination);
+          const numberColor = getServiceColor(serviceParts.at(-1), getServiceDestination(train.service, train.destination, serviceParts.length - 1));
           const [accentTop, accentBottom] = getTrainAccentColors(train.service, train.destination);
           return `
           <article class="train${reversed ? ' is-reversed' : ''}" data-departure="${train.departureMs || ''}" style="--train-accent-top: var(--train-${accentTop}); --train-accent-bottom: var(--train-${accentBottom});">
@@ -669,7 +718,8 @@ function startStopStationMarquee(container, textElement) {
     }
 
     const serviceName = serviceSequence[currentSegmentIndex];
-    serviceLabel.dataset.trainColor = getServiceColor(serviceName, container.dataset.destination || '');
+    const serviceText = serviceSequence.join('·');
+    serviceLabel.dataset.trainColor = getServiceColor(serviceName, getServiceDestination(serviceText, container.dataset.destination || '', currentSegmentIndex));
     serviceLabel.innerHTML = enlargeAlnum(serviceName);
   };
 
