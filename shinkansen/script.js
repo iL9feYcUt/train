@@ -699,6 +699,11 @@ function startRemarkCycler() {
 function startStopStationMarquee(container, textElement) {
   if (container.dataset.marqueeFrame) {
     cancelAnimationFrame(Number(container.dataset.marqueeFrame));
+    container.dataset.marqueeFrame = '';
+  }
+  if (container.dataset.marqueeTimeout) {
+    clearTimeout(Number(container.dataset.marqueeTimeout));
+    container.dataset.marqueeTimeout = '';
   }
 
   const stopSequence = container.dataset.stopSequence
@@ -709,8 +714,7 @@ function startStopStationMarquee(container, textElement) {
     : [];
   const serviceLabel = container.parentElement.querySelector('.stop-service-name');
   let currentSegmentIndex = Number(container.dataset.stopIndex || 0);
-  let currentX = container.clientWidth;
-  let waitTicks = 60;
+  currentSegmentIndex = currentSegmentIndex % stopSequence.length;
 
   const updateServiceLabel = () => {
     if (!serviceLabel || serviceSequence.length <= 1) {
@@ -723,45 +727,76 @@ function startStopStationMarquee(container, textElement) {
     serviceLabel.innerHTML = enlargeAlnum(serviceName);
   };
 
-  const step = () => {
+const showSegment = (segmentIndex) => {
+    currentSegmentIndex = segmentIndex % stopSequence.length;
+    container.dataset.stopIndex = String(currentSegmentIndex);
+    textElement.innerHTML = enlargeAlnum(stopSequence[currentSegmentIndex]);
+    updateServiceLabel();
+
+    // 次のセグメントへ進む
+    const advance = () => {
+      if (stopSequence.length <= 1) return;
+      showSegment(currentSegmentIndex + 1);
+    };
+
+    // このセグメントが幅に収まるか判定
     const textWidth = textElement.scrollWidth;
     const containerWidth = container.clientWidth;
-    const speed = 2.0;
+    const overflowWidth = textWidth - containerWidth;
 
-    if (waitTicks > 0) {
-      waitTicks--;
+    if (overflowWidth > 1) {
+      // あふれる場合は、描画前に即座に画面外へ移動してからスクロール開始（ちらつき防止）
+      // 幅の計測は transform に依存しないため、先に transform を当てても安全
+      textElement.style.transform = `translateX(${containerWidth}px)`;
+      container.classList.add('is-marquee');
+      scrollSegment(currentSegmentIndex, textWidth, containerWidth);
+    } else {
+      // 収まる場合は固定表示し、7秒後に次のセグメントへ
+      textElement.style.transform = '';
+      container.classList.remove('is-marquee');
+      container.dataset.marqueeTimeout = String(setTimeout(advance, 7000));
+    }
+  };
+
+const scrollSegment = (segmentIndex, textWidth, containerWidth) => {
+    if (container.dataset.marqueeTimeout) {
+      clearTimeout(Number(container.dataset.marqueeTimeout));
+      container.dataset.marqueeTimeout = '';
+    }
+// 表示更新直後からスクロールを開始する（初期ウェイトを置かない）
+    let x = containerWidth;
+
+    const step = () => {
+      if (container.dataset.marqueeFrame) {
+        cancelAnimationFrame(Number(container.dataset.marqueeFrame));
+      }
+
+      x -= 2.0;
+
+      if (x < -textWidth) {
+        // スクロール完了 → 次のセグメントへ
+        showSegment(segmentIndex + 1);
+        return;
+      }
+
+      textElement.style.transform = `translateX(${x}px)`;
       container.dataset.marqueeFrame = String(requestAnimationFrame(step));
-      return;
-    }
+    };
 
-    currentX -= speed;
-
-    if (currentX < -textWidth) {
-      currentSegmentIndex = (currentSegmentIndex + 1) % stopSequence.length;
-      container.dataset.stopIndex = String(currentSegmentIndex);
-      textElement.innerHTML = enlargeAlnum(stopSequence[currentSegmentIndex]);
-      updateServiceLabel();
-      currentX = containerWidth;
-      waitTicks = 30;
-    }
-
-    textElement.style.transform = `translateX(${currentX}px)`;
     container.dataset.marqueeFrame = String(requestAnimationFrame(step));
   };
 
-  if (stopSequence.length > 1) {
-    textElement.innerHTML = enlargeAlnum(stopSequence[currentSegmentIndex]);
-  }
-
-  updateServiceLabel();
-  container.dataset.stopIndex = String(currentSegmentIndex);
-  container.dataset.marqueeFrame = String(requestAnimationFrame(step));
+  showSegment(currentSegmentIndex);
 }
 
 function stopStopStationMarquee(container) {
   if (container.dataset.marqueeFrame) {
     cancelAnimationFrame(Number(container.dataset.marqueeFrame));
     container.dataset.marqueeFrame = '';
+  }
+  if (container.dataset.marqueeTimeout) {
+    clearTimeout(Number(container.dataset.marqueeTimeout));
+    container.dataset.marqueeTimeout = '';
   }
 
   const textElement = container.querySelector('.fit-text');
@@ -780,18 +815,18 @@ function fitTextToContainer() {
       - parseFloat(style.paddingRight);
 
     if (container.classList.contains('stops')) {
-      const overflowWidth = text.scrollWidth - availableWidth;
-      const serviceSequence = container.dataset.serviceSequence
-        ? JSON.parse(container.dataset.serviceSequence)
-        : [];
-      const isCombined = serviceSequence.length > 1;
-
-      if (overflowWidth > 1 || isCombined) {
-        container.classList.add('is-marquee');
+      if (container.dataset.serviceSequence && container.dataset.stopSequence) {
+        // 停車駅表示はセグメントごとに固定/スクロールを判定する
         startStopStationMarquee(container, text);
       } else {
-        container.classList.remove('is-marquee');
-        stopStopStationMarquee(container);
+        const overflowWidth = text.scrollWidth - availableWidth;
+        if (overflowWidth > 1) {
+          container.classList.add('is-marquee');
+          startStopStationMarquee(container, text);
+        } else {
+          container.classList.remove('is-marquee');
+          stopStopStationMarquee(container);
+        }
       }
 
       return;
@@ -1101,13 +1136,18 @@ async function init() {
     boards = getHardcodedBoards();
   }
 
-display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
+  display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');
 
-fitTextToContainer();
+  fitTextToContainer();
   startRemarkCycler();
   startArrivalMonitor();
   startDepartureAdvanceMonitor();
   fitBoardsToViewport();
+
+  // 放送機能の初期化（script2.js）
+  if (window.initBroadcast) {
+    window.initBroadcast(boards);
+  }
 }
 
 window.addEventListener('resize', () => {

@@ -1,23 +1,40 @@
-# TODO
+# 放送機能の追加
 
-## Task: remarks を先頭種別の実際の座席情報で表示する
+## タスク
+- [x] 計画の作成と承認
+- [x] `script2.js` を作成（発車メロディ + 放送ロジック）
+- [x] `index.html` に `script2.js` を追加
+- [x] `script.js` に `boards` データ公開と放送初期化処理を追加
+- [x] テスト・動作確認
 
-- [x] Plan confirmed
-- [x] `script.js` - Extract `FORMATION_CAR_COUNT` constant and refactor `computeCarCount` to use it
-- [x] `script.js` - Add `computeFirstServiceCarCount` helper (first service's car count from shotei)
-- [x] `script.js` - Add `computeServiceRemark` helper (single service remark logic)
-- [x] `script.js` - Refactor `computeRemarks`:
-  - Combined trains: show first service's actual remark (e.g., はやぶさ全車指定席, やまびこ自由席1~7号車)
-  - Single trains: show remark as before
-- [x] Verify the changes
+# remarks と remarks2 の表示改善
 
-## Task: 併結列車のはやぶさを黄緑色で表示する
+## タスク
+- [x] `script.js` - `FORMATION_CAR_COUNT` 定数を抽出し `computeCarCount` をリファクタリング
+- [x] `script.js` - `computeFirstServiceCarCount` ヘルパーを追加（併結列車の先頭種別の両数）
+- [x] `script.js` - `computeServiceRemark` ヘルパーを追加（単一種別の remarks ロジック）
+- [x] `script.js` - `computeRemarks` をリファクタリング:
+  - 併結列車: 先頭種別の実際の remarks を表示（例: はやぶさ全車指定席, やまびこ自由席1~7号車）
+  - 単独列車: 従来どおり
+- [x] テスト・動作確認
 
-- [x] Plan confirmed
-- [x] `script.js` - Add `getServiceDestination` helper (per-service destination for combined trains)
-- [x] `script.js` - Update `renderService` to pass per-service destination to `getServiceColor`
-- [x] `script.js` - Update `getTrainAccentColors` to pass per-service destination
-- [x] `script.js` - Update `renderStopsLine` to pass first service's destination
-- [x] `script.js` - Update `startStopStationMarquee`'s `updateServiceLabel` to pass per-service destination
-- [x] `script.js` - Update `renderBoard`'s `numberColor` to pass last service's destination
-- [ ] Verify はやぶさ・こまち (新函館北斗行) displays はやぶさ in yellow-green
+# 併結列車のはやぶさを黄緑色で表示
+
+## タスク
+- [x] `script.js` - `getServiceDestination` ヘルパーを追加（併結列車のサービスごとの行先）
+- [x] `script.js` - `renderService` を更新（サービスごとの行先で色を決定）
+- [x] `script.js` - `getTrainAccentColors` を更新
+- [x] `script.js` - `renderStopsLine` を更新
+- [x] `script.js` - `startStopStationMarquee` の `updateServiceLabel` を更新
+- [x] `script.js` - `renderBoard` の `numberColor` を更新
+- [x] テスト・動作確認
+
+# 停車駅のセグメントごとに固定/スクロールを切り替える
+
+## タスク
+- [x] 計画の作成と承認
+- [x] `script.js` - `startStopStationMarquee` を書き換え:
+  - 各セグメントを独立に評価: 収まる場合は固定表示（7秒で切替）、あふれる場合はスクロール
+- [x] `script.js` - `stopStopStationMarquee` を更新（7秒タイマーをクリア）
+- [x] `fitTextToContainer` を更新（`isCombined` による強制スクロールを廃止し、セグメントごとに判定）
+- [x] テスト・動作確認
