@@ -49,16 +49,6 @@ window.DEBUG_TRAINS = [
         carCount: '12両編成',
         stops: ''
     },{
-        platform: 21,
-        time: '',
-        service: 'Maxとき·Maxたにがわ',
-        number: '8530E',
-        displayNumber: '351',
-        destination: '新潟·越後湯沢',
-        remarks: '',
-        carCount: '17両編成',
-        stops: '大宮・熊谷・本庄早稲田・高崎・上毛高原・越後湯沢'
-    },{
         platform: 23,
         time: '21:00',
         service: '回送',
@@ -81,7 +71,7 @@ window.DEBUG_TRAINS = [
     },
     {
         platform: 22,
-        time: '21:35',
+        time: '21:33',
         service: '回送',
         number: '変U109-2',
         displayNumber: ' ',

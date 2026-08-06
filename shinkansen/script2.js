@@ -456,12 +456,9 @@ function createEnableAudioButton() {
         z-index: 99999;
         padding: 10px 20px;
         font-size: 16px;
-        background: #e74c3c;
-        color: #fff;
-        border: 2px solid #fff;
-        border-radius: 8px;
+        background: #ffffff;
+        color: #000000;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         opacity: 1;
     `;
     btn.addEventListener('click', () => {
