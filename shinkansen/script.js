@@ -590,10 +590,12 @@ if (!bottomStopsLine) return;
           if (stopLabel) stopLabel.style.display = 'none';
           if (serviceList) serviceList.style.display = 'none';
           if (stopsEl) stopsEl.style.display = 'none';
-          const msg = document.createElement('span');
+const msg = document.createElement('span');
           msg.className = 'arrival-message';
           msg.textContent = '列車がまいります';
           bottomStopsLine.appendChild(msg);
+          // 「列車がまいります」表示開始時に該当する発車標の表示を更新する
+          fitTextToContainer();
         }
       } else if (bottomStopsLine.dataset.arrivalActive) {
         delete bottomStopsLine.dataset.arrivalActive;
@@ -601,10 +603,12 @@ if (!bottomStopsLine) return;
         if (msg) msg.remove();
         const stopLabel = bottomStopsLine.querySelector('.stop-label');
         const serviceList = bottomStopsLine.querySelector('.stop-service-list');
-        const stopsEl = bottomStopsLine.querySelector('.stops');
+const stopsEl = bottomStopsLine.querySelector('.stops');
         if (stopsEl) stopsEl.style.display = '';
         if (stopLabel) stopLabel.style.display = '';
         if (serviceList) serviceList.style.display = '';
+        // 「列車がまいります」表示終了時に該当する発車標の表示を更新する
+        fitTextToContainer();
       }
     });
   }, 100);

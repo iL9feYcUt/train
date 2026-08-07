@@ -38,3 +38,11 @@
 - [x] `script.js` - `stopStopStationMarquee` を更新（7秒タイマーをクリア）
 - [x] `fitTextToContainer` を更新（`isCombined` による強制スクロールを廃止し、セグメントごとに判定）
 - [x] テスト・動作確認
+
+# 「列車がまいります」の表示開始時・終了時に発車標を表示更新
+
+## タスク
+- [x] `script.js` - `startArrivalMonitor` を更新:
+  - 「列車がまいります」表示開始時（`.arrival-message` 追加後）に `fitTextToContainer()` を呼び出して該当発車標の表示を更新
+  - 表示終了時（`.arrival-message` 除去・停車駅復元後）に `fitTextToContainer()` を呼び出して停車駅のマーキー/スクロールを再初期化
+- [x] テスト・動作確認
