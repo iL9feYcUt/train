@@ -39,6 +39,16 @@ window.DEBUG_TRAINS = [
     //   }
     // },
     {
+        platform: 21,
+        time: '',
+        service: 'やまびこ·つばさ',
+        number: '8530E',
+        displayNumber: '97',
+        destination: '仙台·山形·新庄',
+        remarks: '',
+        carCount: '17両編成',
+        stops: ''
+    },{
         platform: 23,
         time: '14:30',
         service: '回送',

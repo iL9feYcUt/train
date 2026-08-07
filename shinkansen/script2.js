@@ -156,6 +156,35 @@ function normalizeAudioFileName(name) {
     return n;
 }
 
+// 併結列車の各サービスに対応する「最終行先」を取得する。
+// 表示上の行先は種別順に並ぶため、複合行先（例: 山形・新庄）は後方の行先が最終行先になる。
+// 例) やまびこ・つばさ / 仙台・山形・新庄
+//     -> やまびこ: 仙台, つばさ: 新庄
+// 例) はやぶさ・こまち / 新函館北斗・秋田
+//     -> はやぶさ: 新函館北斗, こまち: 秋田
+function getFinalDestinations(serviceText, destination) {
+    const serviceNames = (serviceText || '').split(/[・·]/).filter(Boolean);
+    const dests = (destination || '').split(/[・·]/).filter(Boolean);
+    const result = [];
+
+    serviceNames.forEach((serviceName, index) => {
+        // script.js の getServiceTerminals でこのサービスに属する行先を特定する
+        const terminals = (typeof getServiceTerminals === 'function')
+            ? getServiceTerminals(serviceName)
+            : new Set();
+        const matched = dests.filter((d) => terminals.has(d));
+        // このサービスに属する行先があれば最後のもの（最終行先）を使う
+        if (matched.length > 0) {
+            result.push(matched[matched.length - 1]);
+        } else {
+            // 属する行先が特定できない場合は、表示順の該当インデックスをフォールバック
+            result.push(dests[index] || '');
+        }
+    });
+
+    return result;
+}
+
 function getCosmosPlaybackParts(trackNum, train) {
     const parts = [];
     parts.push([`COSMOS/track_from/${trackNum}.mp3`]);
@@ -170,10 +199,13 @@ function getCosmosPlaybackParts(trackNum, train) {
         const noParts = buildNoParts(digits.h, digits.t, digits.o);
         noParts.forEach(p => parts.push(p));
         if (dests[0]) parts.push([`COSMOS/stations_up/${dests[0]}.mp3`]);
-    } else {
+} else {
         // 併結列車
-        const dest1 = dests[0] || '';
-        const dest2 = dests[1] || '';
+        // 各サービスの最終行先を使う（例: やまびこ・つばさ / 仙台・山形・新庄
+        // なら つばさの最終行先は「新庄」なので新庄.mp3 を使う）
+        const finalDests = getFinalDestinations(train.service, train.destination).map(normalizeAudioFileName);
+        const dest1 = finalDests[0] || '';
+        const dest2 = finalDests[1] || '';
         const name1 = serviceNames[0] || '';
         const name2 = serviceNames[1] || '';
 
