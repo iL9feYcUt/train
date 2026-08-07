@@ -997,6 +997,7 @@ return {
         time: d.time,
         service: d.service || '',
         number: d.number || '',               // unban（編成番号）
+        unban: normalizeUnban(d.number || ''), // 編成番号（折り返し照合用）
         displayNumber: d.displayNumber || '', // 発車標に表示する号数
         destination: d.destination || '',
         remarks: d.remarks || '',
@@ -1045,19 +1046,32 @@ async function buildTrainData() {
       }
     });
 
-    // 着列車(kudari)から、各番線の到着時刻を収集（「列車がまいります」用）
+// 着列車(kudari)から、各番線の到着時刻を収集（「列車がまいります」用）
+    // および到着列車オブジェクトを収集（到着放送用）
     const arrivalsByPlatform = {};
-    PLATFORMS.forEach((p) => { arrivalsByPlatform[p] = []; });
+    const arrivalTrainsByPlatform = {};
+    PLATFORMS.forEach((p) => {
+      arrivalsByPlatform[p] = [];
+      arrivalTrainsByPlatform[p] = [];
+    });
     kudari.forEach((t) => {
       if (isHiddenTrain(t.retsuban)) return;
       let platform = Number(t.bansen);
-if (!PLATFORMS.includes(platform) && t.unban) {
+      if (!PLATFORMS.includes(platform) && t.unban) {
         platform = unbanToPlatform[normalizeUnban(t.unban)] || platform;
       }
       if (!PLATFORMS.includes(platform)) return;
       const arrivalMs = parseTimeToMs(t.train_time, now);
       if (arrivalMs != null) {
         arrivalsByPlatform[platform].push(arrivalMs);
+        const arrivalService = normalizeService(t.shubetsu);
+        arrivalTrainsByPlatform[platform].push({
+          unban: normalizeUnban(t.unban),
+          service: arrivalService,
+          number: t.retsuban || '',
+          platform,
+          arrivalMs,
+        });
       }
     });
 
@@ -1076,12 +1090,13 @@ const serviceText = normalizeService(t.shubetsu);
       const destText = normalizeDestination(t.ikisaki, t.shubetsu);
       const carCount = computeCarCount(serviceText, t.shotei);
 
-      const train = {
+const train = {
         retsuban_id: t.retsuban_id,
         time: t.train_time,
         departureMs: parseTimeToMs(t.train_time, now),
         service: serviceText,
         number: retsuban,
+        unban: normalizeUnban(t.unban), // 編成番号（折り返し照合用）
         destination: destText,
         remarks: computeRemarks(t, serviceText, carCount),
         remarks2: computeRemarks2(serviceText),
@@ -1103,12 +1118,17 @@ const serviceText = normalizeService(t.shubetsu);
       trainsByPlatform[platform].push(train);
     }
 
-    // 各番線の到着時刻を保存（scene の data-arrivals に使う）
+// 各番線の到着時刻を保存（scene の data-arrivals に使う）
     PLATFORMS.forEach((p) => {
       if (!trainsByPlatform[p].__arrivals) {
         trainsByPlatform[p].__arrivals = [];
       }
       trainsByPlatform[p].__arrivals.push(...arrivalsByPlatform[p]);
+
+      if (!trainsByPlatform[p].__arrivalTrains) {
+        trainsByPlatform[p].__arrivalTrains = [];
+      }
+      trainsByPlatform[p].__arrivalTrains.push(...arrivalTrainsByPlatform[p]);
     });
   }
 
@@ -1118,11 +1138,12 @@ const serviceText = normalizeService(t.shubetsu);
   });
 
   // 各番線で発車時刻順に並べる（全列車を保持。表示は先頭の MAX_PER_PLATFORM 本のみ）
-  const boards = PLATFORMS.map((platform) => {
+const boards = PLATFORMS.map((platform) => {
     const platformArr = trainsByPlatform[platform];
     const departures = [...platformArr].sort((a, b) => (a.departureMs || 0) - (b.departureMs || 0));
     const arrivals = [...(platformArr.__arrivals || [])].sort((a, b) => a - b);
-    return { platform, departures, arrivals };
+    const arrivalTrains = [...(platformArr.__arrivalTrains || [])].sort((a, b) => a.arrivalMs - b.arrivalMs);
+    return { platform, departures, arrivals, arrivalTrains };
   });
 
   return boards;

@@ -14,8 +14,9 @@ const BROADCAST_DELAY_MS = 6500; // メロディ開始から放送開始まで�
 
 // ---- 状態管理 ----
 const broadcastState = {
-    scheduled: new Set(), // スケジュール済みの列車ID
-    active: false,        // 放送中フラグ
+    scheduled: new Set(),       // スケジュール済みの発車列車ID
+    arrivalScheduled: new Set(),// スケジュール済みの到着列車ID
+    active: false,              // 放送中フラグ
 };
 
 // 放送用の各列車を一意に識別するID
@@ -53,11 +54,23 @@ function preloadAllAudio(boards) {
         'COSMOS/name/回送.mp3'
     ].forEach(url => preloadAudio(url));
 
-    // 番線関連をプリロード
+// 番線関連をプリロード
     BROADCAST_PLATFORMS.forEach(p => {
         preloadAudio(`COSMOS/track_from/${p}.mp3`);
         preloadAudio(`COSMOS/track_of/${p}.mp3`);
+        preloadAudio(`COSMOS/track_to/${p}.mp3`);
     });
+
+    // 到着放送用の固定フレーズをプリロード
+    [
+        'COSMOS/COSMOS接近音.mp3',
+        'COSMOS/入ります.mp3',
+        'COSMOS/この電車は.mp3',
+        'COSMOS/当駅止まりです.mp3',
+        'COSMOS/折り返し.mp3',
+        'COSMOS/回送電車となります.mp3',
+        'COSMOS/行となります.mp3'
+    ].forEach(url => preloadAudio(url));
 
     // 列車データから必要な音声をプリロード
     boards.forEach(board => {
@@ -185,10 +198,31 @@ function getFinalDestinations(serviceText, destination) {
     return result;
 }
 
-function getCosmosPlaybackParts(trackNum, train) {
-    const parts = [];
-    parts.push([`COSMOS/track_from/${trackNum}.mp3`]);
+// 併結列車の各サービスに対応する「最終行先」を取得する。
+// (既存の getFinalDestinations と同じロジック。script2.js 内で自己完結するよう定義)
+function getFinalDestinationsLocal(serviceText, destination) {
+    const serviceNames = (serviceText || '').split(/[・·]/).filter(Boolean);
+    const dests = (destination || '').split(/[・·]/).filter(Boolean);
+    const result = [];
 
+    serviceNames.forEach((serviceName, index) => {
+        const terminals = (typeof getServiceTerminals === 'function')
+            ? getServiceTerminals(serviceName)
+            : new Set();
+        const matched = dests.filter((d) => terminals.has(d));
+        if (matched.length > 0) {
+            result.push(matched[matched.length - 1]);
+        } else {
+            result.push(dests[index] || '');
+        }
+    });
+
+    return result;
+}
+
+// 列車名 + 号数 + 行先 のパーツを構築する（発車放送・折り返し後列車の放送で共用）
+function getTrainNameNumberDestParts(train) {
+    const parts = [];
     const serviceNames = (train.service || '').split(/[・·]/).filter(Boolean);
     const dests = (train.destination || '').split(/[・·]/).filter(Boolean).map(normalizeAudioFileName);
     const digits = extractNumberDigits(train);
@@ -199,18 +233,14 @@ function getCosmosPlaybackParts(trackNum, train) {
         const noParts = buildNoParts(digits.h, digits.t, digits.o);
         noParts.forEach(p => parts.push(p));
         if (dests[0]) parts.push([`COSMOS/stations_up/${dests[0]}.mp3`]);
-} else {
-        // 併結列車
-        // 各サービスの最終行先を使う（例: やまびこ・つばさ / 仙台・山形・新庄
-        // なら つばさの最終行先は「新庄」なので新庄.mp3 を使う）
-        const finalDests = getFinalDestinations(train.service, train.destination).map(normalizeAudioFileName);
+    } else {
+        const finalDests = getFinalDestinationsLocal(train.service, train.destination).map(normalizeAudioFileName);
         const dest1 = finalDests[0] || '';
         const dest2 = finalDests[1] || '';
         const name1 = serviceNames[0] || '';
         const name2 = serviceNames[1] || '';
 
         if (dest1 !== dest2) {
-            // 行先が異なる場合
             if (name1) parts.push([`COSMOS/name/${name1}.mp3`]);
             const noPartsA = buildNoParts(digits.h, digits.t, digits.o);
             noPartsA.forEach(p => parts.push(p));
@@ -222,7 +252,6 @@ function getCosmosPlaybackParts(trackNum, train) {
             noPartsB.forEach(p => parts.push(p));
             if (dest2) parts.push([`COSMOS/stations_up/${dest2}.mp3`]);
         } else {
-            // 行先が同じ場合
             if (name1) parts.push([`COSMOS/name/${name1}.mp3`]);
             const noPartsA = buildNoParts(digits.h, digits.t, digits.o);
             if (noPartsA.length > 0) {
@@ -252,6 +281,214 @@ function getCosmosPlaybackParts(trackNum, train) {
     }
 
     return parts;
+}
+
+function getCosmosPlaybackParts(trackNum, train) {
+    const parts = [];
+    parts.push([`COSMOS/track_from/${trackNum}.mp3`]);
+    const nameNumberDest = getTrainNameNumberDestParts(train);
+    nameNumberDest.forEach(p => parts.push(p));
+    return parts;
+}
+
+// ============================================================
+// 到着放送パーツ構築
+// ============================================================
+
+// 号数パーツを「が」または「と」付きで構築する。
+// 例) 122号が -> 100 + 20 + 2号が
+//     230号が -> 200 + 30号が
+//     122号と -> 100 + 20 + 2号と
+function buildArrivalNoParts(hund, ten, one, ending) {
+    const parts = [];
+    const hd = parseInt(hund, 10) || 0;
+    const td = parseInt(ten, 10) || 0;
+    const od = parseInt(one, 10) || 0;
+    const h = hd * 100;
+    const t = td * 10;
+    const o = od;
+
+    // ちょうど百の倍数（例: 100,200,300...）
+    if (h > 0 && t === 0 && o === 0) {
+        parts.push([`COSMOS/no/${h}号${ending}.mp3`, `COSMOS/no/${h}号.mp3`]);
+        return parts;
+    }
+
+    // 百の位
+    if (h > 0) {
+        parts.push([`COSMOS/no/${h}.mp3`, `COSMOS/no/${h}号${ending}.mp3`]);
+    }
+
+    // 十の位
+    if (t > 0) {
+        if (o === 0) {
+            parts.push([`COSMOS/no/${t}号${ending}.mp3`, `COSMOS/no/${t}.mp3`, `COSMOS/no/${t}号.mp3`]);
+        } else {
+            parts.push([`COSMOS/no/${t}.mp3`, `COSMOS/no/${t}号${ending}.mp3`]);
+        }
+    }
+
+    // 一の位
+    if (o > 0) {
+        parts.push([`COSMOS/no/${o}号${ending}.mp3`, `COSMOS/no/${o}号.mp3`]);
+    }
+
+    return parts;
+}
+
+// 到着列車の「列車名と号数」パーツを構築する。
+// 単独: 列車名 + 号数が  （例: はやぶさ + 10 + 2号が）
+// 併結: 列車名1 + 号数と + 列車名2 + 号数が  （例: はやぶさ + 10 + 2号と + こまち + 10 + 2号が）
+function buildArrivalIdentityParts(arrival) {
+    const parts = [];
+    const serviceNames = (arrival.service || '').split(/[・·]/).filter(Boolean);
+    const digits = extractNumberDigits(arrival);
+    const coupled = serviceNames.length > 1;
+
+    if (!coupled) {
+        if (serviceNames[0]) parts.push([`COSMOS/name/${serviceNames[0]}.mp3`]);
+        const noParts = buildArrivalNoParts(digits.h, digits.t, digits.o, 'が');
+        noParts.forEach(p => parts.push(p));
+    } else {
+        // 併結列車
+        if (serviceNames[0]) parts.push([`COSMOS/name/${serviceNames[0]}.mp3`]);
+        const noPartsA = buildArrivalNoParts(digits.h, digits.t, digits.o, 'と');
+        noPartsA.forEach(p => parts.push(p));
+
+        if (serviceNames[1]) parts.push([`COSMOS/name/${serviceNames[1]}.mp3`]);
+        const noPartsB = buildArrivalNoParts(digits.h, digits.t, digits.o, 'が');
+        noPartsB.forEach(p => parts.push(p));
+    }
+
+    return parts;
+}
+
+// 折り返し後発車時刻を「時」と「分発」に分けてパーツを構築する。
+// 例) 9:05 -> 9時 + 5分発
+//     11:32 -> 10 + 1時 + 30 + 2分発
+//     20:30 -> 20時 + 30分発
+// こちらはすべて COSMOS/time/ に入っている。
+function buildTimeParts(timeStr) {
+    const parts = [];
+    if (!timeStr) return parts;
+    const [hStr, mStr] = String(timeStr).split(':');
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    if (isNaN(h)) return parts;
+
+    // 時の放送。10〜19は「10+{一の位}時」、20以上は「{十の位}0時」
+    if (h >= 10 && h < 20) {
+        const tens = Math.floor(h / 10) * 10; // 10
+        parts.push([`COSMOS/time/${tens}.mp3`]);
+        const ones = h % 10;
+        parts.push([`COSMOS/time/${ones}時.mp3`]);
+    } else {
+        parts.push([`COSMOS/time/${h}時.mp3`]);
+    }
+
+// 分の放送
+    if (!isNaN(m) && m > 0) {
+        if (m >= 10 && (m % 10) !== 0) {
+            // 10の倍数でない端数の分（例: 32 → 30 + 2分発）
+            const tens = Math.floor(m / 10) * 10;
+            parts.push([`COSMOS/time/${tens}.mp3`]);
+            const ones = m % 10;
+            parts.push([`COSMOS/time/${ones}分発.mp3`]);
+        } else {
+            // 10の倍数または1桁の分（例: 20 → 20分発, 5 → 5分発）
+            parts.push([`COSMOS/time/${m}分発.mp3`]);
+        }
+    } else if (!isNaN(m) && m === 0) {
+        parts.push([`COSMOS/time/0分発.mp3`]);
+    }
+
+    return parts;
+}
+
+// ============================================================
+// 到着放送再生
+// ============================================================
+
+// 到着放送を再生する。
+// pattern 1: 旅客列車到着 → 折り返し旅客列車
+// pattern 2: 旅客列車到着 → 回送電車または不明
+function startArrivalBroadcast(platform, arrival, returnTrain) {
+    const onBroadcastFinished = () => {
+        broadcastState.active = false;
+    };
+
+    const parts = [];
+    // 接近音
+    parts.push(['COSMOS/COSMOS接近音.mp3']);
+    // 番線
+    parts.push([`COSMOS/track_to/${platform}.mp3`]);
+    // 到着の列車名と号数
+    const identityParts = buildArrivalIdentityParts(arrival);
+    identityParts.forEach(p => parts.push(p));
+    // 入ります
+    parts.push(['COSMOS/入ります.mp3']);
+    // この電車は
+    parts.push(['COSMOS/この電車は.mp3']);
+    // 当駅止まりです
+    parts.push(['COSMOS/当駅止まりです.mp3']);
+    // 黄色い点字ブロック
+    parts.push(['COSMOS/黄色い点字ブロック.mp3']);
+    // この電車は
+    parts.push(['COSMOS/この電車は.mp3']);
+    // 折り返し
+    parts.push(['COSMOS/折り返し.mp3']);
+
+    if (returnTrain && returnTrain.service !== '回送') {
+        // pattern 1: 折り返し後発車時刻 + 折り返し後列車名号数行先 + 行となります
+        const timeParts = buildTimeParts(returnTrain.time);
+        timeParts.forEach(p => parts.push(p));
+        const returnTrainParts = getTrainNameNumberDestParts(returnTrain);
+        returnTrainParts.forEach(p => parts.push(p));
+        parts.push(['COSMOS/行となります.mp3']);
+    } else {
+        // pattern 2: 回送電車となります
+        parts.push(['COSMOS/回送電車となります.mp3']);
+    }
+
+    broadcastState.active = true;
+    playPartsWithFallbacks(parts, onBroadcastFinished);
+}
+
+// ============================================================
+// 到着時刻の監視
+// ============================================================
+
+function checkArrivals(boards) {
+    const now = Date.now();
+    boards.forEach(board => {
+        const platform = board.platform;
+        (board.arrivalTrains || []).forEach(arrival => {
+            const arrivalMs = arrival.arrivalMs;
+            if (!arrivalMs) return;
+
+            const arrivalId = getTrainId(platform, arrival);
+            if (broadcastState.arrivalScheduled.has(arrivalId)) return;
+
+            const msUntilArrival = arrivalMs - now;
+
+            // 到着120秒前になったらスケジュール
+            if (msUntilArrival <= 120000 && msUntilArrival > 0) {
+                broadcastState.arrivalScheduled.add(arrivalId);
+
+                // 到着120秒前に開始
+                const startAt = arrivalMs - 120000;
+                const delay = Math.max(0, startAt - now);
+
+                setTimeout(() => {
+                    // unban で折り返し列車を照合
+                    const returnTrain = (board.departures || []).find(
+                        (t) => t.unban && t.unban === arrival.unban
+                    );
+                    startArrivalBroadcast(platform, arrival, returnTrain);
+                }, delay);
+            }
+        });
+    });
 }
 
 // ============================================================
@@ -514,11 +751,14 @@ function initBroadcast(boards) {
     if (broadcastInitialized) return;
     broadcastInitialized = true;
 
-    // 全音声をプリロード（初回読み込みラグ対策）
+// 全音声をプリロード（初回読み込みラグ対策）
     preloadAllAudio(boards);
 
     // 発車時刻を監視
     setInterval(() => checkDepartures(boards), 1000);
+
+    // 到着時刻を監視（到着120秒前から到着放送）
+    setInterval(() => checkArrivals(boards), 1000);
 }
 
 // window に公開
