@@ -376,12 +376,18 @@ function buildTimeParts(timeStr) {
     const m = parseInt(mStr, 10);
     if (isNaN(h)) return parts;
 
-    // 時の放送。10〜19は「10+{一の位}時」、20以上は「{十の位}0時」
+// 時の放送。10ちょうどは「10時」、11〜19は「10+{一の位}時」、それ以外は「{h}時」
     if (h >= 10 && h < 20) {
-        const tens = Math.floor(h / 10) * 10; // 10
-        parts.push([`COSMOS/time/${tens}.mp3`]);
         const ones = h % 10;
-        parts.push([`COSMOS/time/${ones}時.mp3`]);
+        if (ones === 0) {
+            // 10時（例: 10:20 → 10時.mp3）
+            parts.push([`COSMOS/time/10時.mp3`]);
+        } else {
+            // 11〜19（例: 11:32 → 10.mp3 + 1時.mp3）
+            const tens = Math.floor(h / 10) * 10; // 10
+            parts.push([`COSMOS/time/${tens}.mp3`]);
+            parts.push([`COSMOS/time/${ones}時.mp3`]);
+        }
     } else {
         parts.push([`COSMOS/time/${h}時.mp3`]);
     }
