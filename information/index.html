@@ -66,8 +66,12 @@
       return key ? STATUS_ICONS[key] : "❗";
     }
 
+    function formatNote(note, routeName) {
+      return note.split(`。${routeName}`).join(`。\n\n${routeName}`);
+    }
+
     function formatInfo(info, route) {
-      const note = japanese(info["odpt:trainInformationText"]);
+      const note = formatNote(japanese(info["odpt:trainInformationText"]), route.name);
       const status = japanese(info["odpt:trainInformationStatus"]) || "お知らせ";
       const time = formatTime(info["dc:date"]);
       return `${iconFor(status)}${status}\n${note}${time ? `(${time}現在)` : ""}`;
