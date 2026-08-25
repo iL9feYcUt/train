@@ -201,6 +201,14 @@ const FORMATION_CAR_COUNT = {
   'W7系': 12,
 };
 
+// 車種データ（shotei）が未提供の場合でも、列車名から確定できる編成を補完する。
+// API から車種が取得できる場合は、そちらを常に優先する。
+const SERVICE_FORMATION = {
+  'こまち': 'E6系',
+  'つばさ': 'E8系',
+  'とき': 'E7系',
+};
+
 // 両数の計算。shotei 例: "E5系+E6系", "E2系", "E7系 新潟車"
 function computeCarCount(serviceText, shotei) {
   const serviceNames = getServiceNames(serviceText);
@@ -224,6 +232,14 @@ function computeCarCount(serviceText, shotei) {
   }
 
   if (found) return total;
+
+  // shotei がない列車は、列車名から車種を導出して両数を表示する。
+  // 併結時は上で確定両数を返しているため、ここでは単独列車を補完する。
+  if (serviceNames.length === 1) {
+    const formation = SERVICE_FORMATION[serviceNames[0]];
+    if (formation) return FORMATION_CAR_COUNT[formation];
+  }
+
   return 0;
 }
 

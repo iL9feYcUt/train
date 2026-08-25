@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JR東日本 運行情報テキスト</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; color: #202124; background: #f6f7f8; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+    main { width: min(720px, calc(100% - 32px)); }
+    h1 { font-size: 1.25rem; margin: 0 0 18px; }
+    form { display: flex; gap: 8px; margin-bottom: 16px; }
+    label { display: grid; gap: 5px; flex: 1; font-size: .82rem; font-weight: 700; }
+    input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #b9bec4; border-radius: 7px; padding: 10px 11px; font: inherit; font-weight: 400; }
+    button { align-self: end; border: 0; border-radius: 7px; background: #007a43; color: white; padding: 11px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+    button:hover { background: #006637; }
+    .card { background: #fff; border: 1px solid #e1e4e7; border-radius: 10px; padding: 22px; box-shadow: 0 2px 8px #00000009; }
+    #result { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 1rem/1.8 ui-monospace, "SFMono-Regular", Consolas, monospace; }
+    #message { min-height: 1.5em; margin: 0 0 10px; color: #5f6368; font-size: .88rem; }
+    .error { color: #b3261e !important; }
+    .source { margin: 14px 0 0; font-size: .82rem; }
+    .source a { color: #0069b4; }
+    @media (max-width: 480px) { form { align-items: end; } button { padding-inline: 12px; } .card { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>JR東日本 運行情報</h1>
+    <form id="line-form">
+      <label>lineid
+        <input id="lineid" name="lineid" required pattern="[A-Za-z0-9_-]+" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="submit">取得</button>
+    </form>
+    <section class="card" aria-live="polite">
+      <p id="message">運行情報を取得しています…</p>
+      <pre id="result"></pre>
+      <p class="source"><a id="source" target="_blank" rel="noopener">JR東日本の運行情報を開く</a></p>
+    </section>
+  </main>
+
+  <script>
+    const STATUS_ICONS = {
+      "お知らせ": "❗",
+      "運転見合わせ": "❌",
+      "運転再開見込み": "❌",
+      "運転再開": "🔺",
+      "遅延": "🔺",
+      "一部運休": "🔺",
+      "経路変更": "⭕",
+      "直通運転中止": "↩"
+    };
+    const params = new URLSearchParams(location.search);
+    const input = document.querySelector("#lineid");
+    const message = document.querySelector("#message");
+    const result = document.querySelector("#result");
+    const source = document.querySelector("#source");
+    input.value = params.get("lineid") || "takasakiline";
+
+    function sourceUrl(lineid) {
+      return `https://traininfo.jreast.co.jp/train_info/line.aspx?gid=1&lineid=${encodeURIComponent(lineid)}`;
+    }
+
+    function text(element) {
+      return (element?.textContent || "").replace(/\s+/g, " ").trim();
+    }
+
+    function extractTime(doc) {
+      const heading = [...doc.querySelectorAll(".c-heading-lv3 p")]
+        .map(text).find(value => /現在/.test(value)) || "";
+      const match = heading.match(/(\d{1,2}時\d{1,2}分)\s*現在/);
+      return match ? match[1] : "";
+    }
+
+    function formatInfo(html) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const lineName = text(doc.querySelector(".traininfo-lv1-icon")).replace("（関東エリア）", "").trim();
+      const items = [...doc.querySelectorAll(".traininfo-line-info__item")].map(item => ({
+        status: text(item.querySelector(".traininfo-line-info__status span, .traininfo-line-info__status")),
+        note: text(item.querySelector(".traininfo-line-info__note"))
+      })).filter(item => item.status || item.note);
+      const isNormal = items.some(item => /平常運転/.test(`${item.status} ${item.note}`));
+      if (isNormal || !items.length) return "平常運転";
+
+      const updatedAt = extractTime(doc);
+      const entries = items.map(({ status, note }, index) => {
+        const icon = STATUS_ICONS[status] || "";
+        const heading = `${icon}${status}`.trim();
+        const timestamp = index === items.length - 1 && updatedAt ? `(${updatedAt}現在)` : "";
+        return [heading, `${note}${timestamp}`].filter(Boolean).join("\n");
+      });
+      return `【${lineName || "運行情報"}　運行情報】\n${entries.join("\n\n")}`;
+    }
+
+    async function load(lineid) {
+      const url = sourceUrl(lineid);
+      source.href = url;
+      message.className = "";
+      message.textContent = "運行情報を取得しています…";
+      result.textContent = "";
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        result.textContent = formatInfo(await response.text());
+        message.textContent = "";
+      } catch (error) {
+        message.className = "error";
+        message.textContent = "取得できませんでした。ブラウザのCORS制限により直接取得できない場合があります。";
+      }
+    }
+
+    document.querySelector("#line-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const lineid = input.value.trim();
+      if (!lineid) return;
+      const url = new URL(location.href);
+      url.searchParams.set("lineid", lineid);
+      history.replaceState(null, "", url);
+      load(lineid);
+    });
+    load(input.value);
+  </script>
+</body>
+</html>
