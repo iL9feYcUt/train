@@ -11,13 +11,13 @@
   </style>
 </head>
 <body>
-  <pre id="result" aria-live="polite">運行情報を取得しています…</pre>
+  <pre id="result" aria-live="polite"></pre>
 
   <script>
     const STATUS_ICONS = {
       "お知らせ": "❗",
       "運転見合わせ": "❌",
-      "運転再開見込み": "❌",
+      "運転再開見込": "❌",
       "運転再開": "🔺",
       "遅延": "🔺",
       "一部運休": "🔺",
@@ -29,18 +29,19 @@
     const lineid = params.get("lineid") || "takasakiline";
 
     const API_URL = "https://api-challenge.odpt.org/api/v4/odpt:TrainInformation?odpt:operator=odpt.Operator:jre-is&acl:consumerKey=dys5jrrro1p7kk9096v1sg6ej43xfpghhqtag9dspl3lhxlyhu11y5y12ogoov9w";
+    const RAILWAY_API_URL = "https://api-challenge.odpt.org/api/v4/odpt:Railway?odpt:operator=odpt.Operator:JR-East&acl:consumerKey=dys5jrrro1p7kk9096v1sg6ej43xfpghhqtag9dspl3lhxlyhu11y5y12ogoov9w";
     const LINE_IDS = {
       takasakiline: { railway: "Takasaki", name: "高崎線" },
-      utsunomiyaline: { railway: "Tohoku", name: "宇都宮線" },
+      utsunomiyaline: { railway: "Utsunomiya", name: "宇都宮線" },
       keihintohokuline: { railway: "KeihinTohokuNegishi", name: "京浜東北線・根岸線" },
-      chuo: { railway: "Chuo", name: "中央線" },
-      chuosobuline: { railway: "ChuoSobu", name: "中央・総武線各駅停車" },
+      chuo: { railway: "Chuo", name: "中央本線" },
+      chuosobuline: { railway: "ChuoSobuLocal", name: "中央・総武各駅停車" },
       yokosukaline: { railway: "Yokosuka", name: "横須賀線" },
       soburapidline: { railway: "SobuRapid", name: "総武快速線" },
       jobanline: { railway: "Joban", name: "常磐線" },
-      jobanrapidline: { railway: "JobanRapid", name: "常磐線快速電車" },
+      jobanrapidline: { railway: "JobanRapid", name: "常磐線快速" },
       yamanoteline: { railway: "Yamanote", name: "山手線" },
-      saikyoline: { railway: "Saikyo", name: "埼京線" },
+      saikyoline: { railway: "SaikyoKawagoe", name: "埼京線・川越線" },
       keiyoline: { railway: "Keiyo", name: "京葉線" }
     };
 
@@ -67,22 +68,37 @@
 
     function formatInfo(info, route) {
       const note = japanese(info["odpt:trainInformationText"]);
-      if (note === "平常運転") return "平常運転";
       const status = japanese(info["odpt:trainInformationStatus"]) || "お知らせ";
-      const time = formatTime(info["odpt:timeOfOrigin"] || info["dc:date"]);
-      return `【${route.name}　運行情報】\n${iconFor(status)}${status}\n${note}${time ? `(${time}更新)` : ""}`;
+      const time = formatTime(info["dc:date"]);
+      return `${iconFor(status)}${status}\n${note}${time ? `(${time}現在)` : ""}`;
     }
 
     async function load(lineid) {
-      const route = routeFor(lineid);
-      result.textContent = "運行情報を取得しています…";
+      const requestedRoute = routeFor(lineid);
+      result.textContent = "";
       try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const information = await response.json();
-        const info = information.find(item => item["odpt:railway"] === `odpt.Railway:JR-East.${route.railway}`);
-        if (!info) throw new Error("路線が見つかりません");
-        result.textContent = formatInfo(info, route);
+        const [informationResponse, railwayResponse] = await Promise.all([
+          fetch(API_URL),
+          fetch(RAILWAY_API_URL)
+        ]);
+        if (!informationResponse.ok) throw new Error(`HTTP ${informationResponse.status}`);
+        if (!railwayResponse.ok) throw new Error(`HTTP ${railwayResponse.status}`);
+        const [information, railways] = await Promise.all([
+          informationResponse.json(),
+          railwayResponse.json()
+        ]);
+        const railwayId = `odpt.Railway:JR-East.${requestedRoute.railway}`;
+        const railway = railways.find(item => item["owl:sameAs"] === railwayId);
+        const route = {
+          ...requestedRoute,
+          name: japanese(railway?.["odpt:railwayTitle"]) || requestedRoute.name
+        };
+        const infos = information.filter(item => item["odpt:railway"] === railwayId);
+        if (!infos.length) throw new Error("路線が見つかりません");
+        const activeInfos = infos.filter(info => japanese(info["odpt:trainInformationText"]) !== "平常運転");
+        result.textContent = activeInfos.length
+          ? `【${route.name}  運行情報】\n${activeInfos.map(info => formatInfo(info, route)).join("\n\n")}`
+          : "平常運転";
       } catch (error) {
         result.textContent = "取得できませんでした。しばらくしてから再度お試しください。";
       }
