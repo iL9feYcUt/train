@@ -99,9 +99,12 @@
         const infos = information.filter(item => item["odpt:railway"] === railwayId);
         if (!infos.length) throw new Error("路線が見つかりません");
         const activeInfos = infos.filter(info => japanese(info["odpt:trainInformationText"]) !== "平常運転");
-        result.textContent = activeInfos.length
+        const lastInfo = activeInfos.at(-1) || infos.at(-1);
+        const output = activeInfos.length
           ? `【${route.name}  運行情報】\n${activeInfos.map(info => formatInfo(info, route)).join("\n\n")}`
           : "平常運転";
+        const uuid = lastInfo["@id"].replace(/^urn:uuid:/, "");
+        result.textContent = `${output}\n${uuid}`;
       } catch (error) {
         result.textContent = "取得できませんでした。しばらくしてから再度お試しください。";
       }
