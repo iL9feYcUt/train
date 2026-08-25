@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>JR東日本 運行情報テキスト</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='52'%3E🚆%3C/text%3E%3C/svg%3E">
   <style>
     :root { color-scheme: light; font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; color: #202124; background: #f6f7f8; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
@@ -61,6 +62,12 @@
       return `https://traininfo.jreast.co.jp/train_info/line.aspx?gid=1&lineid=${encodeURIComponent(lineid)}`;
     }
 
+    // JR東日本のサイトはブラウザからのクロスオリジンアクセスを許可していないため、
+    // 静的サイトからは CORS プロキシを経由して取得する。
+    function proxyUrl(url) {
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    }
+
     function text(element) {
       return (element?.textContent || "").replace(/\s+/g, " ").trim();
     }
@@ -99,13 +106,13 @@
       message.textContent = "運行情報を取得しています…";
       result.textContent = "";
       try {
-        const response = await fetch(url);
+        const response = await fetch(proxyUrl(url));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         result.textContent = formatInfo(await response.text());
         message.textContent = "";
       } catch (error) {
         message.className = "error";
-        message.textContent = "取得できませんでした。ブラウザのCORS制限により直接取得できない場合があります。";
+        message.textContent = "取得できませんでした。しばらくしてから再度お試しください。";
       }
     }
 
