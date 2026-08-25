@@ -6,39 +6,12 @@
   <title>JR東日本 運行情報テキスト</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='52'%3E🚆%3C/text%3E%3C/svg%3E">
   <style>
-    :root { color-scheme: light; font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; color: #202124; background: #f6f7f8; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
-    main { width: min(720px, calc(100% - 32px)); }
-    h1 { font-size: 1.25rem; margin: 0 0 18px; }
-    form { display: flex; gap: 8px; margin-bottom: 16px; }
-    label { display: grid; gap: 5px; flex: 1; font-size: .82rem; font-weight: 700; }
-    input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #b9bec4; border-radius: 7px; padding: 10px 11px; font: inherit; font-weight: 400; }
-    button { align-self: end; border: 0; border-radius: 7px; background: #007a43; color: white; padding: 11px 16px; font: inherit; font-weight: 700; cursor: pointer; }
-    button:hover { background: #006637; }
-    .card { background: #fff; border: 1px solid #e1e4e7; border-radius: 10px; padding: 22px; box-shadow: 0 2px 8px #00000009; }
-    #result { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 1rem/1.8 ui-monospace, "SFMono-Regular", Consolas, monospace; }
-    #message { min-height: 1.5em; margin: 0 0 10px; color: #5f6368; font-size: .88rem; }
-    .error { color: #b3261e !important; }
-    .source { margin: 14px 0 0; font-size: .82rem; }
-    .source a { color: #0069b4; }
-    @media (max-width: 480px) { form { align-items: end; } button { padding-inline: 12px; } .card { padding: 16px; } }
+    body { margin: 0; padding: 16px; color: #000; background: #fff; }
+    #result { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 16px/1.5 sans-serif; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>JR東日本 運行情報</h1>
-    <form id="line-form">
-      <label>lineid
-        <input id="lineid" name="lineid" required pattern="[A-Za-z0-9_-]+" autocomplete="off" spellcheck="false">
-      </label>
-      <button type="submit">取得</button>
-    </form>
-    <section class="card" aria-live="polite">
-      <p id="message">運行情報を取得しています…</p>
-      <pre id="result"></pre>
-      <p class="source"><a id="source" target="_blank" rel="noopener">JR東日本の運行情報を開く</a></p>
-    </section>
-  </main>
+  <pre id="result" aria-live="polite">運行情報を取得しています…</pre>
 
   <script>
     const STATUS_ICONS = {
@@ -52,80 +25,69 @@
       "直通運転中止": "↩"
     };
     const params = new URLSearchParams(location.search);
-    const input = document.querySelector("#lineid");
-    const message = document.querySelector("#message");
     const result = document.querySelector("#result");
-    const source = document.querySelector("#source");
-    input.value = params.get("lineid") || "takasakiline";
+    const lineid = params.get("lineid") || "takasakiline";
 
-    function sourceUrl(lineid) {
-      return `https://traininfo.jreast.co.jp/train_info/line.aspx?gid=1&lineid=${encodeURIComponent(lineid)}`;
+    const API_URL = "https://api-challenge.odpt.org/api/v4/odpt:TrainInformation?odpt:operator=odpt.Operator:jre-is&acl:consumerKey=dys5jrrro1p7kk9096v1sg6ej43xfpghhqtag9dspl3lhxlyhu11y5y12ogoov9w";
+    const LINE_IDS = {
+      takasakiline: { railway: "Takasaki", name: "高崎線" },
+      utsunomiyaline: { railway: "Tohoku", name: "宇都宮線" },
+      keihintohokuline: { railway: "KeihinTohokuNegishi", name: "京浜東北線・根岸線" },
+      chuo: { railway: "Chuo", name: "中央線" },
+      chuosobuline: { railway: "ChuoSobu", name: "中央・総武線各駅停車" },
+      yokosukaline: { railway: "Yokosuka", name: "横須賀線" },
+      soburapidline: { railway: "SobuRapid", name: "総武快速線" },
+      jobanline: { railway: "Joban", name: "常磐線" },
+      jobanrapidline: { railway: "JobanRapid", name: "常磐線快速電車" },
+      yamanoteline: { railway: "Yamanote", name: "山手線" },
+      saikyoline: { railway: "Saikyo", name: "埼京線" },
+      keiyoline: { railway: "Keiyo", name: "京葉線" }
+    };
+
+    function routeFor(lineid) {
+      const known = LINE_IDS[lineid.toLowerCase()];
+      if (known) return known;
+      const railway = lineid.replace(/line$/i, "").replace(/(^|[-_])(.)/g, (_, __, letter) => letter.toUpperCase());
+      return { railway, name: railway };
     }
 
-    // JR東日本のサイトはブラウザからのクロスオリジンアクセスを許可していないため、
-    // 静的サイトからは CORS プロキシを経由して取得する。
-    function proxyUrl(url) {
-      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    function japanese(value) {
+      return typeof value === "string" ? value : value?.ja || "";
     }
 
-    function text(element) {
-      return (element?.textContent || "").replace(/\s+/g, " ").trim();
+    function formatTime(value) {
+      const match = String(value || "").match(/T(\d{2}):(\d{2})/);
+      return match ? `${match[1]}時${match[2]}分` : "";
     }
 
-    function extractTime(doc) {
-      const heading = [...doc.querySelectorAll(".c-heading-lv3 p")]
-        .map(text).find(value => /現在/.test(value)) || "";
-      const match = heading.match(/(\d{1,2}時\d{1,2}分)\s*現在/);
-      return match ? match[1] : "";
+    function iconFor(status) {
+      const key = Object.keys(STATUS_ICONS).find(name => status.includes(name));
+      return key ? STATUS_ICONS[key] : "❗";
     }
 
-    function formatInfo(html) {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      const lineName = text(doc.querySelector(".traininfo-lv1-icon")).replace("（関東エリア）", "").trim();
-      const items = [...doc.querySelectorAll(".traininfo-line-info__item")].map(item => ({
-        status: text(item.querySelector(".traininfo-line-info__status span, .traininfo-line-info__status")),
-        note: text(item.querySelector(".traininfo-line-info__note"))
-      })).filter(item => item.status || item.note);
-      const isNormal = items.some(item => /平常運転/.test(`${item.status} ${item.note}`));
-      if (isNormal || !items.length) return "平常運転";
-
-      const updatedAt = extractTime(doc);
-      const entries = items.map(({ status, note }, index) => {
-        const icon = STATUS_ICONS[status] || "";
-        const heading = `${icon}${status}`.trim();
-        const timestamp = index === items.length - 1 && updatedAt ? `(${updatedAt}現在)` : "";
-        return [heading, `${note}${timestamp}`].filter(Boolean).join("\n");
-      });
-      return `【${lineName || "運行情報"}　運行情報】\n${entries.join("\n\n")}`;
+    function formatInfo(info, route) {
+      const note = japanese(info["odpt:trainInformationText"]);
+      if (note === "平常運転") return "平常運転";
+      const status = japanese(info["odpt:trainInformationStatus"]) || "お知らせ";
+      const time = formatTime(info["odpt:timeOfOrigin"] || info["dc:date"]);
+      return `【${route.name}　運行情報】\n${iconFor(status)}${status}\n${note}${time ? `(${time}更新)` : ""}`;
     }
 
     async function load(lineid) {
-      const url = sourceUrl(lineid);
-      source.href = url;
-      message.className = "";
-      message.textContent = "運行情報を取得しています…";
-      result.textContent = "";
+      const route = routeFor(lineid);
+      result.textContent = "運行情報を取得しています…";
       try {
-        const response = await fetch(proxyUrl(url));
+        const response = await fetch(API_URL);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        result.textContent = formatInfo(await response.text());
-        message.textContent = "";
+        const information = await response.json();
+        const info = information.find(item => item["odpt:railway"] === `odpt.Railway:JR-East.${route.railway}`);
+        if (!info) throw new Error("路線が見つかりません");
+        result.textContent = formatInfo(info, route);
       } catch (error) {
-        message.className = "error";
-        message.textContent = "取得できませんでした。しばらくしてから再度お試しください。";
+        result.textContent = "取得できませんでした。しばらくしてから再度お試しください。";
       }
     }
-
-    document.querySelector("#line-form").addEventListener("submit", event => {
-      event.preventDefault();
-      const lineid = input.value.trim();
-      if (!lineid) return;
-      const url = new URL(location.href);
-      url.searchParams.set("lineid", lineid);
-      history.replaceState(null, "", url);
-      load(lineid);
-    });
-    load(input.value);
+    load(lineid);
   </script>
 </body>
 </html>
