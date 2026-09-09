@@ -11,6 +11,9 @@ const MELODY_FILES = {
 };
 const BROADCAST_PLATFORMS = [20, 21, 22, 23];
 const BROADCAST_DELAY_MS = 7000; // メロディ開始から放送開始までの遅延
+const MELODY_DUCK_LEAD_MS = 2000; // 放送開始の何秒前からメロディを下げるか
+const MELODY_DUCK_VOLUME = 0.5;
+const MELODY_FADE_MS = 500;
 
 // ---- 状態管理 ----
 const broadcastState = {
@@ -20,6 +23,56 @@ const broadcastState = {
     standingScheduled: new Set(), // スケジュール済みの停車中放送ID
     active: false,              // 放送中フラグ
 };
+
+let departureMelodyAudio = null;
+let melodyFadeTimer = null;
+let melodyRestoreTimer = null;
+let activeBroadcastCount = 0;
+
+function fadeDepartureMelody(targetVolume) {
+    const audio = departureMelodyAudio;
+    if (!audio || audio.paused || audio.ended) return;
+
+    if (melodyFadeTimer) clearInterval(melodyFadeTimer);
+
+    const startVolume = audio.volume;
+    const startedAt = performance.now();
+    melodyFadeTimer = setInterval(() => {
+        const progress = Math.min((performance.now() - startedAt) / MELODY_FADE_MS, 1);
+        audio.volume = startVolume + (targetVolume - startVolume) * progress;
+        if (progress === 1) {
+            clearInterval(melodyFadeTimer);
+            melodyFadeTimer = null;
+        }
+    }, 16);
+}
+
+// メロディーと重なるすべての放送で音量を下げる。
+// すでに始まっている放送は遅らせず、ただちに再生する。
+function startWithMelodyDucked(startPlayback) {
+    activeBroadcastCount++;
+    const audio = departureMelodyAudio;
+    if (audio && !audio.paused && !audio.ended) {
+        if (melodyRestoreTimer) {
+            clearTimeout(melodyRestoreTimer);
+            melodyRestoreTimer = null;
+        }
+        fadeDepartureMelody(MELODY_DUCK_VOLUME);
+    }
+
+    startPlayback();
+}
+
+function restoreMelodyAfterBroadcast(onFinished) {
+    if (onFinished) onFinished();
+    activeBroadcastCount = Math.max(0, activeBroadcastCount - 1);
+    if (activeBroadcastCount > 0) return;
+
+    melodyRestoreTimer = setTimeout(() => {
+        melodyRestoreTimer = null;
+        fadeDepartureMelody(1);
+    }, MELODY_DUCK_LEAD_MS);
+}
 
 // 放送用の各列車を一意に識別するID
 function getTrainId(platform, train) {
@@ -64,6 +117,7 @@ function preloadAllAudio(boards) {
     });
 
     [
+        'COSMOS/お待たせ致しました.mp3',
         'COSMOS/到着の電車は.mp3',
         'COSMOS/電車は.mp3',
         'COSMOS/折り返し.mp3',
@@ -117,7 +171,10 @@ function preloadAllAudio(boards) {
 // 列車番号から百・十・一の位を抽出
 function extractNumberDigits(train) {
     const number = train.displayNumber || train.number || '';
-    const matches = (number || '').match(/[0-9]+/g) || [];
+    // # 以降は運行上の枝番であり、放送する列車の号数には含めない。
+    // 例) 271B#9/7 -> 271号
+    const mainNumber = String(number).split('#', 1)[0];
+    const matches = mainNumber.match(/[0-9]+/g) || [];
     let digits = '';
     if (matches.length) {
         digits = matches[matches.length - 1].slice(-3).replace(/^0+/, '');
@@ -456,13 +513,32 @@ function isAllReserved(train, serviceName) {
         ['はやぶさ', 'こまち', 'つばさ', 'かがやき'].includes(serviceName);
 }
 
-// 編成形式が将来データに追加された場合はそれを優先し、現行の発車案内データでは
-// 列車種別と両数からグランクラス連結列車を判定する。
-function hasGranClass(train, serviceName) {
+const SERIES_BY_SERVICE = Object.freeze({
+    'はやぶさ': 'E5/H5',
+    'はやて': 'E5/H5',
+    'こまち': 'E6',
+    'つばさ': 'E8',
+    'とき': 'E7/W7',
+    'たにがわ': 'E7/W7',
+    'かがやき': 'E7/W7',
+    'はくたか': 'E7/W7',
+    'あさま': 'E7/W7'
+});
+
+function getTrainSeries(train, serviceName) {
+    if (SERIES_BY_SERVICE[serviceName]) return SERIES_BY_SERVICE[serviceName];
+
     const formation = `${train.formation || ''}${train.shotei || ''}${train.remarks2 || ''}`;
-    if (/(E5|H5|E7|W7)系/.test(formation)) return true;
-    if (['はやぶさ', 'かがやき', 'はくたか', 'あさま', 'つるぎ', 'とき'].includes(serviceName)) return true;
-    return ['やまびこ', 'なすの'].includes(serviceName) && getCarCount(train) === 10;
+    const match = formation.match(/(E2|E5|H5|E6|E7|W7|E8)系/);
+    if (match) return ['E7', 'W7'].includes(match[1]) ? 'E7/W7' : match[1];
+
+    // 17両のやまびこ・なすのは、グランクラス付きのE5/H5系編成として扱う。
+    if (['やまびこ', 'なすの'].includes(serviceName) && getCarCount(train) === 17) return 'E5/H5';
+    return '';
+}
+
+function hasGranClass(train, serviceName) {
+    return ['E5', 'H5', 'E5/H5', 'E7/W7'].includes(getTrainSeries(train, serviceName));
 }
 
 function pushCarPart(parts, filename, fallbackFilename) {
@@ -471,14 +547,26 @@ function pushCarPart(parts, filename, fallbackFilename) {
     parts.push(candidates);
 }
 
-function getServiceStops(train, serviceName, destination) {
+function getServiceStopList(train, serviceName) {
     const source = (train.stopsByService && train.stopsByService[serviceName]) || train.stops || '';
-    const stops = source.split('・').filter(Boolean).map(normalizeAudioFileName);
+    return source.split('・').filter(Boolean).map(normalizeAudioFileName);
+}
+
+function getServiceStops(train, serviceName, destination) {
+    const stops = getServiceStopList(train, serviceName);
     const finalIndex = destination ? stops.lastIndexOf(destination) : -1;
     return finalIndex >= 0 ? stops.slice(0, finalIndex) : stops;
 }
 
 function pushStopsAndTerminalParts(parts, train, serviceName, destination) {
+    const nextStop = getServiceStopList(train, serviceName)[0];
+    if (destination && nextStop === destination) {
+        parts.push(['COSMOS/終点.mp3']);
+        parts.push([`COSMOS/stations_until/${destination}.mp3`]);
+        parts.push(['COSMOS/とまりません.mp3']);
+        return;
+    }
+
     getServiceStops(train, serviceName, destination).forEach(stop => {
         parts.push([`COSMOS/stations/${stop}.mp3`]);
     });
@@ -488,29 +576,43 @@ function pushStopsAndTerminalParts(parts, train, serviceName, destination) {
 }
 
 function pushFreeSeatParts(parts, remarks) {
-    const ranges = [...String(remarks || '').matchAll(/(\d+)~(\d+)号車/g)];
+    // 「1~8,12~17号車」および「1~8,10号車」のような範囲・単独号車の混在に対応する。
+    const ranges = [...String(remarks || '').matchAll(/(\d+)(?:~(\d+))?(?=号車|[,，、]|$)/g)];
     if (!ranges.length) return;
 
     parts.push(['COSMOS/car/自由席は.mp3']);
-    pushCarPart(parts, `${ranges[0][1]}号車から`);
     ranges.forEach((range, index) => {
-        const [, from, to] = range;
-        // 「1〜8、12〜17号車」のように区切れる場合は、次の区間の始点を「と」で接続する。
+        const [, from, rangeEnd] = range;
+        const to = rangeEnd || from;
+        // 単独号車には「から」を付けない。
+        if (from !== to) pushCarPart(parts, `${from}号車から`);
         if (index < ranges.length - 1) {
-            const nextFrom = ranges[index + 1][1];
             pushCarPart(parts, `${to}号車と`);
-            pushCarPart(parts, `${nextFrom}号車から`);
         } else {
             pushCarPart(parts, `${to}号車です`);
         }
     });
 }
 
+function pushGreenCarGuideParts(parts, greenCars, allReserved) {
+    if (!greenCars.length) return;
+
+    parts.push(['COSMOS/car/グリーン車は.mp3']);
+    greenCars.forEach((car, index) => {
+        const isLast = index === greenCars.length - 1;
+        pushCarPart(parts, `${car}号車${isLast && allReserved ? 'です' : isLast ? '' : 'と'}`);
+    });
+}
+
 function pushStandardCarGuideParts(parts, train, serviceName) {
     const allReserved = isAllReserved(train, serviceName);
-    const isE7Family = ['かがやき', 'はくたか', 'あさま', 'つるぎ', 'とき'].includes(serviceName);
     const carCount = getCarCount(train);
-    const greenCar = isE7Family || carCount === 12 ? 11 : (carCount >= 10 ? 9 : 0);
+    const series = getTrainSeries(train, serviceName);
+    const e7W7Series = series === 'E7/W7';
+    const granCar = e7W7Series ? 12 : 10;
+    const greenCars = carCount === 17 && ['はやぶさ', 'やまびこ', 'なすの'].includes(serviceName)
+        ? [9, 11]
+        : [e7W7Series || carCount === 12 ? 11 : (carCount >= 10 ? 9 : 0)].filter(Boolean);
 
     if (allReserved) {
         parts.push(['COSMOS/この電車は.mp3']);
@@ -518,13 +620,9 @@ function pushStandardCarGuideParts(parts, train, serviceName) {
     }
     if (hasGranClass(train, serviceName)) {
         parts.push(['COSMOS/car/グランクラスは.mp3']);
-        pushCarPart(parts, `${isE7Family ? 12 : 10}号車`);
+        pushCarPart(parts, `${granCar}号車`);
     }
-    if (greenCar) {
-        parts.push(['COSMOS/car/グリーン車は.mp3']);
-        // 全車指定席は「○号車です」、自由席がある列車は「○号車」を使用する。
-        pushCarPart(parts, `${greenCar}号車${allReserved ? 'です' : ''}`);
-    }
+    pushGreenCarGuideParts(parts, greenCars, allReserved);
     if (!allReserved) pushFreeSeatParts(parts, train.remarks);
     parts.push(['COSMOS/car/全車両禁煙.mp3']);
 }
@@ -585,7 +683,9 @@ function buildReturnTrainCarCountParts(train) {
 }
 
 function startReversibleFromNonRevenueArrivalBroadcast(platform, returnTrain) {
-    const onBroadcastFinished = () => { broadcastState.active = false; };
+    const onBroadcastFinished = () => restoreMelodyAfterBroadcast(() => {
+        broadcastState.active = false;
+    });
     const parts = [
         ['COSMOS/COSMOS接近音.mp3'],
         [`COSMOS/track_to/${platform}.mp3`]
@@ -605,7 +705,7 @@ function startReversibleFromNonRevenueArrivalBroadcast(platform, returnTrain) {
     parts.push(['COSMOS/黄色い点字ブロック.mp3']);
 
     broadcastState.active = true;
-    playPartsWithFallbacks(parts, onBroadcastFinished);
+    startWithMelodyDucked(() => playPartsWithFallbacks(parts, onBroadcastFinished));
 }
 
 // ============================================================
@@ -622,9 +722,9 @@ function startArrivalBroadcast(platform, arrival, returnTrain) {
         return;
     }
 
-    const onBroadcastFinished = () => {
+    const onBroadcastFinished = () => restoreMelodyAfterBroadcast(() => {
         broadcastState.active = false;
-    };
+    });
 
     const parts = [];
     // 接近音
@@ -662,7 +762,7 @@ function startArrivalBroadcast(platform, arrival, returnTrain) {
     }
 
     broadcastState.active = true;
-    playPartsWithFallbacks(parts, onBroadcastFinished);
+    startWithMelodyDucked(() => playPartsWithFallbacks(parts, onBroadcastFinished));
 }
 
 // ============================================================
@@ -674,9 +774,10 @@ function startEntryBroadcast(platform, arrival, returnTrain) {
     if (!returnTrain || returnTrain.service === '回送') return;
 
     const parts = [
+        ['COSMOS/お待たせ致しました.mp3'],
         [`COSMOS/track_to/${platform}.mp3`],
         ['COSMOS/到着の電車は.mp3']
-    ];
+    ];  
     // 回送到着の場合は「折り返し」を流さない。
     if (arrival.service !== '回送') parts.push(['COSMOS/折り返し.mp3']);
     buildTimeParts(returnTrain.time).forEach(part => parts.push(part));
@@ -685,7 +786,9 @@ function startEntryBroadcast(platform, arrival, returnTrain) {
     // 車両の整備案内は旅客列車からの折り返し時のみ流す。
     if (arrival.service !== '回送') parts.push(['COSMOS/車両の整備.mp3']);
 
-    playPartsWithFallbacks(parts);
+    startWithMelodyDucked(() => playPartsWithFallbacks(parts, () => {
+        restoreMelodyAfterBroadcast();
+    }));
 }
 
 function checkArrivals(boards) {
@@ -848,11 +951,24 @@ function playDepartureMelody(platform, onComplete) {
     const audio = new Audio(url);
     audio.preload = 'auto';
     audio.loop = true; // 複数コーラスの場合にループ
+    audio.volume = 1;
+    departureMelodyAudio = audio;
 
     let completed = false;
     const finish = () => {
         if (completed) return;
         completed = true;
+        if (departureMelodyAudio === audio) {
+            departureMelodyAudio = null;
+            if (melodyFadeTimer) {
+                clearInterval(melodyFadeTimer);
+                melodyFadeTimer = null;
+            }
+            if (melodyRestoreTimer) {
+                clearTimeout(melodyRestoreTimer);
+                melodyRestoreTimer = null;
+            }
+        }
         try { audio.pause(); } catch (e) {}
         try { audio.remove(); } catch (e) {}
         onComplete();
@@ -862,6 +978,8 @@ function playDepartureMelody(platform, onComplete) {
         const duration = audio.duration;
         if (!duration || isNaN(duration)) { finish(); return; }
         audio.play().catch(() => finish());
+        // 入線放送などがすでに流れている場合も、メロディ開始時から減衰する。
+        if (activeBroadcastCount > 0) fadeDepartureMelody(MELODY_DUCK_VOLUME);
         // 指定コーラス数分の再生時間で停止
         setTimeout(finish, duration * choruses * 1000);
     };
@@ -890,12 +1008,23 @@ function startBroadcast(platform, train) {
         // メロディ終了時の処理（何もしない）
     });
 
+    // 放送開始2秒前に、発車メロディーを0.5秒かけて50%まで下げる。
+    setTimeout(() => fadeDepartureMelody(MELODY_DUCK_VOLUME),
+        Math.max(0, BROADCAST_DELAY_MS - MELODY_DUCK_LEAD_MS));
+
     // メロディ開始から6.5秒後に放送開始
     setTimeout(() => {
         if (!broadcastState.active) return;
 
         const onBroadcastFinished = () => {
             broadcastState.active = false;
+            // 放送終了2秒後に、メロディーを0.5秒かけて通常音量へ戻す。
+            restoreMelodyAfterBroadcast();
+        };
+
+        // 発車放送も共通の重複管理に登録する。
+        const startAnnouncementPlayback = (playback) => {
+            startWithMelodyDucked(playback);
         };
 
         if (train.service === '回送') {
@@ -904,14 +1033,14 @@ function startBroadcast(platform, train) {
                 [`COSMOS/track_of/${platform}.mp3`],
                 [`COSMOS/name/回送.mp3`]
             ];
-            playPartsWithFallbacks(parts, onBroadcastFinished);
+            startAnnouncementPlayback(() => playPartsWithFallbacks(parts, onBroadcastFinished));
         } else {
             // 一般列車の放送
             const parts = getCosmosPlaybackParts(platform, train);
             const nextStation = normalizeAudioFileName((train.stops || '').split('・').filter(Boolean)[0] || '');
-            playPartsWithFallbacks(parts, () => {
+            startAnnouncementPlayback(() => playPartsWithFallbacks(parts, () => {
                 playFixedPhrases(nextStation, onBroadcastFinished);
-            });
+            }));
         }
     }, BROADCAST_DELAY_MS);
 }
@@ -924,9 +1053,9 @@ function startBroadcast(platform, train) {
 function startStandingBroadcast(platform, train) {
     if (broadcastState.active) return;
 
-    const onBroadcastFinished = () => {
+    const onBroadcastFinished = () => restoreMelodyAfterBroadcast(() => {
         broadcastState.active = false;
-    };
+    });
     const parts = [
         [`COSMOS/track_of/${platform}.mp3`],
         ['COSMOS/電車は.mp3']
@@ -937,7 +1066,7 @@ function startStandingBroadcast(platform, train) {
     buildReturnTrainDetailParts(train).forEach(part => parts.push(part));
 
     broadcastState.active = true;
-    playPartsWithFallbacks(parts, onBroadcastFinished);
+    startWithMelodyDucked(() => playPartsWithFallbacks(parts, onBroadcastFinished));
 }
 
 function checkStandingBroadcasts(boards) {

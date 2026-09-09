@@ -26,8 +26,11 @@ function enlargeAlnum(text) {
 function formatTrainNumber(number) {
   // 列車番号は数字の後ろ3桁部分だけ使用する。
   // 例) 617E -> 617, 2045B -> 45, 1327C -> 327, 8541E -> 541
-  // 併結列車(17B/9017M など)は最後の数字を使う。
-  const matches = (number || '').match(/[0-9]+/g) || [];
+  // # 以降は運行上の枝番なので、発車標の号数には使用しない。
+  // 例) 271B#9/7 -> 271（従来は末尾の 7 を拾っていた）
+  // 併結列車(17B/9017M など)は # より前の最後の番号を使う。
+  const mainNumber = String(number || '').split('#', 1)[0];
+  const matches = mainNumber.match(/[0-9]+/g) || [];
   if (!matches.length) return '';
   const last = matches[matches.length - 1];
   const digits = last.slice(-3).replace(/^0+/, '');
@@ -314,8 +317,8 @@ function computeServiceRemark(serviceName, train, carCount) {
 function computeRemarks(train, serviceText, carCount) {
   const serviceNames = getServiceNames(serviceText);
 
-  // 「臨時」のとき（臨時ときなど）は全車指定席
-  if (train.shubetsu && train.shubetsu.includes('臨時')) {
+  // 臨時ときのみ全車指定席
+  if (train.shubetsu && train.shubetsu.includes('臨時') && serviceNames.includes('とき')) {
     return '全車指定席';
   }
 
@@ -1057,7 +1060,7 @@ async function buildTrainData() {
     });
     kudari.forEach((t) => {
       const key = normalizeUnban(t.unban);
-      if (key && t.bansen) {
+      if (key && t.bansen && !(key in unbanToPlatform)) {
         unbanToPlatform[key] = Number(t.bansen);
       }
     });
@@ -1072,10 +1075,11 @@ async function buildTrainData() {
     });
     kudari.forEach((t) => {
       if (isHiddenTrain(t.retsuban)) return;
-      let platform = Number(t.bansen);
-      if (!PLATFORMS.includes(platform) && t.unban) {
-        platform = unbanToPlatform[normalizeUnban(t.unban)] || platform;
-      }
+      // 到着番線は、表示上の bansen より折り返し先の運番との整合性を優先する。
+      const platformByUnban = t.unban
+        ? unbanToPlatform[normalizeUnban(t.unban)]
+        : null;
+      let platform = platformByUnban || Number(t.bansen);
       if (!PLATFORMS.includes(platform)) return;
       const arrivalMs = parseTimeToMs(t.train_time, now);
       if (arrivalMs != null) {
@@ -1114,6 +1118,7 @@ const train = {
         number: retsuban,
         unban: normalizeUnban(t.unban), // 編成番号（折り返し照合用）
         destination: destText,
+        shotei: t.shotei || '',
         remarks: computeRemarks(t, serviceText, carCount),
         remarks2: computeRemarks2(serviceText),
         carCount: carCount ? `${carCount}両編成` : '',

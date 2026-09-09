@@ -21,217 +21,37 @@
 //
 // この配列を編集して、追加したい列車を自由に追加できる。
 window.DEBUG_TRAINS = [
-    // // 例: 20番線に 10:42 発の「はやぶさ・こまち」を追加
-    // {
-    //   platform: 20,
-    //   time: '10:42',
-    //   service: 'はやぶさ・こまち',
-    //   number: 'U999',            // unban（編成番号）
-    //   displayNumber: '33E',      // 表示する号数
-    //   destination: '新函館北斗·秋田',
-    //   remarks: '全車指定席',
-    //   remarks2: 'こまち全車指定席',
-    //   carCount: '17両編成',
-    //   stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-    //   stopsByService: {
-    //     はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-    //     こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
-    //   }
-    // },
+     // 例: 20番線に 10:42 発の「はやぶさ・こまち」を追加
+     {
+       platform: 21,
+       time: '',
+       service: 'やまびこ·つばさ',
+       number: 'U999',            // unban（編成番号）
+       displayNumber: '309E',      // 表示する号数
+       destination: '白石蔵王·さくらんぼ東根',  // 行先
+       remarks: '全車指定席',
+       remarks2: 'つばさ全車指定席',
+       carCount: '17両編成',
+       stops: '上野・大宮・宇都宮・福島・仙台・白石蔵王',
+       stopsByService: {
+         やまびこ: '上野・大宮・宇都宮・福島・仙台・白石蔵王',
+         つばさ: '上野・大宮・宇都宮・福島・米沢・赤湯・山形・さくらんぼ東根'
+       }
+     },
     {
-        platform: 21,
+        platform: 20,
         time: '',
-        service: 'やまびこ·つばさ',
+        service: 'あさま',
         number: '8530E',
-        displayNumber: '97',
-        destination: '仙台·山形·新庄',
-        remarks: '',
-        carCount: '17両編成',
-        stops: ''
-    },{
-        platform: 23,
-        time: '14:30',
-        service: '回送',
-        number: '8530E',
-        displayNumber: ' ',
-        destination: '',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },{
-        platform: 23,
-        time: '21:00',
-        service: '回送',
-        number: 'U131',
-        displayNumber: ' ',
-        destination: '小山支所',
-        remarks: '',
-        carCount: '17両編成',
-        stops: ''
-    },{
-        platform: 20,
-        time: '21:08',
-        service: '回送',
-        number: 'F701',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 22,
-        time: '21:33',
-        service: '回送',
-        number: '変U109-2',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
+        displayNumber: '407',
+        destination: '本庄早稲田',
+        remarks: '自由席1~7号車',
         carCount: '10両編成',
-        stops: ''
-    },
-    {
-        platform: 21,
-        time: '22:16',
-        service: '回送',
-        number: 'U128+変Z715-2',
-        displayNumber: ' ',
-        destination: '小山支所',
-        remarks: '',
-        carCount: '17両編成',
-        stops: ''
-    },
-    {
-        platform: 22,
-        time: '22:22',
-        service: '回送',
-        number: 'W705',
-        displayNumber: ' ',
-        destination: '小山支所',
-        remarks: '',
-        carCount: '17両編成',
-        stops: ''
-    },
-    {
-        platform: 21,
-        time: '22:36',
-        service: '回送',
-        number: 'G706',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '7両編成',
-        stops: ''
-    },
-    {
-        platform: 20,
-        time: '22:40',
-        service: '回送',
-        number: '平F707',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 23,
-        time: '23:00',
-        service: '回送',
-        number: '変U104-14',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '10両編成',
-        stops: ''
-    },
-    {
-        platform: 22,
-        time: '23:16',
-        service: '回送',
-        number: 'U107+Z703',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '17両編成',
-        stops: ''
-    },
-    {
-        platform: 21,
-        time: '23:18',
-        service: '回送',
-        number: '変F770',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 20,
-        time: '23:28',
-        service: '回送',
-        number: '',
-        displayNumber: ' ',
-        destination: '',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 21,
-        time: '23:30',
-        service: '回送',
-        number: 'U125',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '10両編成',
-        stops: ''
-    },
-    {
-        platform: 23,
-        time: '23:36',
-        service: '回送',
-        number: 'W708',
-        displayNumber: ' ',
-        destination: '東京支所',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 20,
-        time: '23:40',
-        service: '回送',
-        number: 'G710',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '7両編成',
-        stops: ''
-    },
-    {
-        platform: 23,
-        time: '23:46',
-        service: '回送',
-        number: '平F713',
-        displayNumber: ' ',
-        destination: '東総車',
-        remarks: '',
-        carCount: '12両編成',
-        stops: ''
-    },
-    {
-        platform: 20,
-        time: '23:48',
-        service: '回送',
-        number: '平変J203',
-        displayNumber: ' ',
-        destination: '',
-        remarks: '',
-        carCount: '10両編成',
-        stops: ''
+        stops: '大宮・熊谷・本庄早稲田',
+        /*stopsByService: {
+        はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
+        こまち: '上野・大宮・仙台・盛岡・雫石'
+        }*/
     },
     {
         platform: 22,
