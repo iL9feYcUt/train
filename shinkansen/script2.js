@@ -792,7 +792,7 @@ function startEntryBroadcast(platform, arrival, returnTrain) {
 }
 
 function checkArrivals(boards) {
-    const now = Date.now();
+    const now = getCurrentTimeMs();
     boards.forEach(board => {
         const platform = board.platform;
         (board.arrivalTrains || []).forEach(arrival => {
@@ -1070,7 +1070,7 @@ function startStandingBroadcast(platform, train) {
 }
 
 function checkStandingBroadcasts(boards) {
-    const now = Date.now();
+    const now = getCurrentTimeMs();
     boards.forEach(board => {
         const platform = board.platform;
         (board.departures || []).forEach(train => {
@@ -1090,7 +1090,7 @@ function checkStandingBroadcasts(boards) {
 }
 
 function checkDepartures(boards) {
-    const now = Date.now();
+    const now = getCurrentTimeMs();
     boards.forEach(board => {
         const platform = board.platform;
         (board.departures || []).forEach(train => {

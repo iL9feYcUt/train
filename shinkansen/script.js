@@ -11,6 +11,44 @@ const BASE_RETSU_API = 'https://www.elesite-next.com/fastapi/get_retsuban_time_b
 const PLATFORMS = [20, 21, 22, 23];
 const MAX_PER_PLATFORM = 3;
 
+// ---- Debug clock ----
+// Set window.DEBUG_CURRENT_TIME in debug_trains.js to begin from a test time.
+// The simulated clock advances at the same speed as real time; null uses real time.
+const debugClock = {
+  value: undefined,
+  baseMs: 0,
+  realStartedMs: 0,
+};
+
+function getCurrentTime() {
+  const value = window.DEBUG_CURRENT_TIME;
+  if (value == null || value === '') return new Date();
+
+  if (value !== debugClock.value) {
+    const baseMs = value instanceof Date ? value.getTime() : new Date(value).getTime();
+    if (Number.isNaN(baseMs)) {
+      console.warn('DEBUG_CURRENT_TIME is invalid; using real time.', value);
+      return new Date();
+    }
+    debugClock.value = value;
+    debugClock.baseMs = baseMs;
+    debugClock.realStartedMs = Date.now();
+  }
+
+  return new Date(debugClock.baseMs + Date.now() - debugClock.realStartedMs);
+}
+
+function getCurrentTimeMs() {
+  return getCurrentTime().getTime();
+}
+
+// Console helper. Example: setDebugCurrentTime('2026-09-11T10:30:00+09:00')
+window.setDebugCurrentTime = (value) => {
+  window.DEBUG_CURRENT_TIME = value;
+  debugClock.value = undefined;
+  if (typeof init === 'function') init();
+};
+
 // ---- デフォルトの表示順（プラットフォーム番号ごとの発車標順） ----
 // 実際の表示板では、各番線の「今度の電車」欄は到着時刻ではなく発車時刻順に並ぶ。
 // ここでは API の nobori_timetable（上り=東京基準で「発」）を番線ごとに発車時刻順で並べる。
@@ -472,7 +510,7 @@ function renderBoard(board, boardIndex) {
 
   // 発車時刻1分以上経過した列車は表示せず、次の列車に更新する。
   // 表示は「まだ発車していない列車」のうち先頭の MAX_PER_PLATFORM 本のみ。
-const now = Date.now();
+const now = getCurrentTimeMs();
   const visibleDepartures = (board.departures || [])
     .map((t, i) => ({ ...t, _realIndex: i }))
     .filter((t) => !((t.departureMs || 0) && now > t.departureMs + 60000))
@@ -568,7 +606,7 @@ ${visibleDepartures.map((train, trainIndex) => {
 // 到着時刻は kudari_timetable（着列車）の train_time を使用する。
 function startArrivalMonitor() {
   setInterval(() => {
-    const now = Date.now();
+    const now = getCurrentTimeMs();
     document.querySelectorAll('.scene').forEach((scene) => {
       const arrivals = scene.dataset.arrivals
         ? JSON.parse(scene.dataset.arrivals)
@@ -637,7 +675,7 @@ const stopsEl = bottomStopsLine.querySelector('.stops');
 // 発車が1分以上経過した列車が表示行に含まれていたら、全体を再描画して次の列車へ進める。
 function startDepartureAdvanceMonitor() {
   setInterval(() => {
-    const now = Date.now();
+    const now = getCurrentTimeMs();
     let needsRedraw = false;
 
     document.querySelectorAll('.scene .train').forEach((trainEl) => {
@@ -1007,7 +1045,7 @@ function buildDebugTrains() {
     .map((d) => {
       const platform = Number(d.platform);
       if (!PLATFORMS.includes(platform)) return null;
-      const departureMs = parseTimeToMs(d.time, new Date());
+      const departureMs = parseTimeToMs(d.time, getCurrentTime());
       if (departureMs == null) return null;
 
 return {
@@ -1031,7 +1069,7 @@ return {
 
 // 表示する列車データを構築する
 async function buildTrainData() {
-  const now = new Date();
+  const now = getCurrentTime();
   const dateStr = computeDateFor(now);
   const currentHour = computeHourFor(now);
 

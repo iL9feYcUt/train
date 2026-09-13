@@ -39,15 +39,15 @@ window.DEBUG_TRAINS = [
        }
      },
     {
-        platform: 20,
+        platform: 21,
         time: '',
-        service: 'あさま',
+        service: 'やまびこ',
         number: '8530E',
-        displayNumber: '407',
-        destination: '本庄早稲田',
+        displayNumber: '401',
+        destination: '新花巻',
         remarks: '自由席1~7号車',
         carCount: '10両編成',
-        stops: '大宮・熊谷・本庄早稲田',
+        stops: '大宮・宇都宮・福島・仙台・一ノ関・水沢江刺・北上・新花巻',
         /*stopsByService: {
         はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
         こまち: '上野・大宮・仙台・盛岡・雫石'
@@ -65,3 +65,7 @@ window.DEBUG_TRAINS = [
         stops: ''
     }
 ];
+// Current-time debug setting. Use an ISO 8601 value to start from a test time.
+// The simulated clock advances at real-time speed. Keep null to use real time.
+// Example: window.DEBUG_CURRENT_TIME = '2026-09-11T10:30:00+09:00';
+window.DEBUG_CURRENT_TIME = null;

@@ -779,7 +779,7 @@
             // 行先（表示は行を追加）
             const destWrap = document.createElement('span'); destWrap.style.display='inline-flex'; destWrap.style.alignItems='center';
             const destSel = document.createElement('select'); destSel.id = 'cosmosDestination';
-            ["新函館北斗","札幌","新青森","八戸","秋田","大曲","角館","田沢湖","雫石","小岩井","盛岡","北上","一ノ関","くりこま高原","古川","仙台","白石蔵王","山形・新庄","山形","大石田","さくらんぼ東根","天童","かみのやま温泉","赤湯","米沢","福島","郡山","新白河","那須塩原","宇都宮","小山","新潟","燕三条","長岡","浦佐","越後湯沢","ガーラ湯沢","上毛高原","新大阪","敦賀","金沢","福井","富山","糸魚川","上越妙高","長野","軽井沢","高崎","本庄早稲田","熊谷","大宮","上野","東京"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
+            ["新函館北斗","札幌","新青森","八戸","秋田","大曲","角館","田沢湖","雫石","小岩井","盛岡","新花巻","北上","一ノ関","くりこま高原","古川","仙台","白石蔵王","山形・新庄","山形","大石田","さくらんぼ東根","天童","かみのやま温泉","赤湯","米沢","福島","郡山","新白河","那須塩原","宇都宮","小山","新潟","燕三条","長岡","浦佐","越後湯沢","ガーラ湯沢","上毛高原","新大阪","敦賀","金沢","福井","富山","糸魚川","上越妙高","長野","軽井沢","高崎","本庄早稲田","熊谷","大宮","上野","東京"].forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; destSel.appendChild(o);});
             const destSuffix = document.createElement('span'); destSuffix.textContent = '行'; destSuffix.style.marginRight = '4px';
             destWrap.appendChild(destSel); destWrap.appendChild(destSuffix);
             cosmosUI.appendChild(destWrap);
