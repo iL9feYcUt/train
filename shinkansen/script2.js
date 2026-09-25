@@ -12,7 +12,7 @@ const MELODY_FILES = {
 const BROADCAST_PLATFORMS = [20, 21, 22, 23];
 const BROADCAST_DELAY_MS = 7000; // メロディ開始から放送開始までの遅延
 const MELODY_DUCK_LEAD_MS = 2000; // 放送開始の何秒前からメロディを下げるか
-const MELODY_DUCK_VOLUME = 0.5;
+const MELODY_DUCK_VOLUME = 0.4;
 const MELODY_FADE_MS = 500;
 
 // ---- 状態管理 ----

@@ -39,15 +39,15 @@ window.DEBUG_TRAINS = [
        }
      },
     {
-        platform: 21,
+        platform: 20,
         time: '',
-        service: 'やまびこ',
+        service: 'なすの',
         number: '8530E',
-        displayNumber: '401',
-        destination: '新花巻',
+        displayNumber: '231',
+        destination: '郡山',
         remarks: '自由席1~7号車',
         carCount: '10両編成',
-        stops: '大宮・宇都宮・福島・仙台・一ノ関・水沢江刺・北上・新花巻',
+        stops: '大宮',
         /*stopsByService: {
         はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
         こまち: '上野・大宮・仙台・盛岡・雫石'
