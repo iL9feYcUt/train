@@ -41,13 +41,13 @@ window.DEBUG_TRAINS = [
     {
         platform: 20,
         time: '',
-        service: 'なすの',
+        service: 'はやぶさ',
         number: '8530E',
-        displayNumber: '231',
-        destination: '郡山',
+        displayNumber: '331',
+        destination: 'いわて沼宮内',
         remarks: '自由席1~7号車',
         carCount: '10両編成',
-        stops: '大宮',
+        stops: '大宮・宇都宮・那須塩原・郡山・福島',
         /*stopsByService: {
         はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
         こまち: '上野・大宮・仙台・盛岡・雫石'
