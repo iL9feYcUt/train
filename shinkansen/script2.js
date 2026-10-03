@@ -79,6 +79,19 @@ function getTrainId(platform, train) {
     return `${platform}_${train.number || train.time || ''}_${train.departureMs || 0}`;
 }
 
+// 到着後、最初に発車する同一編成の列車を折り返し先として取得する。
+function findReturnTrain(board, arrival) {
+    if (!arrival.unban || !arrival.arrivalMs) return null;
+
+    return (board.departures || [])
+        .filter((train) =>
+            train.unban === arrival.unban &&
+            train.departureMs != null &&
+            train.departureMs >= arrival.arrivalMs
+        )
+        .sort((a, b) => a.departureMs - b.departureMs)[0] || null;
+}
+
 // ============================================================
 // 音声プリロード（初回読み込みラグ対策）
 // ============================================================
@@ -807,9 +820,7 @@ function checkArrivals(boards) {
                 broadcastState.entryScheduled.add(arrivalId);
                 const entryDelay = Math.max(0, arrivalMs - 25000 - now);
                 setTimeout(() => {
-                    const returnTrain = (board.departures || []).find(
-                        (t) => t.unban && t.unban === arrival.unban
-                    );
+                    const returnTrain = findReturnTrain(board, arrival);
                     startEntryBroadcast(platform, arrival, returnTrain);
                 }, entryDelay);
             }
@@ -826,9 +837,7 @@ function checkArrivals(boards) {
 
                 setTimeout(() => {
                     // unban で折り返し列車を照合
-                    const returnTrain = (board.departures || []).find(
-                        (t) => t.unban && t.unban === arrival.unban
-                    );
+                    const returnTrain = findReturnTrain(board, arrival);
                     startArrivalBroadcast(platform, arrival, returnTrain);
                 }, delay);
             }

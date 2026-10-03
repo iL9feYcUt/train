@@ -1008,20 +1008,16 @@ function parseTimeToMs(timeStr, baseDate) {
   return date.getTime();
 }
 
-// unban を正規化する。例) "変U118-7+Z702" -> "U118+Z702"
-// 複合unban（+で連結された複数編成）は編成ID（英字+数字）を抽出し、
-// ソートして結合する。これにより併結順が変わっても同一列車として比較できる。
+// unban を正規化する。編成表記（例: "変W717-2"）は変更しない。
+// 複合unban（+で連結された複数編成）は、併結順だけをそろえて比較できるようにする。
 function normalizeUnban(unban) {
   if (!unban) return '';
-  const cores = String(unban)
+  const formations = String(unban)
     .split('+')
-    .map((p) => {
-      const m = p.match(/[A-Za-z]\d+/);
-      return m ? m[0] : null;
-    })
+    .map((p) => p.trim())
     .filter(Boolean)
     .sort();
-  return cores.join('+');
+  return formations.join('+');
 }
 
 async function fetchStTimetable(hour, dateStr) {
