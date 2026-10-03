@@ -305,6 +305,21 @@ function getFinalDestinationsLocal(serviceText, destination) {
     return result;
 }
 
+// 東京駅での放送は進行方向前側の編成を先に案内する。
+// 到着放送の「入ります」直前だけは buildArrivalIdentityParts で表示順を維持する。
+function getForwardServiceIndexes(serviceNames) {
+    const forwardOrders = [
+        ['つばさ', 'やまびこ'],
+        ['こまち', 'はやぶさ']
+    ];
+    const forwardOrder = forwardOrders.find(order =>
+        order.length === serviceNames.length && order.every(name => serviceNames.includes(name))
+    );
+    return forwardOrder
+        ? forwardOrder.map(name => serviceNames.indexOf(name))
+        : serviceNames.map((_, index) => index);
+}
+
 // 列車名 + 号数 + 行先 のパーツを構築する（発車放送・折り返し後列車の放送で共用）
 function getTrainNameNumberDestParts(train) {
     const parts = [];
@@ -315,6 +330,7 @@ function getTrainNameNumberDestParts(train) {
         .map(normalizeAudioFileName);
     const digits = extractNumberDigits(train);
     const coupled = serviceNames.length > 1;
+    const forwardIndexes = getForwardServiceIndexes(serviceNames);
 
     if (!coupled) {
         if (serviceNames[0]) parts.push([`COSMOS/name/${serviceNames[0]}.mp3`]);
@@ -322,10 +338,12 @@ function getTrainNameNumberDestParts(train) {
         noParts.forEach(p => parts.push(p));
         if (finalDests[0]) parts.push([`COSMOS/stations_up/${finalDests[0]}.mp3`]);
     } else {
-        const dest1 = finalDests[0] || '';
-        const dest2 = finalDests[1] || '';
-        const name1 = serviceNames[0] || '';
-        const name2 = serviceNames[1] || '';
+        const firstIndex = forwardIndexes[0];
+        const secondIndex = forwardIndexes[1];
+        const dest1 = finalDests[firstIndex] || '';
+        const dest2 = finalDests[secondIndex] || '';
+        const name1 = serviceNames[firstIndex] || '';
+        const name2 = serviceNames[secondIndex] || '';
 
         if (dest1 !== dest2) {
             if (name1) parts.push([`COSMOS/name/${name1}.mp3`]);
@@ -673,17 +691,21 @@ function buildReturnTrainDetailParts(train) {
     const parts = [];
     const names = getTrainServiceNames(train);
     const destinations = getTrainDestinations(train);
-    const isHayabusaKomachi = names[0] === 'はやぶさ' && names[1] === 'こまち';
-    const isYamabikoTsubasa = names[0] === 'やまびこ' && names[1] === 'つばさ';
+    const hayabusaIndex = names.indexOf('はやぶさ');
+    const komachiIndex = names.indexOf('こまち');
+    const yamabikoIndex = names.indexOf('やまびこ');
+    const tsubasaIndex = names.indexOf('つばさ');
+    const isHayabusaKomachi = hayabusaIndex >= 0 && komachiIndex >= 0;
+    const isYamabikoTsubasa = yamabikoIndex >= 0 && tsubasaIndex >= 0;
 
     if (isHayabusaKomachi) {
-        pushCoupledServiceGuideParts(parts, train, names[0], destinations[0], 1, 10, true, 10, 9);
-        pushCoupledServiceGuideParts(parts, train, names[1], destinations[1], 11, 17, true, null, 11);
+        pushCoupledServiceGuideParts(parts, train, names[komachiIndex], destinations[komachiIndex], 11, 17, true, null, 11);
+        pushCoupledServiceGuideParts(parts, train, names[hayabusaIndex], destinations[hayabusaIndex], 1, 10, true, 10, 9);
         return parts;
     }
     if (isYamabikoTsubasa) {
-        pushCoupledServiceGuideParts(parts, train, names[0], destinations[0], 1, 10, false, 10, 9, train.remarks);
-        pushCoupledServiceGuideParts(parts, train, names[1], destinations[1], 11, 17, true, null, 11);
+        pushCoupledServiceGuideParts(parts, train, names[tsubasaIndex], destinations[tsubasaIndex], 11, 17, true, null, 11);
+        pushCoupledServiceGuideParts(parts, train, names[yamabikoIndex], destinations[yamabikoIndex], 1, 10, false, 10, 9, train.remarks);
         return parts;
     }
 

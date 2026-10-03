@@ -1109,24 +1109,46 @@ async function buildTrainData() {
     });
     kudari.forEach((t) => {
       if (isHiddenTrain(t.retsuban)) return;
+      const arrivalMs = parseTimeToMs(t.train_time, now);
+      if (arrivalMs == null) return;
+
+      const unban = normalizeUnban(t.unban);
+      // 同一編成の発車が複数ある場合は、到着後で最も早い発車の番線を採用する。
+      // 例: H101+Z711 は 21:32着後、21:36発（21番線）に紐付ける。
+      const returnDeparture = unban
+        ? nobori
+          .map((departure) => ({
+            departure,
+            departureMs: parseTimeToMs(departure.train_time, now),
+          }))
+          .filter(({ departure, departureMs }) =>
+            normalizeUnban(departure.unban) === unban &&
+            PLATFORMS.includes(Number(departure.bansen)) &&
+            departureMs != null &&
+            departureMs >= arrivalMs
+          )
+          .sort((a, b) => a.departureMs - b.departureMs)[0]
+        : null;
+
       // 到着番線は、表示上の bansen より折り返し先の運番との整合性を優先する。
+      const platformByReturnDeparture = returnDeparture
+        ? Number(returnDeparture.departure.bansen)
+        : null;
       const platformByUnban = t.unban
         ? unbanToPlatform[normalizeUnban(t.unban)]
         : null;
-      let platform = platformByUnban || Number(t.bansen);
+      let platform = platformByReturnDeparture || platformByUnban || Number(t.bansen);
       if (!PLATFORMS.includes(platform)) return;
-      const arrivalMs = parseTimeToMs(t.train_time, now);
-      if (arrivalMs != null) {
-        arrivalsByPlatform[platform].push(arrivalMs);
-        const arrivalService = normalizeService(t.shubetsu);
-        arrivalTrainsByPlatform[platform].push({
-          unban: normalizeUnban(t.unban),
-          service: arrivalService,
-          number: t.retsuban || '',
-          platform,
-          arrivalMs,
-        });
-      }
+
+      arrivalsByPlatform[platform].push(arrivalMs);
+      const arrivalService = normalizeService(t.shubetsu);
+      arrivalTrainsByPlatform[platform].push({
+        unban,
+        service: arrivalService,
+        number: t.retsuban || '',
+        platform,
+        arrivalMs,
+      });
     });
 
     // 発列車(nobori)
