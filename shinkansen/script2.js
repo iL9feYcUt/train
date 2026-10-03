@@ -309,7 +309,10 @@ function getFinalDestinationsLocal(serviceText, destination) {
 function getTrainNameNumberDestParts(train) {
     const parts = [];
     const serviceNames = (train.service || '').split(/[・·]/).filter(Boolean);
-    const dests = (train.destination || '').split(/[・·]/).filter(Boolean).map(normalizeAudioFileName);
+    // 単独列車でも表示上の行先が「山形・新庄」のように複合することがあるため、
+    // サービスごとの最終行先を使う。
+    const finalDests = getFinalDestinationsLocal(train.service, train.destination)
+        .map(normalizeAudioFileName);
     const digits = extractNumberDigits(train);
     const coupled = serviceNames.length > 1;
 
@@ -317,9 +320,8 @@ function getTrainNameNumberDestParts(train) {
         if (serviceNames[0]) parts.push([`COSMOS/name/${serviceNames[0]}.mp3`]);
         const noParts = buildNoParts(digits.h, digits.t, digits.o);
         noParts.forEach(p => parts.push(p));
-        if (dests[0]) parts.push([`COSMOS/stations_up/${dests[0]}.mp3`]);
+        if (finalDests[0]) parts.push([`COSMOS/stations_up/${finalDests[0]}.mp3`]);
     } else {
-        const finalDests = getFinalDestinationsLocal(train.service, train.destination).map(normalizeAudioFileName);
         const dest1 = finalDests[0] || '';
         const dest2 = finalDests[1] || '';
         const name1 = serviceNames[0] || '';
@@ -623,7 +625,10 @@ function pushStandardCarGuideParts(parts, train, serviceName) {
     const series = getTrainSeries(train, serviceName);
     const e7W7Series = series === 'E7/W7';
     const granCar = e7W7Series ? 12 : 10;
-    const greenCars = carCount === 17 && ['はやぶさ', 'やまびこ', 'なすの'].includes(serviceName)
+    // E6系こまち・E8系つばさの単独7両編成は、11〜17号車として案内する。
+    const greenCars = ['こまち', 'つばさ'].includes(serviceName) && carCount === 7
+        ? [11]
+        : carCount === 17 && ['はやぶさ', 'やまびこ', 'なすの'].includes(serviceName)
         ? [9, 11]
         : [e7W7Series || carCount === 12 ? 11 : (carCount >= 10 ? 9 : 0)].filter(Boolean);
 
