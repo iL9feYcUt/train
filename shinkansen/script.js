@@ -234,6 +234,7 @@ function getServiceDestination(serviceText, destination, serviceIndex) {
 // 編成ごとの両数
 const FORMATION_CAR_COUNT = {
   'E2系': 10,
+  'E3系': 7,
   'E5系': 10,
   'H5系': 10,
   'E6系': 7,
@@ -315,6 +316,8 @@ function computeServiceRemark(serviceName, train, carCount) {
 
   // なすの (E2系/E5系/17両/7両)
   if (serviceName === 'なすの') {
+    // E3系併結時は17両編成として扱うが、11〜17号車は荷物車のため乗車不可。
+    if ((train.shotei || '').includes('E3系')) return '自由席1~8号車';
     if (carCount === 17) return '自由席1~8,12~17号車';
     if (carCount === 7) return '自由席12~17号車';
     const shoteiText = (train.shotei || '').replace(/[ 　].*$/, '');
@@ -570,7 +573,7 @@ ${visibleDepartures.map((train, trainIndex) => {
               <span class="destination"><span class="fit-text"></span></span>
               <span class="remarks"><span class="fit-text"></span></span>
             </div>
-            <div class="led stops-line"></div>
+            <div class="led stops-line">${board.adjusting && trainIndex === MAX_PER_PLATFORM - 1 ? '<span class="adjustment-message">調整中</span>' : ''}</div>
           </article>
         `;
           }
@@ -919,65 +922,6 @@ function fitBoardsToViewport() {
 }
 
 // ============================================================
-// 初期データ（フォールバック用）
-// ============================================================
-
-function getHardcodedBoards() {
-  return [
-    {
-      platform: 20,
-      departures: [
-        {
-          time: '9:56', service: 'はやて', number: '115', destination: '仙台',
-          remarks: '全車指定席', remarks2: 'E5系運行', carCount: '10両編成',
-          stops: '上野・大宮・仙台', arrivalMs: 0
-        },
-        {
-          time: '10:20', service: 'やまびこ', number: '235', destination: '盛岡',
-          remarks: '自由席1~4号車', remarks2: 'E2系運行', carCount: '16両編成',
-          stops: '上野・大宮・宇都宮・福島・郡山・仙台・古川・水沢江刺・北上・盛岡', arrivalMs: 0
-        }
-      ]
-    },
-    {
-      platform: 21,
-      departures: [
-        {
-          time: '10:04', service: 'はやぶさ・こまち', number: '93', destination: '新函館北斗·秋田',
-          remarks: 'はやぶさ全車指定席', remarks2: 'こまち全車指定席', carCount: '17両編成',
-          stops: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-          stopsByService: {
-            はやぶさ: '上野・大宮・仙台・盛岡・新青森・新函館北斗',
-            こまち: '上野・大宮・仙台・盛岡・雫石・田沢湖・角館・大曲・秋田'
-          },
-          arrivalMs: 0
-        }
-      ]
-    },
-    {
-      platform: 22,
-      departures: [
-        {
-          time: '10:12', service: 'とき', number: '445', destination: '新潟',
-          remarks: '全車指定席', remarks2: 'E4系', carCount: '8両編成',
-          stops: '上野・大宮・高崎・越後湯沢・浦佐・長岡・燕三条・新潟', arrivalMs: 0
-        }
-      ]
-    },
-    {
-      platform: 23,
-      departures: [
-        {
-          time: '10:06', service: 'あさま', number: '505', destination: '軽井沢',
-          remarks: '全車指定席', remarks2: 'E7系運行', carCount: '12両編成',
-          stops: '上野・大宮・熊谷・本庄早稲田・高崎・軽井沢', arrivalMs: 0
-        }
-      ]
-    }
-  ];
-}
-
-// ============================================================
 // API 連携
 // ============================================================
 
@@ -1032,6 +976,17 @@ async function fetchRetsubanTime(retsubanId, dateStr) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`API2 HTTP ${res.status}`);
   return res.json();
+}
+
+// API取得に失敗した場合は、全番線を「調整中」表示にする。
+function getAdjustmentBoards() {
+  return PLATFORMS.map((platform) => ({
+    platform,
+    departures: [],
+    arrivals: [],
+    arrivalTrains: [],
+    adjusting: true,
+  }));
 }
 
 // デバッグ用に追加された列車を train 形式に変換する
@@ -1209,6 +1164,32 @@ const train = {
     });
   }
 
+  // 時間をまたぐ折り返しも含め、到着後で最も早い同一編成の発車番線へ到着列車を配置する。
+  // 例: W717 は 19:48着（番線なし）から 20:00発（22番線）へ紐付ける。
+  const allDepartures = PLATFORMS.flatMap((platform) =>
+    trainsByPlatform[platform].map((departure) => ({ ...departure, platform }))
+  );
+  const allArrivalTrains = PLATFORMS.flatMap(
+    (platform) => trainsByPlatform[platform].__arrivalTrains || []
+  );
+  PLATFORMS.forEach((platform) => {
+    trainsByPlatform[platform].__arrivals = [];
+    trainsByPlatform[platform].__arrivalTrains = [];
+  });
+  allArrivalTrains.forEach((arrival) => {
+    const returnDeparture = allDepartures
+      .filter((departure) =>
+        departure.unban === arrival.unban &&
+        departure.departureMs != null &&
+        departure.departureMs >= arrival.arrivalMs
+      )
+      .sort((a, b) => a.departureMs - b.departureMs)[0];
+    const platform = returnDeparture ? returnDeparture.platform : arrival.platform;
+
+    trainsByPlatform[platform].__arrivals.push(arrival.arrivalMs);
+    trainsByPlatform[platform].__arrivalTrains.push({ ...arrival, platform });
+  });
+
 // デバッグ用の追加列車を各番線にマージする
   buildDebugTrains().forEach((dbg) => {
     trainsByPlatform[dbg.platform].push(dbg);
@@ -1234,8 +1215,8 @@ async function init() {
   try {
     boards = await buildTrainData();
   } catch (e) {
-    console.error('API取得に失敗しました。フォールバックデータを使用します:', e);
-    boards = getHardcodedBoards();
+    console.error('API取得に失敗しました。調整中表示に切り替えます:', e);
+    boards = getAdjustmentBoards();
   }
 
   display.innerHTML = boards.map((board, boardIndex) => renderBoard(board, boardIndex)).join('');

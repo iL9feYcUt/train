@@ -166,6 +166,20 @@ html {
   animation: arrival-blink 1.2s step-end infinite;
 }
 
+/* API取得失敗時の「調整中」表示。到着案内と同じ位置に白文字で常時表示する。 */
+.adjustment-message {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 50px;
+  font-weight: 500;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  white-space: nowrap;
+}
+
 @keyframes arrival-blink {
   0%, 66.6% { opacity: 1; }
   66.7%, 100% { opacity: 0; }

@@ -540,6 +540,21 @@ function getCarCount(train) {
     return match ? Number(match[0]) : 0;
 }
 
+function hasBaggageE3Car(train) {
+    return String(train.shotei || '').includes('E3系');
+}
+
+function pushNonSmokingOrBaggageCarNotice(parts, train) {
+    if (hasBaggageE3Car(train)) {
+        parts.push(['COSMOS/なお.mp3']);
+        parts.push(['COSMOS/car/11号車から.mp3']);
+        parts.push(['COSMOS/car/17号車には.mp3']);
+        parts.push(['COSMOS/car/乗車禁止.mp3']);
+        return;
+    }
+    parts.push(['COSMOS/car/全車両禁煙.mp3']);
+}
+
 function isAllReserved(train, serviceName) {
     const remarks = `${train.remarks || ''}${train.remarks2 || ''}`;
     return remarks.includes('全車指定席') ||
@@ -640,11 +655,14 @@ function pushGreenCarGuideParts(parts, greenCars, allReserved) {
 function pushStandardCarGuideParts(parts, train, serviceName) {
     const allReserved = isAllReserved(train, serviceName);
     const carCount = getCarCount(train);
+    const baggageE3Car = hasBaggageE3Car(train);
     const series = getTrainSeries(train, serviceName);
     const e7W7Series = series === 'E7/W7';
     const granCar = e7W7Series ? 12 : 10;
     // E6系こまち・E8系つばさの単独7両編成は、11〜17号車として案内する。
-    const greenCars = ['こまち', 'つばさ'].includes(serviceName) && carCount === 7
+    const greenCars = baggageE3Car
+        ? [9]
+        : ['こまち', 'つばさ'].includes(serviceName) && carCount === 7
         ? [11]
         : carCount === 17 && ['はやぶさ', 'やまびこ', 'なすの'].includes(serviceName)
         ? [9, 11]
@@ -660,7 +678,7 @@ function pushStandardCarGuideParts(parts, train, serviceName) {
     }
     pushGreenCarGuideParts(parts, greenCars, allReserved);
     if (!allReserved) pushFreeSeatParts(parts, train.remarks);
-    parts.push(['COSMOS/car/全車両禁煙.mp3']);
+    pushNonSmokingOrBaggageCarNotice(parts, train);
 }
 
 function pushCoupledServiceGuideParts(parts, train, serviceName, destination, fromCar, toCar, allReserved, granCar, greenCar, freeSeatRemarks) {
@@ -684,7 +702,7 @@ function pushCoupledServiceGuideParts(parts, train, serviceName, destination, fr
     // 全車指定席は「○号車です」、自由席がある列車は「○号車」を使用する。
     pushCarPart(parts, `${greenCar}号車${allReserved ? 'です' : ''}`);
     if (freeSeatRemarks) pushFreeSeatParts(parts, freeSeatRemarks);
-    parts.push(['COSMOS/car/全車両禁煙.mp3']);
+    pushNonSmokingOrBaggageCarNotice(parts, train);
 }
 
 function buildReturnTrainDetailParts(train) {

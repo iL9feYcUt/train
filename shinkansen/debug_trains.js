@@ -67,5 +67,5 @@ window.DEBUG_TRAINS = [
 ];
 // Current-time debug setting. Use an ISO 8601 value to start from a test time.
 // The simulated clock advances at real-time speed. Keep null to use real time.
-// Example: window.DEBUG_CURRENT_TIME = '2026-09-11T10:30:00+09:00';
+// Example: window.DEBUG_CURRENT_TIME = '2026-10-05T17:42:00+09:00';
 window.DEBUG_CURRENT_TIME = null;
