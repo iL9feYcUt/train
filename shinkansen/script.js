@@ -1028,6 +1028,7 @@ async function buildTrainData() {
   const hours = [currentHour, (currentHour + 1) % 24, (currentHour + 2) % 24];
   const trainsByPlatform = {};
   PLATFORMS.forEach((p) => { trainsByPlatform[p] = []; });
+  const unresolvedArrivalTrains = [];
 
   // #h付きの列車は非表示にする
   const isHiddenTrain = (retsuban) => /#h/i.test(retsuban || '');
@@ -1093,17 +1094,22 @@ async function buildTrainData() {
         ? unbanToPlatform[normalizeUnban(t.unban)]
         : null;
       let platform = platformByReturnDeparture || platformByUnban || Number(t.bansen);
-      if (!PLATFORMS.includes(platform)) return;
-
-      arrivalsByPlatform[platform].push(arrivalMs);
       const arrivalService = normalizeService(t.shubetsu);
-      arrivalTrainsByPlatform[platform].push({
+      const arrival = {
         unban,
         service: arrivalService,
         number: t.retsuban || '',
         platform,
         arrivalMs,
-      });
+      };
+      if (!PLATFORMS.includes(platform)) {
+        // 次の時間帯の折り返し先が未読の場合も、後段の全時間帯照合に残す。
+        unresolvedArrivalTrains.push(arrival);
+        return;
+      }
+
+      arrivalsByPlatform[platform].push(arrivalMs);
+      arrivalTrainsByPlatform[platform].push(arrival);
     });
 
     // 発列車(nobori)
@@ -1169,9 +1175,10 @@ const train = {
   const allDepartures = PLATFORMS.flatMap((platform) =>
     trainsByPlatform[platform].map((departure) => ({ ...departure, platform }))
   );
-  const allArrivalTrains = PLATFORMS.flatMap(
-    (platform) => trainsByPlatform[platform].__arrivalTrains || []
-  );
+  const allArrivalTrains = [
+    ...PLATFORMS.flatMap((platform) => trainsByPlatform[platform].__arrivalTrains || []),
+    ...unresolvedArrivalTrains,
+  ];
   PLATFORMS.forEach((platform) => {
     trainsByPlatform[platform].__arrivals = [];
     trainsByPlatform[platform].__arrivalTrains = [];
@@ -1185,6 +1192,7 @@ const train = {
       )
       .sort((a, b) => a.departureMs - b.departureMs)[0];
     const platform = returnDeparture ? returnDeparture.platform : arrival.platform;
+    if (!PLATFORMS.includes(platform)) return;
 
     trainsByPlatform[platform].__arrivals.push(arrival.arrivalMs);
     trainsByPlatform[platform].__arrivalTrains.push({ ...arrival, platform });

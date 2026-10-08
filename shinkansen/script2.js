@@ -1211,8 +1211,10 @@ function createEnableAudioButton() {
 // ============================================================
 
 let broadcastInitialized = false;
+let broadcastBoards = [];
 
 function initBroadcast(boards) {
+    broadcastBoards = boards;
     if (broadcastInitialized) return;
     broadcastInitialized = true;
 
@@ -1220,13 +1222,13 @@ function initBroadcast(boards) {
     preloadAllAudio(boards);
 
     // 発車時刻を監視
-    setInterval(() => checkDepartures(boards), 1000);
+    setInterval(() => checkDepartures(broadcastBoards), 1000);
 
     // 停車中放送を監視（発車5分前から放送）
-    setInterval(() => checkStandingBroadcasts(boards), 1000);
+    setInterval(() => checkStandingBroadcasts(broadcastBoards), 1000);
 
     // 到着時刻を監視（到着120秒前から到着放送）
-    setInterval(() => checkArrivals(boards), 1000);
+    setInterval(() => checkArrivals(broadcastBoards), 1000);
 }
 
 // window に公開
