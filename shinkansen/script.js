@@ -1030,9 +1030,6 @@ async function buildTrainData() {
   PLATFORMS.forEach((p) => { trainsByPlatform[p] = []; });
   const unresolvedArrivalTrains = [];
 
-  // #h付きの列車は非表示にする
-  const isHiddenTrain = (retsuban) => /#h/i.test(retsuban || '');
-
   for (const hour of hours) {
     const data = await fetchStTimetable(hour, dateStr);
     const nobori = data.nobori_timetable || [];
@@ -1064,7 +1061,6 @@ async function buildTrainData() {
       arrivalTrainsByPlatform[p] = [];
     });
     kudari.forEach((t) => {
-      if (isHiddenTrain(t.retsuban)) return;
       const arrivalMs = parseTimeToMs(t.train_time, now);
       if (arrivalMs == null) return;
 
@@ -1115,7 +1111,6 @@ async function buildTrainData() {
     // 発列車(nobori)
     for (const t of nobori) {
       const retsuban = t.retsuban || '';
-      if (isHiddenTrain(retsuban)) continue;
 
 let platform = Number(t.bansen);
       if (!PLATFORMS.includes(platform) && t.unban) {
